@@ -1,0 +1,31 @@
+[package]
+name = "pathtracer-rs"
+version = "0.1.0"
+authors = ["Eric Fang <eric1221bday@gmail.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[features]
+default = ["rendy"]
+metal = ["rendy/metal"]
+dx12 = ["rendy/dx12"]
+vulkan = ["rendy/vulkan"]
+empty = ["rendy/empty"]
+rd = ["renderdoc"]
+fast = ["rendy/no-slow-safety-checks"]
+
+[dependencies]
+lazy_static = "^1.3"
+failure = "^0.1"
+env_logger = "^0.6"
+log = "^0.4"
+
+[dependencies.renderdoc]
+version = "^0.6"
+optional = true
+
+[dependencies.rendy]
+optional = true
+version = "^0.3"
+features = ["texture-image", "shader-compiler"]
