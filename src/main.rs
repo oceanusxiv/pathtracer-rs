@@ -1,3 +1,4 @@
+mod common;
 mod gui;
 
 fn main() -> Result<(), failure::Error> {
