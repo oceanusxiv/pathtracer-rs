@@ -1,5 +1,8 @@
+extern crate nalgebra_glm as glm;
+
 mod common;
-mod gui;
+//mod gui;
+mod pathtracer;
 
 fn main() -> Result<(), failure::Error> {
     env_logger::Builder::from_default_env()
@@ -7,6 +10,7 @@ fn main() -> Result<(), failure::Error> {
         .filter_module("pathtracer_rs", log::LevelFilter::Info)
         .init();
 
-    gui::run_gui();
+    let world = common::World::from_gltf("C:/Users/eric1/Downloads/Buggy.glb");
+    //    gui::run_gui();
     Ok(())
 }

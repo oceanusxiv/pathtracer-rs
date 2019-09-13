@@ -26,6 +26,7 @@ use nodes::mesh::pipeline::MeshRenderPipeline;
 use std::{collections::HashSet, time};
 
 use crate::common::*;
+use genmesh::{MapToVertices, Vertices};
 
 #[cfg(feature = "dx12")]
 pub type Backend = rendy::dx12::Backend;
@@ -150,13 +151,10 @@ pub fn run_gui() -> Result<(), failure::Error> {
     let mut render_world = RenderWorld {
         world: World {
             camera: Camera {
-                projection: nalgebra::Perspective3::new(aspect as f32, 3.1415 / 4.0, 1.0, 200.0),
-                view: nalgebra::Projective3::identity()
-                    * nalgebra::Translation3::new(0.0, 0.0, 10.0),
+                projection: glm::perspective(aspect as f32, 3.1415 / 4.0, 1.0, 200.),
+                view: glm::translation(&glm::vec3(0.0, 0.0, 10.0)),
             },
-            object_transforms: vec![
-                nalgebra::Transform3::identity() * nalgebra::Translation3::new(0.0, 0.0, -10.0),
-            ],
+            object_transforms: vec![glm::translation(&glm::vec3(0.0, 0.0, -10.0))],
         },
         meshes: vec![],
     };
@@ -166,7 +164,7 @@ pub fn run_gui() -> Result<(), failure::Error> {
         .map(|i| i as u32)
         .collect();
     let vertices: Vec<_> = icosphere
-        .shared_vertex_iter()
+        .vertices()
         .map(|v| PosColorNorm {
             position: v.pos.into(),
             color: [
@@ -188,7 +186,6 @@ pub fn run_gui() -> Result<(), failure::Error> {
 
     render_world.meshes.push(
         rendy::mesh::Mesh::<Backend>::builder()
-            .with_indices(&indices[..])
             .with_vertices(&vertices[..])
             .build(graph.node_queue(pass), &factory)
             .unwrap(),

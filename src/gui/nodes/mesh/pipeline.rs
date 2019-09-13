@@ -3,7 +3,9 @@ use crate::common::*;
 
 use crate::gui::RenderWorld;
 use rendy::{
-    command::{DrawIndexedCommand, Families, Graphics, QueueId, RenderPassEncoder, Supports},
+    command::{
+        DrawCommand, DrawIndexedCommand, Families, Graphics, QueueId, RenderPassEncoder, Supports,
+    },
     factory::{Config, Factory, ImageState},
     graph::{
         present::PresentNode, render::*, Graph, GraphBuilder, GraphContext, NodeBuffer, NodeImage,
@@ -21,14 +23,14 @@ use std::mem::size_of;
 #[derive(Clone, Copy)]
 #[repr(C, align(16))]
 struct UniformArgs {
-    proj: nalgebra::Matrix4<f32>,
-    view: nalgebra::Matrix4<f32>,
+    proj: glm::Mat4,
+    view: glm::Mat4,
 }
 
 const MAX_OBJECTS: usize = 10_000;
 const UNIFORM_SIZE: u64 = size_of::<UniformArgs>() as u64;
 const MODELS_SIZE: u64 = size_of::<Model>() as u64 * MAX_OBJECTS as u64;
-const INDIRECT_SIZE: u64 = size_of::<DrawIndexedCommand>() as u64;
+const INDIRECT_SIZE: u64 = size_of::<DrawCommand>() as u64; // TODO: indexed command?
 
 const fn buffer_frame_size(align: u64) -> u64 {
     ((UNIFORM_SIZE + MODELS_SIZE + INDIRECT_SIZE - 1) / align + 1) * align
@@ -62,10 +64,6 @@ where
 {
     type Pipeline = MeshRenderPipeline<B>;
 
-    fn load_shader_set(&self, factory: &mut Factory<B>, _scene: &RenderWorld<B>) -> ShaderSet<B> {
-        SHADERS.build(factory, Default::default()).unwrap()
-    }
-
     fn vertices(
         &self,
     ) -> Vec<(
@@ -87,6 +85,10 @@ where
 
     fn layout(&self) -> Layout {
         SHADER_REFLECTION.layout().unwrap()
+    }
+
+    fn load_shader_set(&self, factory: &mut Factory<B>, _scene: &RenderWorld<B>) -> ShaderSet<B> {
+        SHADERS.build(factory, Default::default()).unwrap()
     }
 
     fn build<'a>(
@@ -169,23 +171,23 @@ where
                     &mut self.buffer,
                     uniform_offset(index, self.align),
                     &[UniformArgs {
-                        proj: scene.world.camera.projection.to_homogeneous(),
-                        view: scene.world.camera.view.inverse().to_homogeneous(),
+                        proj: scene.world.camera.projection,
+                        view: glm::inverse(&scene.world.camera.view),
                     }],
                 )
                 .unwrap()
         };
 
         unsafe {
+            // TODO: indexed command?
             factory
                 .upload_visible_buffer(
                     &mut self.buffer,
                     indirect_offset(index, self.align),
-                    &[DrawIndexedCommand {
-                        index_count: scene.meshes[0].len(),
+                    &[DrawCommand {
+                        vertex_count: scene.meshes[0].len(),
                         instance_count: scene.world.object_transforms.len() as u32,
-                        first_index: 0,
-                        vertex_offset: 0,
+                        first_vertex: 0,
                         first_instance: 0,
                     }],
                 )
@@ -232,7 +234,8 @@ where
                 1,
                 std::iter::once((self.buffer.raw(), models_offset(index, self.align))),
             );
-            encoder.draw_indexed_indirect(
+            // TODO: indexed command?
+            encoder.draw_indirect(
                 self.buffer.raw(),
                 indirect_offset(index, self.align),
                 1,
