@@ -3,7 +3,7 @@ use std::rc::Rc;
 use std::{fs, io};
 
 lazy_static::lazy_static! {
-    static ref DEFAULT_RESOLUTION: glm::Vec2 = glm::vec2(1280.0, 720.0);
+    pub static ref DEFAULT_RESOLUTION: glm::Vec2 = glm::vec2(1280.0, 720.0);
 }
 
 static DEFAULT_Z_NEAR: f32 = 0.1;
@@ -37,10 +37,23 @@ impl Camera {
     }
 }
 
+#[derive(Clone, Copy)]
+pub struct Vec3(glm::Vec3);
+unsafe impl bytemuck::Zeroable for Vec3 {}
+unsafe impl bytemuck::Pod for Vec3 {}
+
+impl std::ops::Deref for Vec3 {
+    type Target = glm::Vec3;
+
+    fn deref(&self) -> &glm::Vec3 {
+        &self.0
+    }
+}
+
 pub struct Mesh {
     pub indices: Vec<u32>,
-    pub pos: Vec<glm::Vec3>,
-    pub normal: Vec<glm::Vec3>,
+    pub pos: Vec<Vec3>,
+    pub normal: Vec<Vec3>,
 }
 
 pub struct TBounds3<T: glm::Scalar> {
@@ -134,13 +147,15 @@ impl<'a> World {
                     pos: reader
                         .read_positions()
                         .unwrap()
-                        .map(|vertex| glm::make_vec3(&vertex))
+                        .map(|vertex| Vec3(glm::make_vec3(&vertex)))
                         .collect(),
-                    normal: reader
-                        .read_normals()
-                        .unwrap()
-                        .map(|normal| glm::make_vec3(&normal))
-                        .collect(),
+                    normal: match reader
+                        .read_normals() {
+                        Some(normals) => normals
+                            .map(|normal| Vec3(glm::make_vec3(&normal)))
+                            .collect(),
+                        None => vec![]
+                    },
                 }));
                 world.objects.push(Object {
                     world_to_obj: glm::inverse(&current_transform),

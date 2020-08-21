@@ -1,206 +1,301 @@
-#![cfg_attr(
-    not(any(feature = "dx12", feature = "metal", feature = "vulkan")),
-    allow(unused)
-)]
+use winit::{
+    event::*,
+    event_loop::{ControlFlow, EventLoop},
+    window::{Window, WindowBuilder},
+};
+use crate::common::{Vec3, World, Camera};
 
-mod nodes;
+lazy_static::lazy_static! {
+    static ref VERTEX: String =
+    "
+#version 450
 
-use rendy::{
-    command::{Families, Graphics, QueueId, RenderPassEncoder, Supports},
-    factory::{Config, Factory, ImageState},
-    graph::{
-        present::PresentNode, render::*, Graph, GraphBuilder, GraphContext, NodeBuffer, NodeImage,
-    },
-    hal,
-    memory::Dynamic,
-    mesh::PosColorNorm,
-    resource::{Buffer, BufferInfo, DescriptorSetLayout, Escape, Handle},
-    shader::{
-        ShaderKind, ShaderSet, ShaderSetBuilder, SourceLanguage, SourceShaderInfo, SpirvShader,
-    },
-    wsi::winit::{self, Event, EventsLoop, WindowBuilder, WindowEvent},
+layout(location=0) in vec3 a_position;
+
+layout(binding=0)
+uniform Uniforms {
+    mat4 u_view_proj;
 };
 
-use genmesh::generators::{IndexedPolygon, SharedVertex};
-use nodes::mesh::pipeline::MeshRenderPipeline;
-use std::{collections::HashSet, time};
+void main() {
+    gl_Position = u_view_proj * vec4(a_position, 1.0);
+}
+    ".to_string();
 
-use crate::common::*;
-use genmesh::{MapToVertices, Vertices};
+    static ref FRAGMENT: String =
+    "
+#version 450
 
-#[cfg(feature = "dx12")]
-pub type Backend = rendy::dx12::Backend;
+layout(location=0) out vec4 f_color;
 
-#[cfg(feature = "metal")]
-pub type Backend = rendy::metal::Backend;
+void main() {
+    f_color = vec4(0.0, 1.0, 1.0, 1.0);
+}
+    ".to_string();
 
-#[cfg(feature = "vulkan")]
-pub type Backend = rendy::vulkan::Backend;
-
-#[cfg(feature = "empty")]
-pub type Backend = rendy::empty::Backend;
-
-struct RenderWorld<B: hal::Backend> {
-    pub world: World,
-    pub meshes: Vec<rendy::mesh::Mesh<B>>,
+    #[rustfmt::skip]
+    static ref OPENGL_TO_WGPU_MATRIX: glm::Mat4 = glm::mat4(
+        1.0, 0.0, 0.0, 0.0,
+        0.0, 1.0, 0.0, 0.0,
+        0.0, 0.0, 0.5, 0.0,
+        0.0, 0.0, 0.5, 1.0,
+    );
 }
 
-#[cfg(any(feature = "dx12", feature = "metal", feature = "vulkan"))]
-fn main_loop<W>(
-    event_loop: &mut EventsLoop,
-    factory: &mut Factory<Backend>,
-    families: &mut Families<Backend>,
-    mut graph: Graph<Backend, W>,
-    world: &mut W,
-) -> Result<(), failure::Error> {
-    let start_time = time::Instant::now();
-    let mut checkpoint = start_time;
-    let mut frames = 0u64..;
-    let mut should_close = false;
+impl Vec3 {
+    fn desc<'a>() -> wgpu::VertexBufferDescriptor<'a> {
+        wgpu::VertexBufferDescriptor {
+            stride: std::mem::size_of::<Vec3>() as wgpu::BufferAddress,
+            step_mode: wgpu::InputStepMode::Vertex,
+            attributes: &[
+                wgpu::VertexAttributeDescriptor {
+                    offset: 0,
+                    shader_location: 0,
+                    format: wgpu::VertexFormat::Float3,
+                },
+            ],
+        }
+    }
+}
 
-    #[cfg(feature = "rd")]
-    rd.start_frame_capture(std::ptr::null(), std::ptr::null());
+#[repr(C)] // We need this for Rust to store our data correctly for the shaders
+#[derive(Debug, Copy, Clone)] // This is so we can store this in a buffer
+struct Uniforms {
+    view_proj: glm::Mat4,
+}
+unsafe impl bytemuck::Zeroable for Uniforms {}
+unsafe impl bytemuck::Pod for Uniforms {}
 
-    while !should_close {
-        let start = frames.start;
-
-        for _ in &mut frames {
-            factory.maintain(families);
-            event_loop.poll_events(|event| match event {
-                Event::WindowEvent {
-                    event: WindowEvent::CloseRequested,
-                    ..
-                } => should_close = true,
-                _ => (),
-            });
-            graph.run(factory, families, &world);
-
-            let elapsed = checkpoint.elapsed();
-
-            if should_close || elapsed > std::time::Duration::new(2, 0) {
-                let frames = frames.start - start;
-                let nanos = elapsed.as_secs() * 1_000_000_000 + elapsed.subsec_nanos() as u64;
-                log::info!("FPS: {}", frames * 1_000_000_000 / nanos);
-                checkpoint += elapsed;
-                break;
-            }
+impl Uniforms {
+    fn new() -> Self {
+        Self {
+            view_proj: glm::Mat4::identity(),
         }
     }
 
-    graph.dispose(factory, &world);
-    Ok(())
+    fn update_view_proj(&mut self, camera: &Camera) {
+        self.view_proj = *OPENGL_TO_WGPU_MATRIX * &camera.cam_to_screen * glm::inverse(&camera.cam_to_world);
+        println!("{:?}", self.view_proj)
+    }
 }
 
-#[cfg(any(feature = "dx12", feature = "metal", feature = "vulkan"))]
-pub fn run_gui() -> Result<(), failure::Error> {
-    println!("Hello, world!");
+pub struct State {
+    surface: wgpu::Surface,
+    device: wgpu::Device,
+    queue: wgpu::Queue,
+    sc_desc: wgpu::SwapChainDescriptor,
+    swap_chain: wgpu::SwapChain,
+    render_pipeline: wgpu::RenderPipeline,
+    vertex_buffer: wgpu::Buffer,
+    index_buffer: wgpu::Buffer,
+    uniforms: Uniforms,
+    uniform_buffer: wgpu::Buffer,
+    uniform_bind_group: wgpu::BindGroup,
+    size: winit::dpi::PhysicalSize<u32>,
+    world: World,
+}
 
-    let config: Config = Default::default();
+impl State {
+    pub async fn new(window: &Window) -> Self {
+        let world = World::from_gltf("/Users/eric/Downloads/WaterBottle.glb");
 
-    let (mut factory, mut families): (Factory<Backend>, _) = rendy::factory::init(config)?;
+        let size = window.inner_size();
 
-    let mut event_loop = EventsLoop::new();
+        let surface = wgpu::Surface::create(window);
 
-    let window = WindowBuilder::new()
-        .with_title("pathtracer-rs")
-        .build(&event_loop)?;
-
-    event_loop.poll_events(|_| ());
-
-    let surface = factory.create_surface(&window);
-
-    let mut graph_builder = GraphBuilder::<Backend, RenderWorld<Backend>>::new();
-
-    let size = window
-        .get_inner_size()
-        .unwrap()
-        .to_physical(window.get_hidpi_factor());
-    let window_kind = hal::image::Kind::D2(size.width as u32, size.height as u32, 1, 1);
-    let aspect = size.width / size.height;
-
-    let color = graph_builder.create_image(
-        window_kind,
-        1,
-        factory.get_surface_format(&surface),
-        Some(hal::command::ClearValue::Color([1.0, 1.0, 1.0, 1.0].into())),
-    );
-
-    let depth = graph_builder.create_image(
-        window_kind,
-        1,
-        hal::format::Format::D16Unorm,
-        Some(hal::command::ClearValue::DepthStencil(
-            hal::command::ClearDepthStencil(1.0, 0),
-        )),
-    );
-
-    let pass = graph_builder.add_node(
-        MeshRenderPipeline::builder()
-            .into_subpass()
-            .with_color(color)
-            .with_depth_stencil(depth)
-            .into_pass(),
-    );
-
-    let present_builder = PresentNode::builder(&factory, surface, color).with_dependency(pass);
-
-    let frames = present_builder.image_count();
-
-    graph_builder.add_node(present_builder);
-
-    let mut render_world = RenderWorld {
-        world: World {
-            camera: Camera {
-                projection: glm::perspective(aspect as f32, 3.1415 / 4.0, 1.0, 200.),
-                view: glm::translation(&glm::vec3(0.0, 0.0, 10.0)),
+        let adapter = wgpu::Adapter::request(
+            &wgpu::RequestAdapterOptions {
+                power_preference: wgpu::PowerPreference::Default,
+                compatible_surface: Some(&surface),
             },
-            object_transforms: vec![glm::translation(&glm::vec3(0.0, 0.0, -10.0))],
-        },
-        meshes: vec![],
-    };
+            wgpu::BackendBit::PRIMARY, // Vulkan + Metal + DX12 + Browser WebGPU
+        ).await.unwrap();
 
-    let icosphere = genmesh::generators::IcoSphere::subdivide(4);
-    let indices: Vec<_> = genmesh::Vertices::vertices(icosphere.indexed_polygon_iter())
-        .map(|i| i as u32)
-        .collect();
-    let vertices: Vec<_> = icosphere
-        .vertices()
-        .map(|v| PosColorNorm {
-            position: v.pos.into(),
-            color: [
-                (v.pos.x + 1.0) / 2.0,
-                (v.pos.y + 1.0) / 2.0,
-                (v.pos.z + 1.0) / 2.0,
-                1.0,
-            ]
-            .into(),
-            normal: v.normal.into(),
-        })
-        .collect();
+        println!("{:?}", adapter.get_info());
 
-    let graph = graph_builder.with_frames_in_flight(frames).build(
-        &mut factory,
-        &mut families,
-        &mut render_world,
-    )?;
+        let (device, queue) = adapter.request_device(&wgpu::DeviceDescriptor {
+            extensions: wgpu::Extensions {
+                anisotropic_filtering: false,
+            },
+            limits: Default::default(),
+        }).await;
 
-    render_world.meshes.push(
-        rendy::mesh::Mesh::<Backend>::builder()
-            .with_vertices(&vertices[..])
-            .build(graph.node_queue(pass), &factory)
-            .unwrap(),
-    );
+        let sc_desc = wgpu::SwapChainDescriptor {
+            usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
+            format: wgpu::TextureFormat::Bgra8UnormSrgb,
+            width: size.width,
+            height: size.height,
+            present_mode: wgpu::PresentMode::Fifo,
+        };
+        let swap_chain = device.create_swap_chain(&surface, &sc_desc);
 
-    main_loop(
-        &mut event_loop,
-        &mut factory,
-        &mut families,
-        graph,
-        &mut render_world,
-    )
-}
+        let mut compiler = shaderc::Compiler::new().unwrap();
+        let vs_spirv = compiler.compile_into_spirv(&VERTEX, shaderc::ShaderKind::Vertex, "shader.vert", "main", None).unwrap();
+        let fs_spirv = compiler.compile_into_spirv(&FRAGMENT, shaderc::ShaderKind::Fragment, "shader.frag", "main", None).unwrap();
 
-#[cfg(not(any(feature = "dx12", feature = "metal", feature = "vulkan")))]
-pub fn run_gui() {
-    panic!("Specify feature: { dx12, metal, vulkan }");
+        let vs_data = wgpu::read_spirv(std::io::Cursor::new(vs_spirv.as_binary_u8())).unwrap();
+        let fs_data = wgpu::read_spirv(std::io::Cursor::new(fs_spirv.as_binary_u8())).unwrap();
+
+        let vs_module = device.create_shader_module(&vs_data);
+        let fs_module = device.create_shader_module(&fs_data);
+
+
+        let vertex_buffer = device.create_buffer_with_data(
+            bytemuck::cast_slice(&world.meshes[0].pos[..]),
+            wgpu::BufferUsage::VERTEX,
+        );
+
+        let index_buffer = device.create_buffer_with_data(
+            bytemuck::cast_slice(&world.meshes[0].indices[..]),
+            wgpu::BufferUsage::INDEX,
+        );
+
+        let mut uniforms = Uniforms::new();
+        uniforms.update_view_proj(&world.camera);
+
+        let uniform_buffer = device.create_buffer_with_data(
+            bytemuck::cast_slice(&[uniforms]),
+            wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
+        );
+
+        let uniform_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            bindings: &[
+                wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStage::VERTEX,
+                    ty: wgpu::BindingType::UniformBuffer {
+                        dynamic: false,
+                    },
+                }
+            ],
+            label: Some("uniform_bind_group_layout"),
+        });
+
+        let uniform_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &uniform_bind_group_layout,
+            bindings: &[
+                wgpu::Binding {
+                    binding: 0,
+                    resource: wgpu::BindingResource::Buffer {
+                        buffer: &uniform_buffer,
+                        // FYI: you can share a single buffer between bindings.
+                        range: 0..std::mem::size_of_val(&uniforms) as wgpu::BufferAddress,
+                    }
+                }
+            ],
+            label: Some("uniform_bind_group"),
+        });
+
+        let render_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+            bind_group_layouts: &[&uniform_bind_group_layout],
+        });
+
+        let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            layout: &render_pipeline_layout,
+            vertex_stage: wgpu::ProgrammableStageDescriptor {
+                module: &vs_module,
+                entry_point: "main", // 1.
+            },
+            fragment_stage: Some(wgpu::ProgrammableStageDescriptor { // 2.
+                module: &fs_module,
+                entry_point: "main",
+            }),
+            rasterization_state: Some(wgpu::RasterizationStateDescriptor {
+                front_face: wgpu::FrontFace::Ccw,
+                cull_mode: wgpu::CullMode::Back,
+                depth_bias: 0,
+                depth_bias_slope_scale: 0.0,
+                depth_bias_clamp: 0.0,
+            }),
+            color_states: &[
+                wgpu::ColorStateDescriptor {
+                    format: sc_desc.format,
+                    color_blend: wgpu::BlendDescriptor::REPLACE,
+                    alpha_blend: wgpu::BlendDescriptor::REPLACE,
+                    write_mask: wgpu::ColorWrite::ALL,
+                },
+            ],
+            primitive_topology: wgpu::PrimitiveTopology::TriangleList, // 1.
+            depth_stencil_state: None, // 2.
+            vertex_state: wgpu::VertexStateDescriptor {
+                index_format: wgpu::IndexFormat::Uint32,
+                vertex_buffers: &[
+                    Vec3::desc(),
+                ],
+            },
+            sample_count: 1, // 5.
+            sample_mask: !0, // 6.
+            alpha_to_coverage_enabled: false, // 7.
+        });
+
+        Self {
+            surface,
+            device,
+            queue,
+            sc_desc,
+            swap_chain,
+            render_pipeline,
+            vertex_buffer,
+            index_buffer,
+            uniforms,
+            uniform_buffer,
+            uniform_bind_group,
+            size,
+            world,
+        }
+    }
+
+    pub fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
+        self.size = new_size;
+        self.sc_desc.width = new_size.width;
+        self.sc_desc.height = new_size.height;
+        self.swap_chain = self.device.create_swap_chain(&self.surface, &self.sc_desc);
+    }
+
+    // input() won't deal with GPU code, so it can be synchronous
+    pub fn input(&mut self, event: &WindowEvent) -> bool {
+        false
+    }
+
+    pub fn update(&mut self) {
+        // unimplemented!()
+    }
+
+    pub fn render(&mut self) {
+        let frame = self.swap_chain.get_next_texture()
+            .expect("Timeout getting texture");
+        let mut encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+            label: Some("Render Encoder"),
+        });
+
+        {
+            let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                color_attachments: &[
+                    wgpu::RenderPassColorAttachmentDescriptor {
+                        attachment: &frame.view,
+                        resolve_target: None,
+                        load_op: wgpu::LoadOp::Clear,
+                        store_op: wgpu::StoreOp::Store,
+                        clear_color: wgpu::Color {
+                            r: 0.1,
+                            g: 0.2,
+                            b: 0.3,
+                            a: 1.0,
+                        },
+                    }
+                ],
+                depth_stencil_attachment: None,
+            });
+
+            render_pass.set_pipeline(&self.render_pipeline);
+            render_pass.set_bind_group(0, &self.uniform_bind_group, &[]);
+            render_pass.set_vertex_buffer(0, &self.vertex_buffer, 0, 0);
+            render_pass.set_index_buffer(&self.index_buffer, 0, 0);
+            render_pass.draw_indexed(0..self.world.meshes[0].indices.len() as u32, 0, 0..1);
+        }
+
+        self.queue.submit(&[
+            encoder.finish()
+        ]);
+    }
 }
