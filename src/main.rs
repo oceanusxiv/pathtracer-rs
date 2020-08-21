@@ -20,8 +20,10 @@ fn main() -> Result<(), failure::Error> {
     let event_loop = EventLoop::new();
     let window = WindowBuilder::new().with_inner_size(Size::Logical(LogicalSize::new(common::DEFAULT_RESOLUTION.x as f64, common::DEFAULT_RESOLUTION.y as f64))).build(&event_loop).unwrap();
     let mut state = futures::executor::block_on(gui::State::new(&window));
+    let mut last_render_time = std::time::Instant::now();
 
     event_loop.run(move |event, _, control_flow| {
+        *control_flow = ControlFlow::Poll;
         match event {
             Event::WindowEvent {
                 ref event,
@@ -53,7 +55,10 @@ fn main() -> Result<(), failure::Error> {
                 }
             }
             Event::RedrawRequested(_) => {
-                state.update();
+                let now = std::time::Instant::now();
+                let dt = now - last_render_time;
+                last_render_time = now;
+                state.update(dt);
                 state.render();
             }
             Event::MainEventsCleared => {

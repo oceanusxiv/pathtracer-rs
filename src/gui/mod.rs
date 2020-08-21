@@ -1,65 +1,18 @@
 mod texture;
+mod camera;
+mod shaders;
 
 use winit::{
     event::*,
     event_loop::{ControlFlow, EventLoop},
     window::{Window, WindowBuilder},
+    dpi::{LogicalPosition, PhysicalPosition},
 };
 use crate::common::{World, Camera, Mesh};
+use camera::OrbitalCameraController;
 use itertools::{interleave, zip_eq, Itertools};
 
 lazy_static::lazy_static! {
-    static ref VERTEX: String =
-    "
-#version 450
-
-layout(location=0) in vec3 a_position;
-layout(location=1) in vec3 a_normal;
-
-layout(binding=0)
-uniform Uniforms {
-    mat4 u_view_proj;
-};
-
-layout(location=0) out vec3 v_position;
-layout(location=1) out vec3 v_normal;
-
-void main() {
-    v_normal = a_normal;
-    v_position = a_position;
-    gl_Position = u_view_proj * vec4(a_position, 1.0);
-}
-    ".to_string();
-
-    static ref FRAGMENT: String =
-    "
-#version 450
-
-layout(location=0) in vec3 v_position;
-layout(location=1) in vec3 v_normal;
-
-layout(location=0) out vec4 f_color;
-
-void main() {
-    vec4 object_color = vec4(0.0, 1.0, 1.0, 1.0);
-    vec3 light_color = vec3(1.0, 1.0, 1.0);
-    vec3 light_position = vec3(10.0, -10.0, 10.0);
-
-    float ambient_strength = 0.1;
-    vec3 ambient_color = light_color * ambient_strength;
-
-    vec3 normal = normalize(v_normal);
-    vec3 light_dir = normalize(light_position - v_position);
-
-    float diffuse_strength = max(dot(normal, light_dir), 0.0);
-    vec3 diffuse_color = light_color * diffuse_strength;
-
-    vec3 result = (ambient_color + diffuse_color) * object_color.xyz;
-
-    f_color = vec4(result, object_color.a);
-}
-    ".to_string();
-
     #[rustfmt::skip]
     static ref OPENGL_TO_WGPU_MATRIX: glm::Mat4 = glm::mat4(
         1.0, 0.0, 0.0, 0.0,
@@ -149,11 +102,17 @@ pub struct State {
     depth_texture: texture::Texture,
     size: winit::dpi::PhysicalSize<u32>,
     world: World,
+    camera_controller: OrbitalCameraController,
+    last_mouse_pos: PhysicalPosition<f64>,
+    debounce_flag: bool,
+    mouse_pressed: bool,
 }
 
 impl State {
     pub async fn new(window: &Window) -> Self {
-        let world = World::from_gltf("/home/eric/Downloads/WaterBottle.glb");
+        let world = World::from_gltf("/Users/eric/Downloads/WaterBottle.glb");
+
+        let camera_controller = OrbitalCameraController::new(glm::vec3(0.0, 0.0, 0.0), 10.0);
 
         let size = window.inner_size();
 
@@ -186,8 +145,8 @@ impl State {
         let swap_chain = device.create_swap_chain(&surface, &sc_desc);
 
         let mut compiler = shaderc::Compiler::new().unwrap();
-        let vs_spirv = compiler.compile_into_spirv(&VERTEX, shaderc::ShaderKind::Vertex, "shader.vert", "main", None).unwrap();
-        let fs_spirv = compiler.compile_into_spirv(&FRAGMENT, shaderc::ShaderKind::Fragment, "shader.frag", "main", None).unwrap();
+        let vs_spirv = compiler.compile_into_spirv(&shaders::phong::VERTEX, shaderc::ShaderKind::Vertex, "shader.vert", "main", None).unwrap();
+        let fs_spirv = compiler.compile_into_spirv(&shaders::phong::FRAGMENT, shaderc::ShaderKind::Fragment, "shader.frag", "main", None).unwrap();
 
         let vs_data = wgpu::read_spirv(std::io::Cursor::new(vs_spirv.as_binary_u8())).unwrap();
         let fs_data = wgpu::read_spirv(std::io::Cursor::new(fs_spirv.as_binary_u8())).unwrap();
@@ -276,7 +235,7 @@ impl State {
                 },
             ],
             primitive_topology: wgpu::PrimitiveTopology::TriangleList,
-            depth_stencil_state:  Some(wgpu::DepthStencilStateDescriptor {
+            depth_stencil_state: Some(wgpu::DepthStencilStateDescriptor {
                 format: texture::Texture::DEPTH_FORMAT,
                 depth_write_enabled: true,
                 depth_compare: wgpu::CompareFunction::Less, // 1.
@@ -311,6 +270,10 @@ impl State {
             depth_texture,
             size,
             world,
+            camera_controller,
+            last_mouse_pos: (0.0, 0.0).into(),
+            debounce_flag: false,
+            mouse_pressed: false,
         }
     }
 
@@ -324,11 +287,67 @@ impl State {
 
     // input() won't deal with GPU code, so it can be synchronous
     pub fn input(&mut self, event: &WindowEvent) -> bool {
-        false
+        match event {
+            WindowEvent::MouseWheel {
+                delta,
+                ..
+            } => {
+                self.camera_controller.process_scroll(delta);
+                true
+            }
+            WindowEvent::MouseInput {
+                button: MouseButton::Left,
+                state,
+                ..
+            } => {
+                self.mouse_pressed = *state == ElementState::Pressed;
+                true
+            }
+            WindowEvent::CursorMoved {
+                position,
+                ..
+            } => {
+                let mouse_dx = position.x - self.last_mouse_pos.x;
+                let mouse_dy = position.y - self.last_mouse_pos.y;
+                self.last_mouse_pos = *position;
+
+                if mouse_dx == 0.0 && mouse_dy == 0.0 {
+                    if !self.debounce_flag {
+                        self.debounce_flag = true;
+                    } else {
+                        self.debounce_flag = false;
+                    }
+                }
+
+                if self.mouse_pressed && (!self.debounce_flag) {
+                    self.camera_controller.process_mouse(mouse_dx, mouse_dy);
+                }
+                true
+            }
+            _ => false,
+        }
     }
 
-    pub fn update(&mut self) {
-        // unimplemented!()
+    pub fn update(&mut self, dt: std::time::Duration) {
+        self.camera_controller.update_camera(&mut self.world.camera, dt);
+        self.uniforms.update_view_proj(&self.world.camera);
+
+        // Copy operation's are performed on the gpu, so we'll need
+        // a CommandEncoder for that
+        let mut encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+            label: Some("update encoder"),
+        });
+
+        let staging_buffer = self.device.create_buffer_with_data(
+            bytemuck::cast_slice(&[self.uniforms]),
+            wgpu::BufferUsage::COPY_SRC,
+        );
+
+        encoder.copy_buffer_to_buffer(&staging_buffer, 0, &self.uniform_buffer, 0, std::mem::size_of::<Uniforms>() as wgpu::BufferAddress);
+
+        // We need to remember to submit our CommandEncoder's output
+        // otherwise we won't see any change.
+        self.queue.submit(&[encoder.finish()]);
     }
 
     pub fn render(&mut self) {
