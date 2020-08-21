@@ -145,15 +145,8 @@ impl State {
         let swap_chain = device.create_swap_chain(&surface, &sc_desc);
 
         let mut compiler = shaderc::Compiler::new().unwrap();
-        let vs_spirv = compiler.compile_into_spirv(&shaders::phong::VERTEX, shaderc::ShaderKind::Vertex, "shader.vert", "main", None).unwrap();
-        let fs_spirv = compiler.compile_into_spirv(&shaders::phong::FRAGMENT, shaderc::ShaderKind::Fragment, "shader.frag", "main", None).unwrap();
 
-        let vs_data = wgpu::read_spirv(std::io::Cursor::new(vs_spirv.as_binary_u8())).unwrap();
-        let fs_data = wgpu::read_spirv(std::io::Cursor::new(fs_spirv.as_binary_u8())).unwrap();
-
-        let vs_module = device.create_shader_module(&vs_data);
-        let fs_module = device.create_shader_module(&fs_data);
-
+        let (vs_module, fs_module) = shaders::phong::compile_phong_shaders(&mut compiler, &device);
 
         let vertices = zip_eq(&world.meshes[0].pos, &world.meshes[0].normal).map_into::<DrawVertex>().collect_vec();
 

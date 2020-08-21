@@ -1,5 +1,5 @@
 lazy_static::lazy_static! {
-    pub static ref VERTEX: String =
+    static ref VERTEX: String =
     "
 #version 450
 
@@ -21,7 +21,7 @@ void main() {
 }
     ".to_string();
 
-    pub static ref FRAGMENT: String =
+    static ref FRAGMENT: String =
     "
 #version 450
 
@@ -49,4 +49,10 @@ void main() {
     f_color = vec4(result, object_color.a);
 }
     ".to_string();
+}
+
+pub fn compile_phong_shaders(compiler: &mut shaderc::Compiler, device: &wgpu::Device) -> (wgpu::ShaderModule, wgpu::ShaderModule) {
+    let vert = super::compile_shader(&VERTEX, "phong.vert", shaderc::ShaderKind::Vertex, compiler, device);
+    let frag = super::compile_shader(&FRAGMENT, "phong.frag", shaderc::ShaderKind::Fragment, compiler, device);
+        (vert, frag)
 }
