@@ -104,15 +104,14 @@ pub struct State {
     world: World,
     camera_controller: OrbitalCameraController,
     last_mouse_pos: PhysicalPosition<f64>,
-    debounce_flag: bool,
     mouse_pressed: bool,
 }
 
 impl State {
     pub async fn new(window: &Window) -> Self {
-        let world = World::from_gltf("/Users/eric/Downloads/WaterBottle.glb");
+        let world = World::from_gltf("/home/eric/Downloads/WaterBottle.glb");
 
-        let camera_controller = OrbitalCameraController::new(glm::vec3(0.0, 0.0, 0.0), 10.0);
+        let camera_controller = OrbitalCameraController::new(glm::vec3(0.0, 0.0, 0.0), 50.0, 0.01);
 
         let size = window.inner_size();
 
@@ -265,11 +264,10 @@ impl State {
             world,
             camera_controller,
             last_mouse_pos: (0.0, 0.0).into(),
-            debounce_flag: false,
             mouse_pressed: false,
         }
     }
-
+    
     pub fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
         self.size = new_size;
         self.sc_desc.width = new_size.width;
@@ -279,41 +277,30 @@ impl State {
     }
 
     // input() won't deal with GPU code, so it can be synchronous
-    pub fn input(&mut self, event: &WindowEvent) -> bool {
+    pub fn input(&mut self, event: &DeviceEvent) -> bool {
         match event {
-            WindowEvent::MouseWheel {
+            DeviceEvent::MouseWheel {
                 delta,
                 ..
             } => {
                 self.camera_controller.process_scroll(delta);
                 true
             }
-            WindowEvent::MouseInput {
-                button: MouseButton::Left,
+            DeviceEvent::Button {
+                button,
                 state,
                 ..
             } => {
-                self.mouse_pressed = *state == ElementState::Pressed;
+                self.mouse_pressed = (*button == 1 && *state == ElementState::Pressed);
                 true
             }
-            WindowEvent::CursorMoved {
-                position,
+            DeviceEvent::MouseMotion {
+                delta,
                 ..
             } => {
-                let mouse_dx = position.x - self.last_mouse_pos.x;
-                let mouse_dy = position.y - self.last_mouse_pos.y;
-                self.last_mouse_pos = *position;
-
-                if mouse_dx == 0.0 && mouse_dy == 0.0 {
-                    if !self.debounce_flag {
-                        self.debounce_flag = true;
-                    } else {
-                        self.debounce_flag = false;
-                    }
-                }
-
-                if self.mouse_pressed && (!self.debounce_flag) {
-                    self.camera_controller.process_mouse(mouse_dx, mouse_dy);
+                let (mouse_dx, mouse_dy) = delta;
+                if self.mouse_pressed {
+                    self.camera_controller.process_mouse(*mouse_dx, *mouse_dy);
                 }
                 true
             }

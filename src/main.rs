@@ -21,14 +21,23 @@ fn main() -> Result<(), failure::Error> {
     let window = WindowBuilder::new().with_inner_size(Size::Logical(LogicalSize::new(common::DEFAULT_RESOLUTION.x as f64, common::DEFAULT_RESOLUTION.y as f64))).build(&event_loop).unwrap();
     let mut state = futures::executor::block_on(gui::State::new(&window));
     let mut last_render_time = std::time::Instant::now();
+    let mut window_focused = false;
 
     event_loop.run(move |event, _, control_flow| {
         *control_flow = ControlFlow::Poll;
         match event {
+            Event::DeviceEvent {
+                ref event,
+                device_id,
+            } => {
+                if window_focused {
+                    state.input(event);
+                }
+            }
             Event::WindowEvent {
                 ref event,
                 window_id,
-            } if window_id == window.id() => if !state.input(event) {
+            } if window_id == window.id() => {
                 match event {
                     WindowEvent::CloseRequested => *control_flow = ControlFlow::Exit,
                     WindowEvent::KeyboardInput {
@@ -50,6 +59,9 @@ fn main() -> Result<(), failure::Error> {
                     WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
                         // new_inner_size is &mut so w have to dereference it twice
                         state.resize(**new_inner_size);
+                    }
+                    WindowEvent::Focused(focused) => {
+                        window_focused = *focused;
                     }
                     _ => {}
                 }
