@@ -1,9 +1,12 @@
+mod texture;
+
 use winit::{
     event::*,
     event_loop::{ControlFlow, EventLoop},
     window::{Window, WindowBuilder},
 };
-use crate::common::{Vec3, World, Camera};
+use crate::common::{World, Camera, Mesh};
+use itertools::{interleave, zip_eq, Itertools};
 
 lazy_static::lazy_static! {
     static ref VERTEX: String =
@@ -11,13 +14,19 @@ lazy_static::lazy_static! {
 #version 450
 
 layout(location=0) in vec3 a_position;
+layout(location=1) in vec3 a_normal;
 
 layout(binding=0)
 uniform Uniforms {
     mat4 u_view_proj;
 };
 
+layout(location=0) out vec3 v_position;
+layout(location=1) out vec3 v_normal;
+
 void main() {
+    v_normal = a_normal;
+    v_position = a_position;
     gl_Position = u_view_proj * vec4(a_position, 1.0);
 }
     ".to_string();
@@ -26,10 +35,28 @@ void main() {
     "
 #version 450
 
+layout(location=0) in vec3 v_position;
+layout(location=1) in vec3 v_normal;
+
 layout(location=0) out vec4 f_color;
 
 void main() {
-    f_color = vec4(0.0, 1.0, 1.0, 1.0);
+    vec4 object_color = vec4(0.0, 1.0, 1.0, 1.0);
+    vec3 light_color = vec3(1.0, 1.0, 1.0);
+    vec3 light_position = vec3(10.0, -10.0, 10.0);
+
+    float ambient_strength = 0.1;
+    vec3 ambient_color = light_color * ambient_strength;
+
+    vec3 normal = normalize(v_normal);
+    vec3 light_dir = normalize(light_position - v_position);
+
+    float diffuse_strength = max(dot(normal, light_dir), 0.0);
+    vec3 diffuse_color = light_color * diffuse_strength;
+
+    vec3 result = (ambient_color + diffuse_color) * object_color.xyz;
+
+    f_color = vec4(result, object_color.a);
 }
     ".to_string();
 
@@ -42,15 +69,42 @@ void main() {
     );
 }
 
-impl Vec3 {
+pub trait Vertex {
+    fn desc<'a>() -> wgpu::VertexBufferDescriptor<'a>;
+}
+
+#[repr(C)]
+#[derive(Copy, Clone, Debug)]
+pub struct DrawVertex {
+    position: glm::Vec3,
+    normal: glm::Vec3,
+}
+
+unsafe impl bytemuck::Zeroable for DrawVertex {}
+
+unsafe impl bytemuck::Pod for DrawVertex {}
+
+impl From<(&glm::Vec3, &glm::Vec3)> for DrawVertex {
+    fn from(pair: (&glm::Vec3, &glm::Vec3)) -> Self {
+        let (position, normal) = pair;
+        DrawVertex { position: position.clone(), normal: normal.clone() }
+    }
+}
+
+impl Vertex for DrawVertex {
     fn desc<'a>() -> wgpu::VertexBufferDescriptor<'a> {
         wgpu::VertexBufferDescriptor {
-            stride: std::mem::size_of::<Vec3>() as wgpu::BufferAddress,
+            stride: std::mem::size_of::<DrawVertex>() as wgpu::BufferAddress,
             step_mode: wgpu::InputStepMode::Vertex,
             attributes: &[
                 wgpu::VertexAttributeDescriptor {
                     offset: 0,
                     shader_location: 0,
+                    format: wgpu::VertexFormat::Float3,
+                },
+                wgpu::VertexAttributeDescriptor {
+                    offset: std::mem::size_of::<glm::Vec3>() as wgpu::BufferAddress,
+                    shader_location: 1,
                     format: wgpu::VertexFormat::Float3,
                 },
             ],
@@ -63,7 +117,9 @@ impl Vec3 {
 struct Uniforms {
     view_proj: glm::Mat4,
 }
+
 unsafe impl bytemuck::Zeroable for Uniforms {}
+
 unsafe impl bytemuck::Pod for Uniforms {}
 
 impl Uniforms {
@@ -75,7 +131,6 @@ impl Uniforms {
 
     fn update_view_proj(&mut self, camera: &Camera) {
         self.view_proj = *OPENGL_TO_WGPU_MATRIX * &camera.cam_to_screen * glm::inverse(&camera.cam_to_world);
-        println!("{:?}", self.view_proj)
     }
 }
 
@@ -91,13 +146,14 @@ pub struct State {
     uniforms: Uniforms,
     uniform_buffer: wgpu::Buffer,
     uniform_bind_group: wgpu::BindGroup,
+    depth_texture: texture::Texture,
     size: winit::dpi::PhysicalSize<u32>,
     world: World,
 }
 
 impl State {
     pub async fn new(window: &Window) -> Self {
-        let world = World::from_gltf("/Users/eric/Downloads/WaterBottle.glb");
+        let world = World::from_gltf("/home/eric/Downloads/WaterBottle.glb");
 
         let size = window.inner_size();
 
@@ -140,8 +196,10 @@ impl State {
         let fs_module = device.create_shader_module(&fs_data);
 
 
+        let vertices = zip_eq(&world.meshes[0].pos, &world.meshes[0].normal).map_into::<DrawVertex>().collect_vec();
+
         let vertex_buffer = device.create_buffer_with_data(
-            bytemuck::cast_slice(&world.meshes[0].pos[..]),
+            bytemuck::cast_slice(&vertices[..]),
             wgpu::BufferUsage::VERTEX,
         );
 
@@ -180,7 +238,7 @@ impl State {
                         buffer: &uniform_buffer,
                         // FYI: you can share a single buffer between bindings.
                         range: 0..std::mem::size_of_val(&uniforms) as wgpu::BufferAddress,
-                    }
+                    },
                 }
             ],
             label: Some("uniform_bind_group"),
@@ -189,6 +247,8 @@ impl State {
         let render_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             bind_group_layouts: &[&uniform_bind_group_layout],
         });
+
+        let depth_texture = texture::Texture::create_depth_texture(&device, &sc_desc, "depth_texture");
 
         let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             layout: &render_pipeline_layout,
@@ -215,12 +275,20 @@ impl State {
                     write_mask: wgpu::ColorWrite::ALL,
                 },
             ],
-            primitive_topology: wgpu::PrimitiveTopology::TriangleList, // 1.
-            depth_stencil_state: None, // 2.
+            primitive_topology: wgpu::PrimitiveTopology::TriangleList,
+            depth_stencil_state:  Some(wgpu::DepthStencilStateDescriptor {
+                format: texture::Texture::DEPTH_FORMAT,
+                depth_write_enabled: true,
+                depth_compare: wgpu::CompareFunction::Less, // 1.
+                stencil_front: wgpu::StencilStateFaceDescriptor::IGNORE,
+                stencil_back: wgpu::StencilStateFaceDescriptor::IGNORE,
+                stencil_read_mask: 0,
+                stencil_write_mask: 0,
+            }),
             vertex_state: wgpu::VertexStateDescriptor {
                 index_format: wgpu::IndexFormat::Uint32,
                 vertex_buffers: &[
-                    Vec3::desc(),
+                    DrawVertex::desc(),
                 ],
             },
             sample_count: 1, // 5.
@@ -240,6 +308,7 @@ impl State {
             uniforms,
             uniform_buffer,
             uniform_bind_group,
+            depth_texture,
             size,
             world,
         }
@@ -249,6 +318,7 @@ impl State {
         self.size = new_size;
         self.sc_desc.width = new_size.width;
         self.sc_desc.height = new_size.height;
+        self.depth_texture = texture::Texture::create_depth_texture(&self.device, &self.sc_desc, "depth_texture");
         self.swap_chain = self.device.create_swap_chain(&self.surface, &self.sc_desc);
     }
 
@@ -284,7 +354,15 @@ impl State {
                         },
                     }
                 ],
-                depth_stencil_attachment: None,
+                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachmentDescriptor {
+                    attachment: &self.depth_texture.view,
+                    depth_load_op: wgpu::LoadOp::Clear,
+                    depth_store_op: wgpu::StoreOp::Store,
+                    clear_depth: 1.0,
+                    stencil_load_op: wgpu::LoadOp::Clear,
+                    stencil_store_op: wgpu::StoreOp::Store,
+                    clear_stencil: 0,
+                }),
             });
 
             render_pass.set_pipeline(&self.render_pipeline);

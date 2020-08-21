@@ -37,23 +37,10 @@ impl Camera {
     }
 }
 
-#[derive(Clone, Copy)]
-pub struct Vec3(glm::Vec3);
-unsafe impl bytemuck::Zeroable for Vec3 {}
-unsafe impl bytemuck::Pod for Vec3 {}
-
-impl std::ops::Deref for Vec3 {
-    type Target = glm::Vec3;
-
-    fn deref(&self) -> &glm::Vec3 {
-        &self.0
-    }
-}
-
 pub struct Mesh {
     pub indices: Vec<u32>,
-    pub pos: Vec<Vec3>,
-    pub normal: Vec<Vec3>,
+    pub pos: Vec<glm::Vec3>,
+    pub normal: Vec<glm::Vec3>,
 }
 
 pub struct TBounds3<T: glm::Scalar> {
@@ -82,7 +69,7 @@ impl<'a> World {
         World {
             camera: Camera::new(
                 &glm::inverse(&glm::look_at(
-                    &glm::vec3(10.0, 10.0, 10.0),
+                    &glm::vec3(0.2, 0.05, 0.2),
                     &glm::vec3(0.0, 0.0, 0.0),
                     &glm::vec3(0.0, 1.0, 0.0),
                 )),
@@ -147,12 +134,12 @@ impl<'a> World {
                     pos: reader
                         .read_positions()
                         .unwrap()
-                        .map(|vertex| Vec3(glm::make_vec3(&vertex)))
+                        .map(|vertex| glm::make_vec3(&vertex))
                         .collect(),
                     normal: match reader
                         .read_normals() {
                         Some(normals) => normals
-                            .map(|normal| Vec3(glm::make_vec3(&normal)))
+                            .map(|normal| glm::make_vec3(&normal))
                             .collect(),
                         None => vec![]
                     },

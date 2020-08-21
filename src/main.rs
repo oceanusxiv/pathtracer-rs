@@ -64,5 +64,4 @@ fn main() -> Result<(), failure::Error> {
             _ => {}
         }
     });
-    Ok(())
 }
