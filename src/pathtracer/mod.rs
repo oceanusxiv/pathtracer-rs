@@ -1,7 +1,7 @@
 mod material;
 mod sampling;
 
-use crate::common::{Bounds3, Camera};
+use crate::common::{Bounds3, Camera, World};
 use material::Material;
 use std::rc::Rc;
 
@@ -45,5 +45,19 @@ impl Camera {
             d: world_dir.xyz() / world_dir.w,
             t: std::f32::INFINITY,
         }
+    }
+}
+
+pub struct WhittedIntegrator {
+
+}
+
+impl WhittedIntegrator {
+    pub fn new() -> Self {
+        WhittedIntegrator {}
+    }
+
+    pub fn render(&self, world: &World, out_path: &str) {
+        world.camera.image.save(out_path);
     }
 }

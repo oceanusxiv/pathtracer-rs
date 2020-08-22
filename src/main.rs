@@ -7,12 +7,12 @@ mod pathtracer;
 use winit::{
     event::*,
     event_loop::{ControlFlow, EventLoop},
-    window::{Window, WindowBuilder},
+    window::WindowBuilder,
     dpi::{Size, LogicalSize},
 };
 use clap::clap_app;
 
-fn main() -> () {
+fn main() {
     env_logger::Builder::from_default_env()
         .filter_level(log::LevelFilter::Warn)
         .filter_module("pathtracer_rs", log::LevelFilter::Info)
@@ -27,10 +27,13 @@ fn main() -> () {
     ).get_matches();
 
     let scene_path = matches.value_of("SCENE").unwrap();
+    let mut world = common::World::from_gltf(scene_path);
+    let integrator = pathtracer::WhittedIntegrator::new();
 
     let event_loop = EventLoop::new();
     let window = WindowBuilder::new().with_inner_size(Size::Logical(LogicalSize::new(common::DEFAULT_RESOLUTION.x as f64, common::DEFAULT_RESOLUTION.y as f64))).build(&event_loop).unwrap();
-    let mut viewer = futures::executor::block_on(viewer::Viewer::new(&window, scene_path));
+    let mut viewer = futures::executor::block_on(viewer::Viewer::new(&window, &world));
+
     let mut last_render_time = std::time::Instant::now();
     let mut window_focused = true;
 
@@ -39,7 +42,7 @@ fn main() -> () {
         match event {
             Event::DeviceEvent {
                 ref event,
-                device_id,
+                device_id: _,
             } => {
                 if window_focused {
                     viewer.input(event);
@@ -61,6 +64,11 @@ fn main() -> () {
                                 virtual_keycode: Some(VirtualKeyCode::Escape),
                                 ..
                             } => *control_flow = ControlFlow::Exit,
+                            KeyboardInput {
+                                state: ElementState::Pressed,
+                                virtual_keycode: Some(VirtualKeyCode::R),
+                                ..
+                            } => integrator.render(&world, "/Users/eric/Downloads/duck.png"),
                             _ => {}
                         }
                     }
@@ -81,7 +89,7 @@ fn main() -> () {
                 let now = std::time::Instant::now();
                 let dt = now - last_render_time;
                 last_render_time = now;
-                viewer.update(dt);
+                viewer.update(&mut world, dt);
                 viewer.render();
             }
             Event::MainEventsCleared => {

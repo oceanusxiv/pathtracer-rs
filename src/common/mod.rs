@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use std::rc::Rc;
-use std::{fs, io};
+use image::RgbImage;
 
 lazy_static::lazy_static! {
     pub static ref DEFAULT_RESOLUTION: glm::Vec2 = glm::vec2(1280.0, 720.0);
@@ -15,6 +15,7 @@ pub struct Camera {
     pub screen_to_raster: glm::Mat4,
     pub raster_to_screen: glm::Mat4,
     pub raster_to_cam: glm::Mat4,
+    pub image: Box<RgbImage>,
 }
 
 impl Camera {
@@ -27,12 +28,14 @@ impl Camera {
             glm::scaling(&glm::vec3(resolution.x * 0.5, resolution.y * 0.5, 1.0))
                 * glm::translation(&glm::vec3(1.0, 1.0, 0.0));
         let raster_to_screen = glm::inverse(&screen_to_raster);
+        let resolution = glm::vec2(resolution.x as u32, resolution.y as u32);
         Camera {
-            cam_to_world: cam_to_world.clone(),
-            cam_to_screen: cam_to_screen.clone(),
+            cam_to_world: *cam_to_world,
+            cam_to_screen: *cam_to_screen,
             screen_to_raster,
             raster_to_screen,
             raster_to_cam: glm::inverse(&cam_to_screen) * raster_to_screen,
+            image: Box::new(RgbImage::new(resolution.x, resolution.y)),
         }
     }
 }

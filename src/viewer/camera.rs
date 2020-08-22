@@ -1,6 +1,6 @@
 use winit::{
     event::*,
-    dpi::{LogicalPosition, PhysicalPosition},
+    dpi::LogicalPosition,
 };
 use crate::common::Camera;
 
@@ -44,7 +44,7 @@ impl OrbitalCameraController {
     pub fn update_camera(&mut self, camera: &mut Camera, dt: std::time::Duration) {
         let dt = dt.as_secs_f32();
 
-        let mut cam_pos = glm::make_vec4(camera.cam_to_world.column(3).as_slice()).xyz() - &self.pivot; // relative to pivot
+        let mut cam_pos = glm::make_vec4(camera.cam_to_world.column(3).as_slice()).xyz() - self.pivot; // relative to pivot
 
         let vert_axis = glm::cross(&cam_pos, &glm::vec3(0.0f32, 1.0f32, 0.0f32));
         let horz_axis = glm::cross(&cam_pos, &vert_axis);

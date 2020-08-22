@@ -4,13 +4,11 @@ mod shaders;
 
 use winit::{
     event::*,
-    event_loop::{ControlFlow, EventLoop},
-    window::{Window, WindowBuilder},
-    dpi::{LogicalPosition, PhysicalPosition},
+    window::Window,
 };
 use crate::common::{World, Camera, Mesh};
 use camera::OrbitalCameraController;
-use itertools::{interleave, zip_eq, Itertools};
+use itertools::{zip_eq, Itertools};
 
 lazy_static::lazy_static! {
     #[rustfmt::skip]
@@ -40,7 +38,7 @@ unsafe impl bytemuck::Pod for DrawVertex {}
 impl From<(&glm::Vec3, &glm::Vec3)> for DrawVertex {
     fn from(pair: (&glm::Vec3, &glm::Vec3)) -> Self {
         let (position, normal) = pair;
-        DrawVertex { position: position.clone(), normal: normal.clone() }
+        DrawVertex { position: *position, normal: *normal }
     }
 }
 
@@ -114,7 +112,7 @@ unsafe impl bytemuck::Zeroable for Instance {}
 unsafe impl bytemuck::Pod for Instance {}
 
 impl Instance {
-    pub fn create_bind_group_layout_entry(device: &wgpu::Device) -> wgpu::BindGroupLayoutEntry {
+    pub fn create_bind_group_layout_entry() -> wgpu::BindGroupLayoutEntry {
         wgpu::BindGroupLayoutEntry {
             binding: 0,
             visibility: wgpu::ShaderStage::VERTEX,
@@ -130,7 +128,7 @@ impl Instance {
 
 impl DrawMeshInstances {
     pub fn from_world(device: &wgpu::Device, instances_bind_group_layout: &wgpu::BindGroupLayout, world: &World, mesh: DrawMesh) -> Self {
-        let instance_data = world.objects.iter().filter(|obj| obj.mesh.index == mesh.index).map(|obj| Instance { model: obj.obj_to_world.clone() }).collect_vec();
+        let instance_data = world.objects.iter().filter(|obj| obj.mesh.index == mesh.index).map(|obj| Instance { model: obj.obj_to_world }).collect_vec();
 
         let instance_buffer_size = instance_data.len() * std::mem::size_of::<glm::Mat4>();
         let instance_buffer = device.create_buffer_with_data(
@@ -206,7 +204,7 @@ impl Uniforms {
     }
 
     fn update_view_proj(&mut self, camera: &Camera) {
-        self.view_proj = *OPENGL_TO_WGPU_MATRIX * &camera.cam_to_screen * glm::inverse(&camera.cam_to_world);
+        self.view_proj = *OPENGL_TO_WGPU_MATRIX * camera.cam_to_screen * glm::inverse(&camera.cam_to_world);
     }
 }
 
@@ -223,16 +221,12 @@ pub struct Viewer {
     uniform_bind_group: wgpu::BindGroup,
     depth_texture: texture::Texture,
     size: winit::dpi::PhysicalSize<u32>,
-    world: World,
     camera_controller: OrbitalCameraController,
-    last_mouse_pos: PhysicalPosition<f64>,
     mouse_pressed: bool,
 }
 
 impl Viewer {
-    pub async fn new(window: &Window, scene_path: &str) -> Self {
-        let world = World::from_gltf(scene_path);
-
+    pub async fn new(window: &Window, world: &World) -> Self {
         let camera_controller = OrbitalCameraController::new(glm::vec3(0.0, 0.0, 0.0), 50.0, 0.01);
 
         let size = window.inner_size();
@@ -307,7 +301,7 @@ impl Viewer {
 
         let instances_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             bindings: &[
-                Instance::create_bind_group_layout_entry(&device),
+                Instance::create_bind_group_layout_entry(),
             ],
             label: Some("instances_bind_group_layout"),
         });
@@ -379,9 +373,7 @@ impl Viewer {
             uniform_bind_group,
             depth_texture,
             size,
-            world,
             camera_controller,
-            last_mouse_pos: (0.0, 0.0).into(),
             mouse_pressed: false,
         }
     }
@@ -409,7 +401,7 @@ impl Viewer {
                 state,
                 ..
             } => {
-                self.mouse_pressed = (*button == 1 && *state == ElementState::Pressed);
+                self.mouse_pressed = *button == 0 && *state == ElementState::Pressed;
                 true
             }
             DeviceEvent::MouseMotion {
@@ -426,9 +418,9 @@ impl Viewer {
         }
     }
 
-    pub fn update(&mut self, dt: std::time::Duration) {
-        self.camera_controller.update_camera(&mut self.world.camera, dt);
-        self.uniforms.update_view_proj(&self.world.camera);
+    pub fn update(&mut self, world: &mut World, dt: std::time::Duration) {
+        self.camera_controller.update_camera(&mut world.camera, dt);
+        self.uniforms.update_view_proj(&world.camera);
 
         // Copy operation's are performed on the gpu, so we'll need
         // a CommandEncoder for that
