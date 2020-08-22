@@ -151,7 +151,7 @@ impl<'a> World {
                 };
                 self.camera = Camera::new(
                     &current_transform,
-                    &glm::perspective_zo(aspect_ratio, projection.yfov(), projection.znear(), zfar),
+                    &glm::perspective_zo(DEFAULT_RESOLUTION.x / DEFAULT_RESOLUTION.y, projection.yfov(), projection.znear(), zfar),
                     &DEFAULT_RESOLUTION,
                 );
             }

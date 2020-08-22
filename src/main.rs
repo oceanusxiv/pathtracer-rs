@@ -21,7 +21,7 @@ fn main() -> () {
     let window = WindowBuilder::new().with_inner_size(Size::Logical(LogicalSize::new(common::DEFAULT_RESOLUTION.x as f64, common::DEFAULT_RESOLUTION.y as f64))).build(&event_loop).unwrap();
     let mut state = futures::executor::block_on(gui::State::new(&window));
     let mut last_render_time = std::time::Instant::now();
-    let mut window_focused = false;
+    let mut window_focused = true;
 
     event_loop.run(move |event, _, control_flow| {
         *control_flow = ControlFlow::Poll;

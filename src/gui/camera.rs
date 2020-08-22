@@ -50,7 +50,7 @@ impl OrbitalCameraController {
         let horz_axis = glm::cross(&cam_pos, &vert_axis);
         cam_pos = glm::rotate_vec3(&cam_pos, self.rotate_horizontal * self.orbit_speed * dt, &horz_axis);
         cam_pos = glm::rotate_vec3(&cam_pos, self.rotate_vertical * self.orbit_speed * dt, &vert_axis);
-        cam_pos = glm::normalize(&cam_pos) * 0.1_f32.max(glm::length(&cam_pos) + self.scroll * self.zoom_speed * dt);
+        cam_pos = glm::normalize(&cam_pos) * 0.1_f32.max(glm::length(&cam_pos) * (1.0 + self.scroll * self.zoom_speed * dt));
 
         cam_pos += &self.pivot; // retransform back to global frame
         camera.cam_to_world = glm::inverse(&glm::look_at(
