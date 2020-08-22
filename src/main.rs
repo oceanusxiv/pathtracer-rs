@@ -11,7 +11,7 @@ use winit::{
     dpi::{Size, LogicalSize},
 };
 
-fn main() -> Result<(), failure::Error> {
+fn main() -> () {
     env_logger::Builder::from_default_env()
         .filter_level(log::LevelFilter::Warn)
         .filter_module("pathtracer_rs", log::LevelFilter::Info)

@@ -10,6 +10,10 @@ layout(binding=0)
 uniform Uniforms {
     mat4 u_view_proj;
 };
+layout(set=1, binding=0)
+buffer Instances {
+    mat4 s_models[];
+};
 
 layout(location=0) out vec3 v_position;
 layout(location=1) out vec3 v_normal;
@@ -17,7 +21,7 @@ layout(location=1) out vec3 v_normal;
 void main() {
     v_normal = a_normal;
     v_position = a_position;
-    gl_Position = u_view_proj * vec4(a_position, 1.0);
+    gl_Position = u_view_proj * s_models[gl_InstanceIndex] * vec4(a_position, 1.0);
 }
     ".to_string();
 

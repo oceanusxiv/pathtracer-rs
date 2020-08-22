@@ -65,6 +65,129 @@ impl Vertex for DrawVertex {
     }
 }
 
+pub struct DrawMesh {
+    pub index: usize,
+    pub vertex_buffer: wgpu::Buffer,
+    pub index_buffer: wgpu::Buffer,
+    pub num_elements: usize,
+}
+
+impl DrawMesh {
+    pub fn from_mesh(device: &wgpu::Device, mesh: &Mesh) -> Self {
+        let vertices = zip_eq(&mesh.pos, &mesh.normal).map_into::<DrawVertex>().collect_vec();
+
+        let vertex_buffer = device.create_buffer_with_data(
+            bytemuck::cast_slice(&vertices[..]),
+            wgpu::BufferUsage::VERTEX,
+        );
+
+        let index_buffer = device.create_buffer_with_data(
+            bytemuck::cast_slice(&mesh.indices[..]),
+            wgpu::BufferUsage::INDEX,
+        );
+
+        DrawMesh {
+            index: mesh.index,
+            vertex_buffer,
+            index_buffer,
+            num_elements: mesh.indices.len(),
+        }
+    }
+}
+
+pub struct DrawMeshInstances {
+    pub mesh: DrawMesh,
+    pub instance_buffer: wgpu::Buffer,
+    pub instance_buffer_size: usize,
+    pub instances_bind_group: wgpu::BindGroup,
+    pub visible_instances: std::ops::Range<u32>,
+}
+
+#[repr(C)]
+#[derive(Copy, Clone, Debug)]
+pub struct Instance {
+    model: glm::Mat4,
+}
+
+unsafe impl bytemuck::Zeroable for Instance {}
+
+unsafe impl bytemuck::Pod for Instance {}
+
+impl Instance {
+    pub fn create_bind_group_layout_entry(device: &wgpu::Device) -> wgpu::BindGroupLayoutEntry {
+        wgpu::BindGroupLayoutEntry {
+            binding: 0,
+            visibility: wgpu::ShaderStage::VERTEX,
+            ty: wgpu::BindingType::StorageBuffer {
+                // We don't plan on changing the size of this buffer
+                dynamic: false,
+                // The shader is not allowed to modify it's contents
+                readonly: true,
+            },
+        }
+    }
+}
+
+impl DrawMeshInstances {
+    pub fn from_world(device: &wgpu::Device, instances_bind_group_layout: &wgpu::BindGroupLayout, world: &World, mesh: DrawMesh) -> Self {
+        let instance_data = world.objects.iter().filter(|obj| obj.mesh.index == mesh.index).map(|obj| Instance { model: obj.obj_to_world.clone() }).collect_vec();
+
+        let instance_buffer_size = instance_data.len() * std::mem::size_of::<glm::Mat4>();
+        let instance_buffer = device.create_buffer_with_data(
+            bytemuck::cast_slice(&instance_data[..]),
+            wgpu::BufferUsage::STORAGE_READ,
+        );
+
+        let instances_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &instances_bind_group_layout,
+            bindings: &[
+                wgpu::Binding {
+                    binding: 0,
+                    resource: wgpu::BindingResource::Buffer {
+                        buffer: &instance_buffer,
+                        range: 0..instance_buffer_size as wgpu::BufferAddress,
+                    },
+                },
+            ],
+            label: Some("instances_bind_group"),
+        });
+
+        DrawMeshInstances {
+            mesh,
+            instance_buffer,
+            instance_buffer_size,
+            instances_bind_group,
+            visible_instances: std::ops::Range { start: 0, end: instance_data.len() as u32 },
+        }
+    }
+}
+
+pub trait DrawModel<'a, 'b>
+    where
+        'b: 'a,
+{
+    fn draw_mesh_instances(
+        &mut self,
+        mesh: &'b DrawMeshInstances,
+    );
+}
+
+impl<'a, 'b> DrawModel<'a, 'b> for wgpu::RenderPass<'a>
+    where
+        'b: 'a,
+{
+    fn draw_mesh_instances(
+        &mut self,
+        mesh_instances: &'b DrawMeshInstances,
+    ) {
+        self.set_bind_group(1, &mesh_instances.instances_bind_group, &[]);
+        self.set_vertex_buffer(0, &mesh_instances.mesh.vertex_buffer, 0, 0);
+        self.set_index_buffer(&mesh_instances.mesh.index_buffer, 0, 0);
+        self.draw_indexed(0..mesh_instances.mesh.num_elements as u32, 0, mesh_instances.visible_instances.clone());
+    }
+}
+
+
 #[repr(C)] // We need this for Rust to store our data correctly for the shaders
 #[derive(Debug, Copy, Clone)] // This is so we can store this in a buffer
 struct Uniforms {
@@ -94,8 +217,7 @@ pub struct State {
     sc_desc: wgpu::SwapChainDescriptor,
     swap_chain: wgpu::SwapChain,
     render_pipeline: wgpu::RenderPipeline,
-    vertex_buffer: wgpu::Buffer,
-    index_buffer: wgpu::Buffer,
+    draw_mesh_instances: Vec<DrawMeshInstances>,
     uniforms: Uniforms,
     uniform_buffer: wgpu::Buffer,
     uniform_bind_group: wgpu::BindGroup,
@@ -109,7 +231,7 @@ pub struct State {
 
 impl State {
     pub async fn new(window: &Window) -> Self {
-        let world = World::from_gltf("/home/eric/Downloads/WaterBottle.glb");
+        let world = World::from_gltf("/home/eric/Downloads/Buggy.glb");
 
         let camera_controller = OrbitalCameraController::new(glm::vec3(0.0, 0.0, 0.0), 50.0, 0.01);
 
@@ -147,18 +269,6 @@ impl State {
 
         let (vs_module, fs_module) = shaders::phong::compile_phong_shaders(&mut compiler, &device);
 
-        let vertices = zip_eq(&world.meshes[0].pos, &world.meshes[0].normal).map_into::<DrawVertex>().collect_vec();
-
-        let vertex_buffer = device.create_buffer_with_data(
-            bytemuck::cast_slice(&vertices[..]),
-            wgpu::BufferUsage::VERTEX,
-        );
-
-        let index_buffer = device.create_buffer_with_data(
-            bytemuck::cast_slice(&world.meshes[0].indices[..]),
-            wgpu::BufferUsage::INDEX,
-        );
-
         let mut uniforms = Uniforms::new();
         uniforms.update_view_proj(&world.camera);
 
@@ -175,7 +285,7 @@ impl State {
                     ty: wgpu::BindingType::UniformBuffer {
                         dynamic: false,
                     },
-                }
+                },
             ],
             label: Some("uniform_bind_group_layout"),
         });
@@ -190,13 +300,22 @@ impl State {
                         // FYI: you can share a single buffer between bindings.
                         range: 0..std::mem::size_of_val(&uniforms) as wgpu::BufferAddress,
                     },
-                }
+                },
             ],
             label: Some("uniform_bind_group"),
         });
 
+        let instances_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            bindings: &[
+                Instance::create_bind_group_layout_entry(&device),
+            ],
+            label: Some("instances_bind_group_layout"),
+        });
+
+        let draw_mesh_instances = world.meshes.iter().map(|mesh| DrawMeshInstances::from_world(&device, &instances_bind_group_layout, &world, DrawMesh::from_mesh(&device, &mesh))).collect_vec();
+
         let render_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            bind_group_layouts: &[&uniform_bind_group_layout],
+            bind_group_layouts: &[&uniform_bind_group_layout, &instances_bind_group_layout],
         });
 
         let depth_texture = texture::Texture::create_depth_texture(&device, &sc_desc, "depth_texture");
@@ -254,8 +373,7 @@ impl State {
             sc_desc,
             swap_chain,
             render_pipeline,
-            vertex_buffer,
-            index_buffer,
+            draw_mesh_instances,
             uniforms,
             uniform_buffer,
             uniform_bind_group,
@@ -267,7 +385,7 @@ impl State {
             mouse_pressed: false,
         }
     }
-    
+
     pub fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
         self.size = new_size;
         self.sc_desc.width = new_size.width;
@@ -366,9 +484,7 @@ impl State {
 
             render_pass.set_pipeline(&self.render_pipeline);
             render_pass.set_bind_group(0, &self.uniform_bind_group, &[]);
-            render_pass.set_vertex_buffer(0, &self.vertex_buffer, 0, 0);
-            render_pass.set_index_buffer(&self.index_buffer, 0, 0);
-            render_pass.draw_indexed(0..self.world.meshes[0].indices.len() as u32, 0, 0..1);
+            render_pass.draw_mesh_instances(&self.draw_mesh_instances[0]);
         }
 
         self.queue.submit(&[
