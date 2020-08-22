@@ -230,8 +230,8 @@ pub struct Viewer {
 }
 
 impl Viewer {
-    pub async fn new(window: &Window) -> Self {
-        let world = World::from_gltf("C://Users/eric1/Downloads/Buggy.glb");
+    pub async fn new(window: &Window, scene_path: &str) -> Self {
+        let world = World::from_gltf(scene_path);
 
         let camera_controller = OrbitalCameraController::new(glm::vec3(0.0, 0.0, 0.0), 50.0, 0.01);
 

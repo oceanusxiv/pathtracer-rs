@@ -10,6 +10,7 @@ use winit::{
     window::{Window, WindowBuilder},
     dpi::{Size, LogicalSize},
 };
+use clap::clap_app;
 
 fn main() -> () {
     env_logger::Builder::from_default_env()
@@ -17,9 +18,19 @@ fn main() -> () {
         .filter_module("pathtracer_rs", log::LevelFilter::Info)
         .init();
 
+    let matches = clap_app!(pathtracer_rs =>
+        (version: "1.0")
+        (author: "Eric F. <eric1221bday@gmail.com>")
+        (about: "Rust path tracer")
+        (@arg SCENE: +required "Sets the input scene to use")
+        (@arg verbose: -v --verbose "Print test information verbosely")
+    ).get_matches();
+
+    let scene_path = matches.value_of("SCENE").unwrap();
+
     let event_loop = EventLoop::new();
     let window = WindowBuilder::new().with_inner_size(Size::Logical(LogicalSize::new(common::DEFAULT_RESOLUTION.x as f64, common::DEFAULT_RESOLUTION.y as f64))).build(&event_loop).unwrap();
-    let mut viewer = futures::executor::block_on(viewer::Viewer::new(&window));
+    let mut viewer = futures::executor::block_on(viewer::Viewer::new(&window, scene_path));
     let mut last_render_time = std::time::Instant::now();
     let mut window_focused = true;
 
