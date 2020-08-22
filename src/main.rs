@@ -1,7 +1,7 @@
 extern crate nalgebra_glm as glm;
 
 mod common;
-mod gui;
+mod viewer;
 mod pathtracer;
 
 use winit::{
@@ -19,7 +19,7 @@ fn main() -> () {
 
     let event_loop = EventLoop::new();
     let window = WindowBuilder::new().with_inner_size(Size::Logical(LogicalSize::new(common::DEFAULT_RESOLUTION.x as f64, common::DEFAULT_RESOLUTION.y as f64))).build(&event_loop).unwrap();
-    let mut state = futures::executor::block_on(gui::State::new(&window));
+    let mut viewer = futures::executor::block_on(viewer::Viewer::new(&window));
     let mut last_render_time = std::time::Instant::now();
     let mut window_focused = true;
 
@@ -31,7 +31,7 @@ fn main() -> () {
                 device_id,
             } => {
                 if window_focused {
-                    state.input(event);
+                    viewer.input(event);
                 }
             }
             Event::WindowEvent {
@@ -54,11 +54,11 @@ fn main() -> () {
                         }
                     }
                     WindowEvent::Resized(physical_size) => {
-                        state.resize(*physical_size);
+                        viewer.resize(*physical_size);
                     }
                     WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
                         // new_inner_size is &mut so w have to dereference it twice
-                        state.resize(**new_inner_size);
+                        viewer.resize(**new_inner_size);
                     }
                     WindowEvent::Focused(focused) => {
                         window_focused = *focused;
@@ -70,8 +70,8 @@ fn main() -> () {
                 let now = std::time::Instant::now();
                 let dt = now - last_render_time;
                 last_render_time = now;
-                state.update(dt);
-                state.render();
+                viewer.update(dt);
+                viewer.render();
             }
             Event::MainEventsCleared => {
                 // RedrawRequested will only trigger once, unless we manually

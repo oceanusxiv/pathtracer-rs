@@ -210,7 +210,7 @@ impl Uniforms {
     }
 }
 
-pub struct State {
+pub struct Viewer {
     surface: wgpu::Surface,
     device: wgpu::Device,
     queue: wgpu::Queue,
@@ -229,9 +229,9 @@ pub struct State {
     mouse_pressed: bool,
 }
 
-impl State {
+impl Viewer {
     pub async fn new(window: &Window) -> Self {
-        let world = World::from_gltf("/home/eric/Downloads/Buggy.glb");
+        let world = World::from_gltf("C://Users/eric1/Downloads/Buggy.glb");
 
         let camera_controller = OrbitalCameraController::new(glm::vec3(0.0, 0.0, 0.0), 50.0, 0.01);
 
