@@ -48,9 +48,7 @@ impl Camera {
     }
 }
 
-pub struct WhittedIntegrator {
-
-}
+pub struct WhittedIntegrator {}
 
 impl WhittedIntegrator {
     pub fn new() -> Self {

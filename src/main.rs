@@ -1,16 +1,16 @@
 extern crate nalgebra_glm as glm;
 
 mod common;
-mod viewer;
 mod pathtracer;
+mod viewer;
 
+use clap::clap_app;
 use winit::{
+    dpi::{LogicalSize, Size},
     event::*,
     event_loop::{ControlFlow, EventLoop},
     window::WindowBuilder,
-    dpi::{Size, LogicalSize},
 };
-use clap::clap_app;
 
 fn main() {
     env_logger::Builder::from_default_env()
@@ -24,14 +24,21 @@ fn main() {
         (about: "Rust path tracer")
         (@arg SCENE: +required "Sets the input scene to use")
         (@arg verbose: -v --verbose "Print test information verbosely")
-    ).get_matches();
+    )
+    .get_matches();
 
     let scene_path = matches.value_of("SCENE").unwrap();
     let mut world = common::World::from_gltf(scene_path);
     let integrator = pathtracer::WhittedIntegrator::new();
 
     let event_loop = EventLoop::new();
-    let window = WindowBuilder::new().with_inner_size(Size::Logical(LogicalSize::new(common::DEFAULT_RESOLUTION.x as f64, common::DEFAULT_RESOLUTION.y as f64))).build(&event_loop).unwrap();
+    let window = WindowBuilder::new()
+        .with_inner_size(Size::Logical(LogicalSize::new(
+            common::DEFAULT_RESOLUTION.x as f64,
+            common::DEFAULT_RESOLUTION.y as f64,
+        )))
+        .build(&event_loop)
+        .unwrap();
     let mut viewer = futures::executor::block_on(viewer::Viewer::new(&window, &world));
 
     let mut last_render_time = std::time::Instant::now();
@@ -54,24 +61,19 @@ fn main() {
             } if window_id == window.id() => {
                 match event {
                     WindowEvent::CloseRequested => *control_flow = ControlFlow::Exit,
-                    WindowEvent::KeyboardInput {
-                        input,
-                        ..
-                    } => {
-                        match input {
-                            KeyboardInput {
-                                state: ElementState::Pressed,
-                                virtual_keycode: Some(VirtualKeyCode::Escape),
-                                ..
-                            } => *control_flow = ControlFlow::Exit,
-                            KeyboardInput {
-                                state: ElementState::Pressed,
-                                virtual_keycode: Some(VirtualKeyCode::R),
-                                ..
-                            } => integrator.render(&world, "/Users/eric/Downloads/duck.png"),
-                            _ => {}
-                        }
-                    }
+                    WindowEvent::KeyboardInput { input, .. } => match input {
+                        KeyboardInput {
+                            state: ElementState::Pressed,
+                            virtual_keycode: Some(VirtualKeyCode::Escape),
+                            ..
+                        } => *control_flow = ControlFlow::Exit,
+                        KeyboardInput {
+                            state: ElementState::Pressed,
+                            virtual_keycode: Some(VirtualKeyCode::R),
+                            ..
+                        } => integrator.render(&world, "/Users/eric/Downloads/duck.png"),
+                        _ => {}
+                    },
                     WindowEvent::Resized(physical_size) => {
                         viewer.resize(*physical_size);
                     }

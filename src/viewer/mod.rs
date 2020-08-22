@@ -1,14 +1,11 @@
-mod texture;
 mod camera;
 mod shaders;
+mod texture;
 
-use winit::{
-    event::*,
-    window::Window,
-};
-use crate::common::{World, Camera, Mesh};
+use crate::common::{Camera, Mesh, World};
 use camera::OrbitalCameraController;
 use itertools::{zip_eq, Itertools};
+use winit::{event::*, window::Window};
 
 lazy_static::lazy_static! {
     #[rustfmt::skip]
@@ -38,7 +35,10 @@ unsafe impl bytemuck::Pod for DrawVertex {}
 impl From<(&glm::Vec3, &glm::Vec3)> for DrawVertex {
     fn from(pair: (&glm::Vec3, &glm::Vec3)) -> Self {
         let (position, normal) = pair;
-        DrawVertex { position: *position, normal: *normal }
+        DrawVertex {
+            position: *position,
+            normal: *normal,
+        }
     }
 }
 
@@ -72,7 +72,9 @@ pub struct DrawMesh {
 
 impl DrawMesh {
     pub fn from_mesh(device: &wgpu::Device, mesh: &Mesh) -> Self {
-        let vertices = zip_eq(&mesh.pos, &mesh.normal).map_into::<DrawVertex>().collect_vec();
+        let vertices = zip_eq(&mesh.pos, &mesh.normal)
+            .map_into::<DrawVertex>()
+            .collect_vec();
 
         let vertex_buffer = device.create_buffer_with_data(
             bytemuck::cast_slice(&vertices[..]),
@@ -127,8 +129,20 @@ impl Instance {
 }
 
 impl DrawMeshInstances {
-    pub fn from_world(device: &wgpu::Device, instances_bind_group_layout: &wgpu::BindGroupLayout, world: &World, mesh: DrawMesh) -> Self {
-        let instance_data = world.objects.iter().filter(|obj| obj.mesh.index == mesh.index).map(|obj| Instance { model: obj.obj_to_world }).collect_vec();
+    pub fn from_world(
+        device: &wgpu::Device,
+        instances_bind_group_layout: &wgpu::BindGroupLayout,
+        world: &World,
+        mesh: DrawMesh,
+    ) -> Self {
+        let instance_data = world
+            .objects
+            .iter()
+            .filter(|obj| obj.mesh.index == mesh.index)
+            .map(|obj| Instance {
+                model: obj.obj_to_world,
+            })
+            .collect_vec();
 
         let instance_buffer_size = instance_data.len() * std::mem::size_of::<glm::Mat4>();
         let instance_buffer = device.create_buffer_with_data(
@@ -138,15 +152,13 @@ impl DrawMeshInstances {
 
         let instances_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout: &instances_bind_group_layout,
-            bindings: &[
-                wgpu::Binding {
-                    binding: 0,
-                    resource: wgpu::BindingResource::Buffer {
-                        buffer: &instance_buffer,
-                        range: 0..instance_buffer_size as wgpu::BufferAddress,
-                    },
+            bindings: &[wgpu::Binding {
+                binding: 0,
+                resource: wgpu::BindingResource::Buffer {
+                    buffer: &instance_buffer,
+                    range: 0..instance_buffer_size as wgpu::BufferAddress,
                 },
-            ],
+            }],
             label: Some("instances_bind_group"),
         });
 
@@ -155,36 +167,36 @@ impl DrawMeshInstances {
             instance_buffer,
             instance_buffer_size,
             instances_bind_group,
-            visible_instances: std::ops::Range { start: 0, end: instance_data.len() as u32 },
+            visible_instances: std::ops::Range {
+                start: 0,
+                end: instance_data.len() as u32,
+            },
         }
     }
 }
 
 pub trait DrawModel<'a, 'b>
-    where
-        'b: 'a,
+where
+    'b: 'a,
 {
-    fn draw_mesh_instances(
-        &mut self,
-        mesh: &'b DrawMeshInstances,
-    );
+    fn draw_mesh_instances(&mut self, mesh: &'b DrawMeshInstances);
 }
 
 impl<'a, 'b> DrawModel<'a, 'b> for wgpu::RenderPass<'a>
-    where
-        'b: 'a,
+where
+    'b: 'a,
 {
-    fn draw_mesh_instances(
-        &mut self,
-        mesh_instances: &'b DrawMeshInstances,
-    ) {
+    fn draw_mesh_instances(&mut self, mesh_instances: &'b DrawMeshInstances) {
         self.set_bind_group(1, &mesh_instances.instances_bind_group, &[]);
         self.set_vertex_buffer(0, &mesh_instances.mesh.vertex_buffer, 0, 0);
         self.set_index_buffer(&mesh_instances.mesh.index_buffer, 0, 0);
-        self.draw_indexed(0..mesh_instances.mesh.num_elements as u32, 0, mesh_instances.visible_instances.clone());
+        self.draw_indexed(
+            0..mesh_instances.mesh.num_elements as u32,
+            0,
+            mesh_instances.visible_instances.clone(),
+        );
     }
 }
-
 
 #[repr(C)] // We need this for Rust to store our data correctly for the shaders
 #[derive(Debug, Copy, Clone)] // This is so we can store this in a buffer
@@ -204,7 +216,8 @@ impl Uniforms {
     }
 
     fn update_view_proj(&mut self, camera: &Camera) {
-        self.view_proj = *OPENGL_TO_WGPU_MATRIX * camera.cam_to_screen * glm::inverse(&camera.cam_to_world);
+        self.view_proj =
+            *OPENGL_TO_WGPU_MATRIX * camera.cam_to_screen * glm::inverse(&camera.cam_to_world);
     }
 }
 
@@ -239,16 +252,20 @@ impl Viewer {
                 compatible_surface: Some(&surface),
             },
             wgpu::BackendBit::PRIMARY, // Vulkan + Metal + DX12 + Browser WebGPU
-        ).await.unwrap();
+        )
+        .await
+        .unwrap();
 
         println!("{:?}", adapter.get_info());
 
-        let (device, queue) = adapter.request_device(&wgpu::DeviceDescriptor {
-            extensions: wgpu::Extensions {
-                anisotropic_filtering: false,
-            },
-            limits: Default::default(),
-        }).await;
+        let (device, queue) = adapter
+            .request_device(&wgpu::DeviceDescriptor {
+                extensions: wgpu::Extensions {
+                    anisotropic_filtering: false,
+                },
+                limits: Default::default(),
+            })
+            .await;
 
         let sc_desc = wgpu::SwapChainDescriptor {
             usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
@@ -271,48 +288,55 @@ impl Viewer {
             wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
         );
 
-        let uniform_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            bindings: &[
-                wgpu::BindGroupLayoutEntry {
+        let uniform_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                bindings: &[wgpu::BindGroupLayoutEntry {
                     binding: 0,
                     visibility: wgpu::ShaderStage::VERTEX,
-                    ty: wgpu::BindingType::UniformBuffer {
-                        dynamic: false,
-                    },
-                },
-            ],
-            label: Some("uniform_bind_group_layout"),
-        });
+                    ty: wgpu::BindingType::UniformBuffer { dynamic: false },
+                }],
+                label: Some("uniform_bind_group_layout"),
+            });
 
         let uniform_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout: &uniform_bind_group_layout,
-            bindings: &[
-                wgpu::Binding {
-                    binding: 0,
-                    resource: wgpu::BindingResource::Buffer {
-                        buffer: &uniform_buffer,
-                        // FYI: you can share a single buffer between bindings.
-                        range: 0..std::mem::size_of_val(&uniforms) as wgpu::BufferAddress,
-                    },
+            bindings: &[wgpu::Binding {
+                binding: 0,
+                resource: wgpu::BindingResource::Buffer {
+                    buffer: &uniform_buffer,
+                    // FYI: you can share a single buffer between bindings.
+                    range: 0..std::mem::size_of_val(&uniforms) as wgpu::BufferAddress,
                 },
-            ],
+            }],
             label: Some("uniform_bind_group"),
         });
 
-        let instances_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            bindings: &[
-                Instance::create_bind_group_layout_entry(),
-            ],
-            label: Some("instances_bind_group_layout"),
-        });
+        let instances_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                bindings: &[Instance::create_bind_group_layout_entry()],
+                label: Some("instances_bind_group_layout"),
+            });
 
-        let draw_mesh_instances = world.meshes.iter().map(|mesh| DrawMeshInstances::from_world(&device, &instances_bind_group_layout, &world, DrawMesh::from_mesh(&device, &mesh))).collect_vec();
+        let draw_mesh_instances = world
+            .meshes
+            .iter()
+            .map(|mesh| {
+                DrawMeshInstances::from_world(
+                    &device,
+                    &instances_bind_group_layout,
+                    &world,
+                    DrawMesh::from_mesh(&device, &mesh),
+                )
+            })
+            .collect_vec();
 
-        let render_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-            bind_group_layouts: &[&uniform_bind_group_layout, &instances_bind_group_layout],
-        });
+        let render_pipeline_layout =
+            device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                bind_group_layouts: &[&uniform_bind_group_layout, &instances_bind_group_layout],
+            });
 
-        let depth_texture = texture::Texture::create_depth_texture(&device, &sc_desc, "depth_texture");
+        let depth_texture =
+            texture::Texture::create_depth_texture(&device, &sc_desc, "depth_texture");
 
         let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
             layout: &render_pipeline_layout,
@@ -320,7 +344,8 @@ impl Viewer {
                 module: &vs_module,
                 entry_point: "main", // 1.
             },
-            fragment_stage: Some(wgpu::ProgrammableStageDescriptor { // 2.
+            fragment_stage: Some(wgpu::ProgrammableStageDescriptor {
+                // 2.
                 module: &fs_module,
                 entry_point: "main",
             }),
@@ -331,14 +356,12 @@ impl Viewer {
                 depth_bias_slope_scale: 0.0,
                 depth_bias_clamp: 0.0,
             }),
-            color_states: &[
-                wgpu::ColorStateDescriptor {
-                    format: sc_desc.format,
-                    color_blend: wgpu::BlendDescriptor::REPLACE,
-                    alpha_blend: wgpu::BlendDescriptor::REPLACE,
-                    write_mask: wgpu::ColorWrite::ALL,
-                },
-            ],
+            color_states: &[wgpu::ColorStateDescriptor {
+                format: sc_desc.format,
+                color_blend: wgpu::BlendDescriptor::REPLACE,
+                alpha_blend: wgpu::BlendDescriptor::REPLACE,
+                write_mask: wgpu::ColorWrite::ALL,
+            }],
             primitive_topology: wgpu::PrimitiveTopology::TriangleList,
             depth_stencil_state: Some(wgpu::DepthStencilStateDescriptor {
                 format: texture::Texture::DEPTH_FORMAT,
@@ -351,12 +374,10 @@ impl Viewer {
             }),
             vertex_state: wgpu::VertexStateDescriptor {
                 index_format: wgpu::IndexFormat::Uint32,
-                vertex_buffers: &[
-                    DrawVertex::desc(),
-                ],
+                vertex_buffers: &[DrawVertex::desc()],
             },
-            sample_count: 1, // 5.
-            sample_mask: !0, // 6.
+            sample_count: 1,                  // 5.
+            sample_mask: !0,                  // 6.
             alpha_to_coverage_enabled: false, // 7.
         });
 
@@ -382,32 +403,23 @@ impl Viewer {
         self.size = new_size;
         self.sc_desc.width = new_size.width;
         self.sc_desc.height = new_size.height;
-        self.depth_texture = texture::Texture::create_depth_texture(&self.device, &self.sc_desc, "depth_texture");
+        self.depth_texture =
+            texture::Texture::create_depth_texture(&self.device, &self.sc_desc, "depth_texture");
         self.swap_chain = self.device.create_swap_chain(&self.surface, &self.sc_desc);
     }
 
     // input() won't deal with GPU code, so it can be synchronous
     pub fn input(&mut self, event: &DeviceEvent) -> bool {
         match event {
-            DeviceEvent::MouseWheel {
-                delta,
-                ..
-            } => {
+            DeviceEvent::MouseWheel { delta, .. } => {
                 self.camera_controller.process_scroll(delta);
                 true
             }
-            DeviceEvent::Button {
-                button,
-                state,
-                ..
-            } => {
+            DeviceEvent::Button { button, state, .. } => {
                 self.mouse_pressed = *button == 0 && *state == ElementState::Pressed;
                 true
             }
-            DeviceEvent::MouseMotion {
-                delta,
-                ..
-            } => {
+            DeviceEvent::MouseMotion { delta, .. } => {
                 let (mouse_dx, mouse_dy) = delta;
                 if self.mouse_pressed {
                     self.camera_controller.process_mouse(*mouse_dx, *mouse_dy);
@@ -424,16 +436,24 @@ impl Viewer {
 
         // Copy operation's are performed on the gpu, so we'll need
         // a CommandEncoder for that
-        let mut encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-            label: Some("update encoder"),
-        });
+        let mut encoder = self
+            .device
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("update encoder"),
+            });
 
         let staging_buffer = self.device.create_buffer_with_data(
             bytemuck::cast_slice(&[self.uniforms]),
             wgpu::BufferUsage::COPY_SRC,
         );
 
-        encoder.copy_buffer_to_buffer(&staging_buffer, 0, &self.uniform_buffer, 0, std::mem::size_of::<Uniforms>() as wgpu::BufferAddress);
+        encoder.copy_buffer_to_buffer(
+            &staging_buffer,
+            0,
+            &self.uniform_buffer,
+            0,
+            std::mem::size_of::<Uniforms>() as wgpu::BufferAddress,
+        );
 
         // We need to remember to submit our CommandEncoder's output
         // otherwise we won't see any change.
@@ -441,28 +461,30 @@ impl Viewer {
     }
 
     pub fn render(&mut self) {
-        let frame = self.swap_chain.get_next_texture()
+        let frame = self
+            .swap_chain
+            .get_next_texture()
             .expect("Timeout getting texture");
-        let mut encoder = self.device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-            label: Some("Render Encoder"),
-        });
+        let mut encoder = self
+            .device
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("Render Encoder"),
+            });
 
         {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                color_attachments: &[
-                    wgpu::RenderPassColorAttachmentDescriptor {
-                        attachment: &frame.view,
-                        resolve_target: None,
-                        load_op: wgpu::LoadOp::Clear,
-                        store_op: wgpu::StoreOp::Store,
-                        clear_color: wgpu::Color {
-                            r: 0.1,
-                            g: 0.2,
-                            b: 0.3,
-                            a: 1.0,
-                        },
-                    }
-                ],
+                color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
+                    attachment: &frame.view,
+                    resolve_target: None,
+                    load_op: wgpu::LoadOp::Clear,
+                    store_op: wgpu::StoreOp::Store,
+                    clear_color: wgpu::Color {
+                        r: 0.1,
+                        g: 0.2,
+                        b: 0.3,
+                        a: 1.0,
+                    },
+                }],
                 depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachmentDescriptor {
                     attachment: &self.depth_texture.view,
                     depth_load_op: wgpu::LoadOp::Clear,
@@ -482,8 +504,6 @@ impl Viewer {
             }
         }
 
-        self.queue.submit(&[
-            encoder.finish()
-        ]);
+        self.queue.submit(&[encoder.finish()]);
     }
 }

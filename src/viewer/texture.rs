@@ -1,6 +1,5 @@
 use image::GenericImageView;
 
-
 pub struct Texture {
     pub texture: wgpu::Texture,
     pub view: wgpu::TextureView,
@@ -10,7 +9,11 @@ pub struct Texture {
 impl Texture {
     pub const DEPTH_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Depth32Float;
 
-    pub fn create_depth_texture(device: &wgpu::Device, sc_desc: &wgpu::SwapChainDescriptor, label: &str) -> Self {
+    pub fn create_depth_texture(
+        device: &wgpu::Device,
+        sc_desc: &wgpu::SwapChainDescriptor,
+        label: &str,
+    ) -> Self {
         let size = wgpu::Extent3d {
             width: sc_desc.width,
             height: sc_desc.height,
@@ -43,15 +46,27 @@ impl Texture {
             compare: wgpu::CompareFunction::LessEqual,
         });
 
-        Self { texture, view, sampler }
+        Self {
+            texture,
+            view,
+            sampler,
+        }
     }
 
-    pub fn from_bytes(device: &wgpu::Device, bytes: &[u8], label: &str) -> Result<(Self, wgpu::CommandBuffer), anyhow::Error> {
+    pub fn from_bytes(
+        device: &wgpu::Device,
+        bytes: &[u8],
+        label: &str,
+    ) -> Result<(Self, wgpu::CommandBuffer), anyhow::Error> {
         let img = image::load_from_memory(bytes)?;
         Self::from_image(device, &img, Some(label))
     }
 
-    pub fn from_image(device: &wgpu::Device, img: &image::DynamicImage, label: Option<&str>) -> Result<(Self, wgpu::CommandBuffer), anyhow::Error> {
+    pub fn from_image(
+        device: &wgpu::Device,
+        img: &image::DynamicImage,
+        label: Option<&str>,
+    ) -> Result<(Self, wgpu::CommandBuffer), anyhow::Error> {
         let rgba = img.as_rgba8().unwrap();
         let dimensions = img.dimensions();
 
@@ -71,10 +86,7 @@ impl Texture {
             usage: wgpu::TextureUsage::SAMPLED | wgpu::TextureUsage::COPY_DST,
         });
 
-        let buffer = device.create_buffer_with_data(
-            &rgba,
-            wgpu::BufferUsage::COPY_SRC,
-        );
+        let buffer = device.create_buffer_with_data(&rgba, wgpu::BufferUsage::COPY_SRC);
 
         let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
             label: Some("texture_buffer_copy_encoder"),
@@ -111,6 +123,13 @@ impl Texture {
             compare: wgpu::CompareFunction::Always,
         });
 
-        Ok((Self { texture, view, sampler }, cmd_buffer))
+        Ok((
+            Self {
+                texture,
+                view,
+                sampler,
+            },
+            cmd_buffer,
+        ))
     }
 }

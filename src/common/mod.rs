@@ -1,6 +1,6 @@
+use image::RgbImage;
 use std::collections::HashMap;
 use std::rc::Rc;
-use image::RgbImage;
 
 lazy_static::lazy_static! {
     pub static ref DEFAULT_RESOLUTION: glm::Vec2 = glm::vec2(1280.0, 720.0);
@@ -110,7 +110,8 @@ impl<'a> World {
     fn populate_meshes(&mut self, document: &gltf::Document, buffers: &[gltf::buffer::Data]) {
         for mesh in document.meshes() {
             for prim in mesh.primitives() {
-                self.mesh_prim_indice_map.insert([mesh.index(), prim.index()], self.meshes.len());
+                self.mesh_prim_indice_map
+                    .insert([mesh.index(), prim.index()], self.meshes.len());
 
                 let reader = prim.reader(|buffer| Some(&buffers[buffer.index()]));
                 self.meshes.push(Rc::new(Mesh {
@@ -121,12 +122,9 @@ impl<'a> World {
                         .unwrap()
                         .map(|vertex| glm::make_vec3(&vertex))
                         .collect(),
-                    normal: match reader
-                        .read_normals() {
-                        Some(normals) => normals
-                            .map(|normal| glm::make_vec3(&normal))
-                            .collect(),
-                        None => vec![]
+                    normal: match reader.read_normals() {
+                        Some(normals) => normals.map(|normal| glm::make_vec3(&normal)).collect(),
+                        None => vec![],
                     },
                 }));
             }
@@ -154,7 +152,12 @@ impl<'a> World {
                 };
                 self.camera = Camera::new(
                     &current_transform,
-                    &glm::perspective_zo(DEFAULT_RESOLUTION.x / DEFAULT_RESOLUTION.y, projection.yfov(), projection.znear(), zfar),
+                    &glm::perspective_zo(
+                        DEFAULT_RESOLUTION.x / DEFAULT_RESOLUTION.y,
+                        projection.yfov(),
+                        projection.znear(),
+                        zfar,
+                    ),
                     &DEFAULT_RESOLUTION,
                 );
             }
@@ -164,7 +167,9 @@ impl<'a> World {
                 self.objects.push(Object {
                     world_to_obj: glm::inverse(&current_transform),
                     obj_to_world: current_transform,
-                    mesh: Rc::clone(&self.meshes[self.mesh_prim_indice_map[&[mesh.index(), prim.index()]]]),
+                    mesh: Rc::clone(
+                        &self.meshes[self.mesh_prim_indice_map[&[mesh.index(), prim.index()]]],
+                    ),
                 });
             }
         }
@@ -215,20 +220,20 @@ mod tests {
         let test_cam_space = glm::inverse(&test_cam.cam_to_world) * test_world_space;
         let test_screen_space = test_cam.cam_to_screen * test_cam_space;
         approx::assert_relative_eq!(
-test_cam_space / test_cam_space.w,
-glm::vec4(0.0, 0.0, -glm::length( & glm::vec3(10.0, 10.0, 10.0)), 1.0),
-epsilon = 0.000_001
-);
+            test_cam_space / test_cam_space.w,
+            glm::vec4(0.0, 0.0, -glm::length(&glm::vec3(10.0, 10.0, 10.0)), 1.0),
+            epsilon = 0.000_001
+        );
 
         let z = glm::length(&glm::vec3(10.0, 10.0, 10.0));
         let z_screen =
             ((z - DEFAULT_Z_NEAR) * DEFAULT_Z_FAR) / ((DEFAULT_Z_FAR - DEFAULT_Z_NEAR) * z);
 
         approx::assert_relative_eq!(
-test_screen_space / test_screen_space.w,
-glm::vec4(0.0, 0.0, z_screen, 1.0),
-epsilon = 0.000_001
-);
+            test_screen_space / test_screen_space.w,
+            glm::vec4(0.0, 0.0, z_screen, 1.0),
+            epsilon = 0.000_001
+        );
     }
 
     #[test]
@@ -239,19 +244,19 @@ epsilon = 0.000_001
         let test_raster_space1 = test_cam.screen_to_raster * test_screen_space1;
 
         approx::assert_relative_eq!(
-test_raster_space1 / test_raster_space1.w,
-glm::vec4(DEFAULT_RESOLUTION.x, DEFAULT_RESOLUTION.y, 0.5, 1.0),
-epsilon = 0.000_001
-);
+            test_raster_space1 / test_raster_space1.w,
+            glm::vec4(DEFAULT_RESOLUTION.x, DEFAULT_RESOLUTION.y, 0.5, 1.0),
+            epsilon = 0.000_001
+        );
 
         let test_screen_space2 = glm::vec4(-1.0, -1.0, 0.5, 1.0);
         let test_raster_space2 = test_cam.screen_to_raster * test_screen_space2;
 
         approx::assert_relative_eq!(
-test_raster_space2 / test_raster_space2.w,
-glm::vec4(0.0, 0.0, 0.5, 1.0),
-epsilon = 0.000_001
-);
+            test_raster_space2 / test_raster_space2.w,
+            glm::vec4(0.0, 0.0, 0.5, 1.0),
+            epsilon = 0.000_001
+        );
     }
 
     #[test]
@@ -262,9 +267,9 @@ epsilon = 0.000_001
         let test_cam_space1 = test_cam.raster_to_cam * test_raster_space1;
 
         approx::assert_relative_eq!(
-test_cam_space1 / test_cam_space1.w,
-glm::vec4(0.0, 0.0, - 0.1, 1.0),
-epsilon = 0.000_001
-);
+            test_cam_space1 / test_cam_space1.w,
+            glm::vec4(0.0, 0.0, -0.1, 1.0),
+            epsilon = 0.000_001
+        );
     }
 }
