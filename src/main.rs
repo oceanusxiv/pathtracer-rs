@@ -28,8 +28,8 @@ fn main() {
     .get_matches();
 
     let scene_path = matches.value_of("SCENE").unwrap();
-    let mut world = common::World::from_gltf(scene_path);
-    let integrator = pathtracer::WhittedIntegrator::new();
+    let (world, mut camera) = common::World::from_gltf(scene_path);
+    let integrator = pathtracer::DirectLightingIntegrator::new();
 
     let event_loop = EventLoop::new();
     let window = WindowBuilder::new()
@@ -39,7 +39,7 @@ fn main() {
         )))
         .build(&event_loop)
         .unwrap();
-    let mut viewer = futures::executor::block_on(viewer::Viewer::new(&window, &world));
+    let mut viewer = futures::executor::block_on(viewer::Viewer::new(&window, &world, &camera));
 
     let mut last_render_time = std::time::Instant::now();
     let mut window_focused = true;
@@ -71,7 +71,7 @@ fn main() {
                             state: ElementState::Pressed,
                             virtual_keycode: Some(VirtualKeyCode::R),
                             ..
-                        } => integrator.render(&world, "/Users/eric/Downloads/duck.png"),
+                        } => integrator.render(&camera, "/Users/eric/Downloads/duck.png"),
                         _ => {}
                     },
                     WindowEvent::Resized(physical_size) => {
@@ -91,7 +91,7 @@ fn main() {
                 let now = std::time::Instant::now();
                 let dt = now - last_render_time;
                 last_render_time = now;
-                viewer.update(&mut world, dt);
+                viewer.update(&mut camera, dt);
                 viewer.render();
             }
             Event::MainEventsCleared => {

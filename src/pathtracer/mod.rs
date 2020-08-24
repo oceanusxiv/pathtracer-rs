@@ -1,5 +1,6 @@
 mod material;
 mod sampling;
+mod shape;
 
 use crate::common::{Bounds3, Camera, World};
 use material::Material;
@@ -48,14 +49,17 @@ impl Camera {
     }
 }
 
-pub struct WhittedIntegrator {}
+pub struct RenderScene {}
 
-impl WhittedIntegrator {
+pub trait Integrator {}
+pub struct DirectLightingIntegrator {}
+
+impl DirectLightingIntegrator {
     pub fn new() -> Self {
-        WhittedIntegrator {}
+        DirectLightingIntegrator {}
     }
 
-    pub fn render(&self, world: &World, out_path: &str) {
-        world.camera.image.save(out_path);
+    pub fn render(&self, camera: &Camera, out_path: &str) {
+        camera.image.save(out_path);
     }
 }

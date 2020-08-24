@@ -38,6 +38,23 @@ impl Camera {
             image: Box::new(RgbImage::new(resolution.x, resolution.y)),
         }
     }
+
+    pub fn default() -> Camera {
+        Camera::new(
+            &glm::inverse(&glm::look_at(
+                &glm::vec3(0.2, 0.05, 0.2),
+                &glm::vec3(0.0, 0.0, 0.0),
+                &glm::vec3(0.0, 1.0, 0.0),
+            )),
+            &glm::perspective_zo(
+                DEFAULT_RESOLUTION.x / DEFAULT_RESOLUTION.y,
+                std::f32::consts::FRAC_PI_2,
+                DEFAULT_Z_NEAR,
+                DEFAULT_Z_FAR,
+            ),
+            &DEFAULT_RESOLUTION,
+        )
+    }
 }
 
 pub struct Mesh {
@@ -63,48 +80,42 @@ pub struct Object {
 pub trait Light {}
 
 pub struct World {
-    pub camera: Camera,
     pub objects: Vec<Object>,
     pub meshes: Vec<Rc<Mesh>>,
 
     mesh_prim_indice_map: HashMap<[usize; 2], usize>,
 }
 
-impl<'a> World {
-    pub fn new() -> World {
+impl World {
+    fn empty() -> World {
         World {
-            camera: Camera::new(
-                &glm::inverse(&glm::look_at(
-                    &glm::vec3(0.2, 0.05, 0.2),
-                    &glm::vec3(0.0, 0.0, 0.0),
-                    &glm::vec3(0.0, 1.0, 0.0),
-                )),
-                &glm::perspective_zo(
-                    DEFAULT_RESOLUTION.x / DEFAULT_RESOLUTION.y,
-                    std::f32::consts::FRAC_PI_2,
-                    DEFAULT_Z_NEAR,
-                    DEFAULT_Z_FAR,
-                ),
-                &DEFAULT_RESOLUTION,
-            ),
             objects: vec![],
             meshes: vec![],
             mesh_prim_indice_map: HashMap::new(),
         }
     }
 
-    pub fn from_gltf(path: &str) -> World {
+    pub fn from_gltf(path: &str) -> (World, Camera) {
         let (document, buffers, images) = gltf::import(path).unwrap();
 
-        let mut world = World::new();
+        let mut camera = Camera::default();
+        let mut world = World::empty();
         world.populate_meshes(&document, &buffers);
         for scene in document.scenes() {
             for node in scene.nodes() {
-                world.populate_scene(&glm::identity(), &node, &buffers);
+                world.populate_scene(&glm::identity(), &node);
+
+                if let Some(curr_cam) = World::get_camera(&glm::identity(), &node) {
+                    camera = curr_cam;
+                }
             }
         }
 
-        world
+        (world, camera)
+    }
+
+    fn populate_materials(&mut self, document: &gltf::Document) {
+        for material in document.materials() {}
     }
 
     fn populate_meshes(&mut self, document: &gltf::Document, buffers: &[gltf::buffer::Data]) {
@@ -131,12 +142,7 @@ impl<'a> World {
         }
     }
 
-    fn populate_scene(
-        &mut self,
-        parent_transform: &glm::Mat4,
-        current_node: &gltf::Node,
-        buffers: &[gltf::buffer::Data],
-    ) {
+    fn get_camera(parent_transform: &glm::Mat4, current_node: &gltf::Node) -> Option<Camera> {
         let current_transform = *parent_transform * from_gltf(current_node.transform());
         if let Some(camera) = current_node.camera() {
             if let gltf::camera::Projection::Perspective(projection) = camera.projection() {
@@ -150,7 +156,7 @@ impl<'a> World {
                 } else {
                     std::f32::consts::FRAC_PI_2
                 };
-                self.camera = Camera::new(
+                return Some(Camera::new(
                     &current_transform,
                     &glm::perspective_zo(
                         DEFAULT_RESOLUTION.x / DEFAULT_RESOLUTION.y,
@@ -159,9 +165,25 @@ impl<'a> World {
                         zfar,
                     ),
                     &DEFAULT_RESOLUTION,
-                );
+                ));
+            } else {
+                for child in current_node.children() {
+                    return World::get_camera(&current_transform, &child);
+                }
+
+                None
             }
+        } else {
+            for child in current_node.children() {
+                return World::get_camera(&current_transform, &child);
+            }
+
+            None
         }
+    }
+
+    fn populate_scene(&mut self, parent_transform: &glm::Mat4, current_node: &gltf::Node) {
+        let current_transform = *parent_transform * from_gltf(current_node.transform());
         if let Some(mesh) = current_node.mesh() {
             for prim in mesh.primitives() {
                 self.objects.push(Object {
@@ -175,14 +197,8 @@ impl<'a> World {
         }
 
         for child in current_node.children() {
-            self.populate_scene(&current_transform, &child, buffers);
+            self.populate_scene(&current_transform, &child);
         }
-    }
-
-    pub fn with_camera(&'a mut self, camera: Camera) -> &'a mut World {
-        self.camera = camera;
-
-        self
     }
 }
 

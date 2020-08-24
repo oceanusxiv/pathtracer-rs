@@ -239,7 +239,7 @@ pub struct Viewer {
 }
 
 impl Viewer {
-    pub async fn new(window: &Window, world: &World) -> Self {
+    pub async fn new(window: &Window, world: &World, camera: &Camera) -> Self {
         let camera_controller = OrbitalCameraController::new(glm::vec3(0.0, 0.0, 0.0), 50.0, 0.01);
 
         let size = window.inner_size();
@@ -281,7 +281,7 @@ impl Viewer {
         let (vs_module, fs_module) = shaders::phong::compile_phong_shaders(&mut compiler, &device);
 
         let mut uniforms = Uniforms::new();
-        uniforms.update_view_proj(&world.camera);
+        uniforms.update_view_proj(&camera);
 
         let uniform_buffer = device.create_buffer_with_data(
             bytemuck::cast_slice(&[uniforms]),
@@ -430,9 +430,9 @@ impl Viewer {
         }
     }
 
-    pub fn update(&mut self, world: &mut World, dt: std::time::Duration) {
-        self.camera_controller.update_camera(&mut world.camera, dt);
-        self.uniforms.update_view_proj(&world.camera);
+    pub fn update(&mut self, camera: &mut Camera, dt: std::time::Duration) {
+        self.camera_controller.update_camera(camera, dt);
+        self.uniforms.update_view_proj(camera);
 
         // Copy operation's are performed on the gpu, so we'll need
         // a CommandEncoder for that
