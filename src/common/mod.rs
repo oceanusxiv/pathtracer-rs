@@ -1,9 +1,8 @@
-use image::RgbImage;
 use std::collections::HashMap;
 use std::rc::Rc;
 
 lazy_static::lazy_static! {
-    pub static ref DEFAULT_RESOLUTION: glm::Vec2 = glm::vec2(1280.0, 720.0);
+    pub static ref DEFAULT_RESOLUTION: glm::Vec2 = glm::vec2(352.0, 240.0);
 }
 
 static DEFAULT_Z_NEAR: f32 = 0.1;
@@ -15,7 +14,6 @@ pub struct Camera {
     pub screen_to_raster: glm::Mat4,
     pub raster_to_screen: glm::Mat4,
     pub raster_to_cam: glm::Mat4,
-    pub image: Box<RgbImage>,
 }
 
 impl Camera {
@@ -24,9 +22,13 @@ impl Camera {
         cam_to_screen: &glm::Mat4,
         resolution: &glm::Vec2,
     ) -> Camera {
-        let screen_to_raster =
-            glm::scaling(&glm::vec3(resolution.x * 0.5, resolution.y * 0.5, 1.0))
-                * glm::translation(&glm::vec3(1.0, 1.0, 0.0));
+        let screen_to_raster = glm::scaling(&glm::vec3(resolution.x, resolution.y, 1.0))
+            * glm::scaling(&glm::vec3(
+                1.0 / (2.0 * resolution.x / resolution.y),
+                1.0 / -2.0,
+                1.0,
+            ))
+            * glm::translation(&glm::vec3(-(resolution.x / resolution.y), -1.0, 0.0));
         let raster_to_screen = glm::inverse(&screen_to_raster);
         let resolution = glm::vec2(resolution.x as u32, resolution.y as u32);
         Camera {
@@ -35,7 +37,6 @@ impl Camera {
             screen_to_raster,
             raster_to_screen,
             raster_to_cam: glm::inverse(&cam_to_screen) * raster_to_screen,
-            image: Box::new(RgbImage::new(resolution.x, resolution.y)),
         }
     }
 
@@ -56,20 +57,13 @@ impl Camera {
         )
     }
 }
-
+#[derive(Clone, Debug)]
 pub struct Mesh {
     pub index: usize,
     pub indices: Vec<u32>,
     pub pos: Vec<glm::Vec3>,
     pub normal: Vec<glm::Vec3>,
 }
-
-pub struct TBounds3<T: glm::Scalar> {
-    pub p_min: glm::TVec3<T>,
-    pub p_max: glm::TVec3<T>,
-}
-
-pub type Bounds3 = TBounds3<f32>;
 
 pub struct Object {
     pub world_to_obj: glm::Mat4,

@@ -29,6 +29,7 @@ fn main() {
 
     let scene_path = matches.value_of("SCENE").unwrap();
     let (world, mut camera) = common::World::from_gltf(scene_path);
+    let render_scene = pathtracer::RenderScene::from_world(&world);
     let integrator = pathtracer::DirectLightingIntegrator::new();
 
     let event_loop = EventLoop::new();
@@ -71,7 +72,11 @@ fn main() {
                             state: ElementState::Pressed,
                             virtual_keycode: Some(VirtualKeyCode::R),
                             ..
-                        } => integrator.render(&camera, "/Users/eric/Downloads/duck.png"),
+                        } => integrator.render(
+                            &camera,
+                            &render_scene,
+                            "/Users/eric/Downloads/duck.png",
+                        ),
                         _ => {}
                     },
                     WindowEvent::Resized(physical_size) => {
