@@ -1,4 +1,5 @@
 extern crate nalgebra_glm as glm;
+extern crate nalgebra as na;
 
 mod common;
 mod pathtracer;
@@ -75,7 +76,7 @@ fn main() {
                         } => integrator.render(
                             &camera,
                             &render_scene,
-                            "/Users/eric/Downloads/duck.png",
+                            "/home/eric/Downloads/duck.png",
                         ),
                         _ => {}
                     },

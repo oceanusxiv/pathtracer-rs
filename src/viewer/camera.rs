@@ -39,7 +39,7 @@ impl OrbitalCameraController {
         let dt = dt.as_secs_f32();
 
         let mut cam_pos =
-            glm::make_vec4(camera.cam_to_world.column(3).as_slice()).xyz() - self.pivot; // relative to pivot
+            camera.cam_to_world.translation.vector - self.pivot; // relative to pivot
 
         let vert_axis = glm::cross(&cam_pos, &glm::vec3(0.0f32, 1.0f32, 0.0f32));
         let horz_axis = glm::cross(&cam_pos, &vert_axis);
@@ -57,11 +57,11 @@ impl OrbitalCameraController {
             * 0.1_f32.max(glm::length(&cam_pos) * (1.0 + self.scroll * self.zoom_speed * dt));
 
         cam_pos += &self.pivot; // retransform back to global frame
-        camera.cam_to_world = glm::inverse(&glm::look_at(
-            &cam_pos,
-            &self.pivot,
+        camera.cam_to_world = na::Isometry3::look_at_rh(
+            &na::Point3::from(cam_pos),
+            &na::Point3::from(self.pivot),
             &glm::vec3(0.0, 1.0, 0.0),
-        ));
+        ).inverse();
 
         self.rotate_horizontal = 0.0;
         self.rotate_vertical = 0.0;

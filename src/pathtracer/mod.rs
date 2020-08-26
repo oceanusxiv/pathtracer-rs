@@ -39,15 +39,16 @@ fn permute<N: glm::Scalar + std::marker::Copy>(
 ) -> glm::TVec3<N> {
     glm::vec3(p[x], p[y], p[z])
 }
+
 #[derive(Clone, Debug)]
 pub struct Ray {
-    pub o: glm::Vec3,
-    pub d: glm::Vec3,
+    pub o: na::Point3<f32>,
+    pub d: na::Vector3<f32>,
     pub t_max: RefCell<f32>,
 }
 
 impl Ray {
-    pub fn point_at(&self, t: f32) -> glm::Vec3 {
+    pub fn point_at(&self, t: f32) -> na::Point3<f32> {
         self.o + self.d * t
     }
 }
@@ -70,13 +71,14 @@ pub trait Sampler {}
 
 impl Camera {
     pub fn generate_ray(&self, film_point: glm::Vec2) -> Ray {
-        let cam_dir = self.raster_to_cam * glm::vec4(film_point.x, film_point.y, 0.0, 1.0);
-        let cam_orig = glm::vec4(0.0, 0.0, 0.0, 1.0);
+        let mut cam_dir = self.cam_to_screen.unproject_point(&(self.raster_to_screen * na::Point3::new(film_point.x, film_point.y, 0.0)));
+
+        let cam_orig = na::Point3::<f32>::new(0.0, 0.0, 0.0);
         let world_orig = self.cam_to_world * cam_orig;
-        let world_dir = self.cam_to_world * cam_dir;
+        let world_dir = self.cam_to_world * cam_dir.coords;
         Ray {
-            o: world_orig.xyz() / world_orig.w,
-            d: glm::normalize(&(world_dir.xyz() / world_dir.w)),
+            o: world_orig,
+            d: world_dir.normalize(),
             t_max: RefCell::new(std::f32::INFINITY),
         }
     }
@@ -119,6 +121,7 @@ impl RenderScene {
 }
 
 pub trait Integrator {}
+
 pub struct DirectLightingIntegrator {}
 
 impl DirectLightingIntegrator {
@@ -131,13 +134,13 @@ impl DirectLightingIntegrator {
             super::common::DEFAULT_RESOLUTION.x as u32,
             super::common::DEFAULT_RESOLUTION.y as u32,
         ));
-        
+
         println!(
             "start rendering image of size: {:?} x {:?}",
             film.image.width(),
             film.image.height()
         );
-        println!("{:?}", &glm::make_vec4(camera.cam_to_world.column(3).as_slice()).xyz());
+        println!("{:?}", &camera.cam_to_world.translation);
         let mut intersections = 0;
         // let bar = ProgressBar::new((film.image.width() * film.image.height()) as u64);
         for (x, y, pixel) in film.image.enumerate_pixels_mut() {
@@ -145,7 +148,7 @@ impl DirectLightingIntegrator {
             if let Some(isect) = scene.scene.intersect(&ray) {
                 // println!("{:?}, {:?}, {:?}, {:?}", x, y, &ray, isect.p);
                 *pixel = image::Rgb([255u8, 255u8, 255u8]);
-                intersections+=1;
+                intersections += 1;
             }
             // bar.inc(1);
         }

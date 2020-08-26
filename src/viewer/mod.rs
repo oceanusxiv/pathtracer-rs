@@ -176,15 +176,15 @@ impl DrawMeshInstances {
 }
 
 pub trait DrawModel<'a, 'b>
-where
-    'b: 'a,
+    where
+        'b: 'a,
 {
     fn draw_mesh_instances(&mut self, mesh: &'b DrawMeshInstances);
 }
 
 impl<'a, 'b> DrawModel<'a, 'b> for wgpu::RenderPass<'a>
-where
-    'b: 'a,
+    where
+        'b: 'a,
 {
     fn draw_mesh_instances(&mut self, mesh_instances: &'b DrawMeshInstances) {
         self.set_bind_group(1, &mesh_instances.instances_bind_group, &[]);
@@ -217,7 +217,7 @@ impl Uniforms {
 
     fn update_view_proj(&mut self, camera: &Camera) {
         self.view_proj =
-            *OPENGL_TO_WGPU_MATRIX * camera.cam_to_screen * glm::inverse(&camera.cam_to_world);
+            *OPENGL_TO_WGPU_MATRIX * (camera.cam_to_screen.to_projective() * camera.cam_to_world.inverse()).to_homogeneous();
     }
 }
 
@@ -253,8 +253,8 @@ impl Viewer {
             },
             wgpu::BackendBit::PRIMARY, // Vulkan + Metal + DX12 + Browser WebGPU
         )
-        .await
-        .unwrap();
+            .await
+            .unwrap();
 
         println!("{:?}", adapter.get_info());
 
@@ -416,7 +416,7 @@ impl Viewer {
                 true
             }
             DeviceEvent::Button { button, state, .. } => {
-                self.mouse_pressed = *button == 0 && *state == ElementState::Pressed;
+                self.mouse_pressed = (*button == 0 || *button == 1) && *state == ElementState::Pressed;
                 true
             }
             DeviceEvent::MouseMotion { delta, .. } => {

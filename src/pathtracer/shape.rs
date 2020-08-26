@@ -25,9 +25,9 @@ impl Shape for Triangle {
         // transform triangle vertices to ray coordinate space
 
         // translate vertices based on ray origin
-        let mut p0t: glm::Vec3 = p0 - r.o;
-        let mut p1t: glm::Vec3 = p1 - r.o;
-        let mut p2t: glm::Vec3 = p2 - r.o;
+        let mut p0t: glm::Vec3 = p0 - r.o.coords;
+        let mut p1t: glm::Vec3 = p1 - r.o.coords;
+        let mut p2t: glm::Vec3 = p2 - r.o.coords;
         // permute components of triangle vertices and ray direction
         let kz = max_dimension(&glm::abs(&r.d));
         let mut kx = kz + 1;
