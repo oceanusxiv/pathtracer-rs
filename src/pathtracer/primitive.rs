@@ -1,8 +1,10 @@
 use super::shape::Shape;
 use super::{Bounds3, Material, Ray, SurfaceInteraction};
+use std::rc::Rc;
 pub trait Primitive {
     fn intersect(&self, r: &Ray) -> Option<SurfaceInteraction>;
     // fn intersect_p(r: &Ray) -> bool;
+    fn world_bound(&self) -> Bounds3;
 }
 
 pub struct GeometricPrimitive {
@@ -18,14 +20,18 @@ impl Primitive for GeometricPrimitive {
             None
         }
     }
+
+    fn world_bound(&self) -> Bounds3 {
+        self.shape.world_bound()
+    }
 }
 
 pub struct Aggregate {
-    primitives: Vec<Box<dyn Primitive>>,
+    primitives: Vec<Rc<dyn Primitive>>,
 }
 
 impl Aggregate {
-    pub fn new(primitives: Vec<Box<dyn Primitive>>) -> Self {
+    pub fn new(primitives: Vec<Rc<dyn Primitive>>) -> Self {
         Aggregate { primitives }
     }
 }
@@ -41,5 +47,9 @@ impl Primitive for Aggregate {
         }
 
         isect_final
+    }
+
+    fn world_bound(&self) -> Bounds3 {
+        unimplemented!()
     }
 }

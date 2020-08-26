@@ -1,9 +1,10 @@
-use super::{gamma, max_dimension, permute, Ray, SurfaceInteraction};
+use super::{gamma, max_dimension, permute, Bounds3, Ray, SurfaceInteraction};
 use crate::common::{Mesh, Object};
 use std::rc::Rc;
 
 pub trait Shape {
     fn intersect(&self, r: &Ray) -> Option<(f32, SurfaceInteraction)>;
+    fn world_bound(&self) -> Bounds3;
 }
 
 pub struct Triangle {
@@ -135,7 +136,7 @@ impl Shape for Triangle {
         let p_error: glm::Vec3 = gamma(7) * glm::vec3(x_abs_sum, y_abs_sum, z_abs_sum);
 
         // Interpolate (u,v) parametric coordinates and hit point
-        let p_hit= b0 * p0.coords + b1 * p1.coords  + b2 * p2.coords;
+        let p_hit = b0 * p0.coords + b1 * p1.coords + b2 * p2.coords;
 
         Some((
             t,
@@ -146,6 +147,13 @@ impl Shape for Triangle {
                 n: glm::normalize(&glm::cross(&dp02, &dp12)),
             },
         ))
+    }
+
+    fn world_bound(&self) -> Bounds3 {
+        let p0 = self.mesh.pos[self.indices[0] as usize];
+        let p1 = self.mesh.pos[self.indices[1] as usize];
+        let p2 = self.mesh.pos[self.indices[2] as usize];
+        Bounds3::union_p(&Bounds3::new(p0, p1), p2)
     }
 }
 

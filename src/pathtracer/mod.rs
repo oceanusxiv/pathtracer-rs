@@ -1,3 +1,4 @@
+mod accelerator;
 mod material;
 mod primitive;
 mod sampling;
@@ -8,6 +9,7 @@ use image::RgbImage;
 use indicatif::ProgressBar;
 use material::Material;
 use std::cell::RefCell;
+use std::rc::Rc;
 
 const MACHINE_EPSILON: f32 = std::f32::EPSILON * 0.5;
 
@@ -53,12 +55,141 @@ impl Ray {
     }
 }
 
-pub struct TBounds3<T: glm::Scalar> {
-    pub p_min: glm::TVec3<T>,
-    pub p_max: glm::TVec3<T>,
+pub fn min_p<T: na::Scalar + num::Float>(p1: &na::Point3<T>, p2: &na::Point3<T>) -> na::Point3<T> {
+    na::Point3::new(
+        num::Float::min(p1.x, p2.x),
+        num::Float::min(p1.y, p2.y),
+        num::Float::min(p1.z, p2.z),
+    )
+}
+
+pub fn max_p<T: na::Scalar + num::Float>(p1: &na::Point3<T>, p2: &na::Point3<T>) -> na::Point3<T> {
+    na::Point3::new(
+        num::Float::max(p1.x, p2.x),
+        num::Float::max(p1.y, p2.y),
+        num::Float::max(p1.z, p2.z),
+    )
+}
+pub struct TBounds3<T: na::Scalar> {
+    pub p_min: na::Point3<T>,
+    pub p_max: na::Point3<T>,
+}
+
+impl<T: na::Scalar + num::Bounded + std::marker::Copy> TBounds3<T> {
+    fn new(p_min: na::Point3<T>, p_max: na::Point3<T>) -> Self {
+        TBounds3 { p_min, p_max }
+    }
+
+    fn empty() -> Self {
+        let min_num = T::min_value();
+        let max_num = T::max_value();
+
+        TBounds3 {
+            p_min:  na::Point3::new(max_num, max_num, max_num),
+            p_max: na::Point3::new(min_num, min_num, min_num),
+        }
+    }
 }
 
 pub type Bounds3 = TBounds3<f32>;
+
+impl<T: na::Scalar> std::ops::Index<usize> for TBounds3<T> {
+    type Output = na::Point3<T>;
+
+    fn index(&self, i: usize) -> &Self::Output {
+        if i == 0 {
+            &self.p_min
+        } else {
+            &self.p_max
+        }
+    }
+}
+
+impl<T: na::Scalar + num::Float> TBounds3<T> {
+    pub fn union(b1: &TBounds3<T>, b2: TBounds3<T>) -> TBounds3<T> {
+        TBounds3 {
+            p_min: min_p(&b1.p_min, &b2.p_min),
+            p_max: max_p(&b1.p_max, &b2.p_max),
+        }
+    }
+
+    pub fn union_p(b: &TBounds3<T>, p: na::Point3<T>) -> TBounds3<T> {
+        TBounds3 {
+            p_min: min_p(&b.p_min, &p),
+            p_max: max_p(&b.p_max, &p),
+        }
+    }
+}
+
+impl Bounds3 {
+    pub fn intersect_p(&self, r: &Ray) -> Option<(f32, f32)> {
+        let mut t0 = 0.0;
+        let mut t1 = *r.t_max.borrow();
+
+        for i in 0..3usize {
+            let inv_ray_dir: f32 = 1.0 / r.d[i];
+            let mut t_near: f32 = (self.p_min[i] - r.o[i]) * inv_ray_dir;
+            let mut t_far: f32 = (self.p_max[i] - r.o[i]) * inv_ray_dir;
+
+            if t_near > t_far {
+                std::mem::swap(&mut t_near, &mut t_far);
+            }
+
+            t_far *= 1.0 + 2.0 * gamma(3);
+            t0 = if t_near > t0 { t_near } else { t0 };
+            t1 = if t_far < t1 { t_far } else { t1 };
+            if t0 > t1 {
+                return None;
+            }
+        }
+
+        Some((t0, t1))
+    }
+
+    pub fn intersect_p_precomp(
+        &self,
+        r: &Ray,
+        inv_dir: &na::Vector3<f32>,
+        dir_is_neg: &[usize; 3],
+    ) -> bool {
+        // Check for ray intersection against $x$ and $y$ slabs
+        let mut t_min = (self[dir_is_neg[0]].x - r.o.x) * inv_dir.x;
+        let mut t_max = (self[1 - dir_is_neg[0]].x - r.o.x) * inv_dir.x;
+        let ty_min = (self[dir_is_neg[1]].y - r.o.y) * inv_dir.y;
+        let mut ty_max = (self[1 - dir_is_neg[1]].y - r.o.y) * inv_dir.y;
+
+        // Update _tMax_ and _tyMax_ to ensure robust bounds intersection
+        t_max *= 1.0 + 2.0 * gamma(3);
+        ty_max *= 1.0 + 2.0 * gamma(3);
+        if t_min > ty_max || ty_min > t_max {
+            return false;
+        };
+        if ty_min > t_min {
+            t_min = ty_min
+        };
+        if ty_max < t_max {
+            t_max = ty_max
+        };
+
+        // Check for ray intersection against $z$ slab
+        let tz_min = (self[dir_is_neg[2]].z - r.o.z) * inv_dir.z;
+        let mut tz_max = (self[1 - dir_is_neg[2]].z - r.o.z) * inv_dir.z;
+
+        // Update _tzMax_ to ensure robust bounds intersection
+        tz_max *= 1.0 + 2.0 * gamma(3);
+        if t_min > tz_max || tz_min > t_max {
+            return false;
+        };
+        if tz_min > t_min {
+            t_min = tz_min
+        };
+        if tz_max < t_max {
+            t_max = tz_max
+        };
+
+        (t_min < *r.t_max.borrow()) && (t_max > 0.0)
+    }
+}
 
 pub struct SurfaceInteraction {
     pub p: glm::Vec3,
@@ -71,7 +202,9 @@ pub trait Sampler {}
 
 impl Camera {
     pub fn generate_ray(&self, film_point: glm::Vec2) -> Ray {
-        let mut cam_dir = self.cam_to_screen.unproject_point(&(self.raster_to_screen * na::Point3::new(film_point.x, film_point.y, 0.0)));
+        let mut cam_dir = self.cam_to_screen.unproject_point(
+            &(self.raster_to_screen * na::Point3::new(film_point.x, film_point.y, 0.0)),
+        );
 
         let cam_orig = na::Point3::<f32>::new(0.0, 0.0, 0.0);
         let world_orig = self.cam_to_world * cam_orig;
@@ -106,11 +239,11 @@ pub struct RenderScene {
 
 impl RenderScene {
     pub fn from_world(world: &World) -> Self {
-        let mut primitives: Vec<Box<dyn primitive::Primitive>> = Vec::new();
+        let mut primitives: Vec<Rc<dyn primitive::Primitive>> = Vec::new();
 
         for obj in &world.objects {
             for shape in obj.mesh.to_shapes(&obj) {
-                primitives.push(Box::new(primitive::GeometricPrimitive { shape }))
+                primitives.push(Rc::new(primitive::GeometricPrimitive { shape }))
             }
         }
 
