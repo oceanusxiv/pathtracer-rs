@@ -4,7 +4,7 @@ mod primitive;
 mod sampling;
 mod shape;
 
-use crate::common::{Camera, World};
+use crate::common::{Camera, World, TBounds3, Bounds3};
 use image::RgbImage;
 use indicatif::ProgressBar;
 use material::Material;
@@ -55,45 +55,63 @@ impl Ray {
     }
 }
 
-pub fn min_p<T: na::Scalar + num::Float>(p1: &na::Point3<T>, p2: &na::Point3<T>) -> na::Point3<T> {
+pub fn min_p<T: na::RealField>(p1: &na::Point3<T>, p2: &na::Point3<T>) -> na::Point3<T> {
     na::Point3::new(
-        num::Float::min(p1.x, p2.x),
-        num::Float::min(p1.y, p2.y),
-        num::Float::min(p1.z, p2.z),
+        na::RealField::min(p1.x, p2.x),
+        na::RealField::min(p1.y, p2.y),
+        na::RealField::min(p1.z, p2.z),
     )
 }
 
-pub fn max_p<T: na::Scalar + num::Float>(p1: &na::Point3<T>, p2: &na::Point3<T>) -> na::Point3<T> {
+pub fn max_p<T: na::RealField>(p1: &na::Point3<T>, p2: &na::Point3<T>) -> na::Point3<T> {
     na::Point3::new(
-        num::Float::max(p1.x, p2.x),
-        num::Float::max(p1.y, p2.y),
-        num::Float::max(p1.z, p2.z),
+        na::RealField::max(p1.x, p2.x),
+        na::RealField::max(p1.y, p2.y),
+        na::RealField::max(p1.z, p2.z),
     )
 }
-pub struct TBounds3<T: na::Scalar> {
-    pub p_min: na::Point3<T>,
-    pub p_max: na::Point3<T>,
-}
 
-impl<T: na::Scalar + num::Bounded + std::marker::Copy> TBounds3<T> {
-    fn new(p_min: na::Point3<T>, p_max: na::Point3<T>) -> Self {
-        TBounds3 { p_min, p_max }
-    }
-
+impl<T: na::RealField + na::ClosedSub + num::FromPrimitive> TBounds3<T> {
     fn empty() -> Self {
         let min_num = T::min_value();
         let max_num = T::max_value();
 
         TBounds3 {
-            p_min:  na::Point3::new(max_num, max_num, max_num),
+            p_min: na::Point3::new(max_num, max_num, max_num),
             p_max: na::Point3::new(min_num, min_num, min_num),
         }
     }
+
+    fn diagonal(&self) -> na::Vector3<T> {
+        self.p_max.coords - self.p_min.coords
+    }
+
+    fn maximum_extent(&self) -> usize {
+        self.diagonal().imax()
+    }
+
+    fn offset(&self, p: &na::Point3<T>) -> na::Vector3<T> {
+        let mut o = p - self.p_min;
+        if self.p_max.x > self.p_min.x {
+            o.x /= self.p_max.x - self.p_min.x;
+        }
+        if self.p_max.y > self.p_min.y {
+            o.y /= self.p_max.y - self.p_min.y;
+        }
+        if self.p_max.z > self.p_min.z {
+            o.z /= self.p_max.z - self.p_min.z;
+        }
+
+        o
+    }
+
+    fn surface_area(&self) -> T {
+        let d = self.diagonal();
+        T::from_f64(2.0).unwrap() * (d.x * d.y + d.x * d.z + d.y * d.z)
+    }
 }
 
-pub type Bounds3 = TBounds3<f32>;
-
-impl<T: na::Scalar> std::ops::Index<usize> for TBounds3<T> {
+impl<T: na::RealField> std::ops::Index<usize> for TBounds3<T> {
     type Output = na::Point3<T>;
 
     fn index(&self, i: usize) -> &Self::Output {
@@ -105,15 +123,15 @@ impl<T: na::Scalar> std::ops::Index<usize> for TBounds3<T> {
     }
 }
 
-impl<T: na::Scalar + num::Float> TBounds3<T> {
-    pub fn union(b1: &TBounds3<T>, b2: TBounds3<T>) -> TBounds3<T> {
+impl<T: na::RealField> TBounds3<T> {
+    pub fn union(b1: &TBounds3<T>, b2: &TBounds3<T>) -> TBounds3<T> {
         TBounds3 {
             p_min: min_p(&b1.p_min, &b2.p_min),
             p_max: max_p(&b1.p_max, &b2.p_max),
         }
     }
 
-    pub fn union_p(b: &TBounds3<T>, p: na::Point3<T>) -> TBounds3<T> {
+    pub fn union_p(b: &TBounds3<T>, p: &na::Point3<T>) -> TBounds3<T> {
         TBounds3 {
             p_min: min_p(&b.p_min, &p),
             p_max: max_p(&b.p_max, &p),
@@ -273,7 +291,6 @@ impl DirectLightingIntegrator {
             film.image.width(),
             film.image.height()
         );
-        println!("{:?}", &camera.cam_to_world.translation);
         let mut intersections = 0;
         let bar = ProgressBar::new((film.image.width() * film.image.height()) as u64);
         for (x, y, pixel) in film.image.enumerate_pixels_mut() {

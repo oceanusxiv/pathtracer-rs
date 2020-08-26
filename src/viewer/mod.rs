@@ -1,10 +1,15 @@
 mod camera;
+mod mesh;
+mod pipeline;
 mod shaders;
 mod texture;
+mod vertex;
 
-use crate::common::{Camera, Mesh, World};
+use crate::common::{Camera, World};
 use camera::OrbitalCameraController;
-use itertools::{zip_eq, Itertools};
+use itertools::Itertools;
+use mesh::{DrawMesh, DrawMeshInstances, Instance};
+use vertex::{Vertex, VertexPosNorm};
 use winit::{event::*, window::Window};
 
 lazy_static::lazy_static! {
@@ -17,174 +22,16 @@ lazy_static::lazy_static! {
     );
 }
 
-pub trait Vertex {
-    fn desc<'a>() -> wgpu::VertexBufferDescriptor<'a>;
-}
-
-#[repr(C)]
-#[derive(Copy, Clone, Debug)]
-pub struct DrawVertex {
-    position: glm::Vec3,
-    normal: glm::Vec3,
-}
-
-unsafe impl bytemuck::Zeroable for DrawVertex {}
-
-unsafe impl bytemuck::Pod for DrawVertex {}
-
-impl From<(&na::Point3<f32>, &na::Vector3<f32>)> for DrawVertex {
-    fn from(pair: (&na::Point3<f32>, &na::Vector3<f32>)) -> Self {
-        let (position, normal) = pair;
-        DrawVertex {
-            position: position.coords,
-            normal: *normal,
-        }
-    }
-}
-
-impl Vertex for DrawVertex {
-    fn desc<'a>() -> wgpu::VertexBufferDescriptor<'a> {
-        wgpu::VertexBufferDescriptor {
-            stride: std::mem::size_of::<DrawVertex>() as wgpu::BufferAddress,
-            step_mode: wgpu::InputStepMode::Vertex,
-            attributes: &[
-                wgpu::VertexAttributeDescriptor {
-                    offset: 0,
-                    shader_location: 0,
-                    format: wgpu::VertexFormat::Float3,
-                },
-                wgpu::VertexAttributeDescriptor {
-                    offset: std::mem::size_of::<glm::Vec3>() as wgpu::BufferAddress,
-                    shader_location: 1,
-                    format: wgpu::VertexFormat::Float3,
-                },
-            ],
-        }
-    }
-}
-
-pub struct DrawMesh {
-    pub index: usize,
-    pub vertex_buffer: wgpu::Buffer,
-    pub index_buffer: wgpu::Buffer,
-    pub num_elements: usize,
-}
-
-impl DrawMesh {
-    pub fn from_mesh(device: &wgpu::Device, mesh: &Mesh) -> Self {
-        let vertices = zip_eq(&mesh.pos, &mesh.normal)
-            .map_into::<DrawVertex>()
-            .collect_vec();
-
-        let vertex_buffer = device.create_buffer_with_data(
-            bytemuck::cast_slice(&vertices[..]),
-            wgpu::BufferUsage::VERTEX,
-        );
-
-        let index_buffer = device.create_buffer_with_data(
-            bytemuck::cast_slice(&mesh.indices[..]),
-            wgpu::BufferUsage::INDEX,
-        );
-
-        DrawMesh {
-            index: mesh.index,
-            vertex_buffer,
-            index_buffer,
-            num_elements: mesh.indices.len(),
-        }
-    }
-}
-
-pub struct DrawMeshInstances {
-    pub mesh: DrawMesh,
-    pub instance_buffer: wgpu::Buffer,
-    pub instance_buffer_size: usize,
-    pub instances_bind_group: wgpu::BindGroup,
-    pub visible_instances: std::ops::Range<u32>,
-}
-
-#[repr(C)]
-#[derive(Copy, Clone, Debug)]
-pub struct Instance {
-    model: glm::Mat4,
-}
-
-unsafe impl bytemuck::Zeroable for Instance {}
-
-unsafe impl bytemuck::Pod for Instance {}
-
-impl Instance {
-    pub fn create_bind_group_layout_entry() -> wgpu::BindGroupLayoutEntry {
-        wgpu::BindGroupLayoutEntry {
-            binding: 0,
-            visibility: wgpu::ShaderStage::VERTEX,
-            ty: wgpu::BindingType::StorageBuffer {
-                // We don't plan on changing the size of this buffer
-                dynamic: false,
-                // The shader is not allowed to modify it's contents
-                readonly: true,
-            },
-        }
-    }
-}
-
-impl DrawMeshInstances {
-    pub fn from_world(
-        device: &wgpu::Device,
-        instances_bind_group_layout: &wgpu::BindGroupLayout,
-        world: &World,
-        mesh: DrawMesh,
-    ) -> Self {
-        let instance_data = world
-            .objects
-            .iter()
-            .filter(|obj| obj.mesh.index == mesh.index)
-            .map(|obj| Instance {
-                model: obj.obj_to_world.to_homogeneous(),
-            })
-            .collect_vec();
-
-        let instance_buffer_size = instance_data.len() * std::mem::size_of::<glm::Mat4>();
-        let instance_buffer = device.create_buffer_with_data(
-            bytemuck::cast_slice(&instance_data[..]),
-            wgpu::BufferUsage::STORAGE_READ,
-        );
-
-        let instances_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &instances_bind_group_layout,
-            bindings: &[wgpu::Binding {
-                binding: 0,
-                resource: wgpu::BindingResource::Buffer {
-                    buffer: &instance_buffer,
-                    range: 0..instance_buffer_size as wgpu::BufferAddress,
-                },
-            }],
-            label: Some("instances_bind_group"),
-        });
-
-        DrawMeshInstances {
-            mesh,
-            instance_buffer,
-            instance_buffer_size,
-            instances_bind_group,
-            visible_instances: std::ops::Range {
-                start: 0,
-                end: instance_data.len() as u32,
-            },
-        }
-    }
-}
-
 pub trait DrawModel<'a, 'b>
-    where
-        'b: 'a,
+where
+    'b: 'a,
 {
     fn draw_mesh_instances(&mut self, mesh: &'b DrawMeshInstances);
 }
 
 impl<'a, 'b> DrawModel<'a, 'b> for wgpu::RenderPass<'a>
-    where
-        'b: 'a,
+where
+    'b: 'a,
 {
     fn draw_mesh_instances(&mut self, mesh_instances: &'b DrawMeshInstances) {
         self.set_bind_group(1, &mesh_instances.instances_bind_group, &[]);
@@ -216,8 +63,9 @@ impl Uniforms {
     }
 
     fn update_view_proj(&mut self, camera: &Camera) {
-        self.view_proj =
-            *OPENGL_TO_WGPU_MATRIX * (camera.cam_to_screen.to_projective() * camera.cam_to_world.inverse()).to_homogeneous();
+        self.view_proj = *OPENGL_TO_WGPU_MATRIX
+            * (camera.cam_to_screen.to_projective() * camera.cam_to_world.inverse())
+                .to_homogeneous();
     }
 }
 
@@ -253,8 +101,8 @@ impl Viewer {
             },
             wgpu::BackendBit::PRIMARY, // Vulkan + Metal + DX12 + Browser WebGPU
         )
-            .await
-            .unwrap();
+        .await
+        .unwrap();
 
         println!("{:?}", adapter.get_info());
 
@@ -338,48 +186,15 @@ impl Viewer {
         let depth_texture =
             texture::Texture::create_depth_texture(&device, &sc_desc, "depth_texture");
 
-        let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            layout: &render_pipeline_layout,
-            vertex_stage: wgpu::ProgrammableStageDescriptor {
-                module: &vs_module,
-                entry_point: "main", // 1.
-            },
-            fragment_stage: Some(wgpu::ProgrammableStageDescriptor {
-                // 2.
-                module: &fs_module,
-                entry_point: "main",
-            }),
-            rasterization_state: Some(wgpu::RasterizationStateDescriptor {
-                front_face: wgpu::FrontFace::Ccw,
-                cull_mode: wgpu::CullMode::Back,
-                depth_bias: 0,
-                depth_bias_slope_scale: 0.0,
-                depth_bias_clamp: 0.0,
-            }),
-            color_states: &[wgpu::ColorStateDescriptor {
-                format: sc_desc.format,
-                color_blend: wgpu::BlendDescriptor::REPLACE,
-                alpha_blend: wgpu::BlendDescriptor::REPLACE,
-                write_mask: wgpu::ColorWrite::ALL,
-            }],
-            primitive_topology: wgpu::PrimitiveTopology::TriangleList,
-            depth_stencil_state: Some(wgpu::DepthStencilStateDescriptor {
-                format: texture::Texture::DEPTH_FORMAT,
-                depth_write_enabled: true,
-                depth_compare: wgpu::CompareFunction::Less, // 1.
-                stencil_front: wgpu::StencilStateFaceDescriptor::IGNORE,
-                stencil_back: wgpu::StencilStateFaceDescriptor::IGNORE,
-                stencil_read_mask: 0,
-                stencil_write_mask: 0,
-            }),
-            vertex_state: wgpu::VertexStateDescriptor {
-                index_format: wgpu::IndexFormat::Uint32,
-                vertex_buffers: &[DrawVertex::desc()],
-            },
-            sample_count: 1,                  // 5.
-            sample_mask: !0,                  // 6.
-            alpha_to_coverage_enabled: false, // 7.
-        });
+        let mesh_render_pipeline = pipeline::create_render_pipeline::<VertexPosNorm>(
+            &device,
+            render_pipeline_layout,
+            &vs_module,
+            &fs_module,
+            sc_desc.format,
+            texture::Texture::DEPTH_FORMAT,
+            wgpu::PrimitiveTopology::TriangleList,
+        );
 
         Self {
             surface,
@@ -387,7 +202,7 @@ impl Viewer {
             queue,
             sc_desc,
             swap_chain,
-            render_pipeline,
+            render_pipeline: mesh_render_pipeline,
             draw_mesh_instances,
             uniforms,
             uniform_buffer,
@@ -416,7 +231,8 @@ impl Viewer {
                 true
             }
             DeviceEvent::Button { button, state, .. } => {
-                self.mouse_pressed = (*button == 0 || *button == 1) && *state == ElementState::Pressed;
+                self.mouse_pressed =
+                    (*button == 0 || *button == 1) && *state == ElementState::Pressed;
                 true
             }
             DeviceEvent::MouseMotion { delta, .. } => {

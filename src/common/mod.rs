@@ -23,11 +23,11 @@ impl Camera {
     ) -> Camera {
         let screen_to_raster = glm::scaling(&glm::vec3(resolution.x, resolution.y, 1.0))
             * glm::scaling(&glm::vec3(
-                1.0 / (2.0 * resolution.x / resolution.y),
+                1.0 / (2.0),
                 1.0 / -2.0,
                 1.0,
             ))
-            * glm::translation(&glm::vec3((resolution.x / resolution.y), -1.0, 0.0));
+            * glm::translation(&glm::vec3(0.5 * (resolution.x / resolution.y), -1.0, 0.0));
         let screen_to_raster = na::Affine3::from_matrix_unchecked(screen_to_raster);
         let resolution = glm::vec2(resolution.x as u32, resolution.y as u32);
         Camera {
@@ -64,6 +64,20 @@ pub struct Mesh {
     pub pos: Vec<na::Point3<f32>>,
     pub normal: Vec<na::Vector3<f32>>,
 }
+
+#[derive(Clone, Copy)]
+pub struct TBounds3<T: na::RealField> {
+    pub p_min: na::Point3<T>,
+    pub p_max: na::Point3<T>,
+}
+
+impl<T: na::RealField + na::ClosedSub + num::FromPrimitive> TBounds3<T> {
+    pub fn new(p_min: na::Point3<T>, p_max: na::Point3<T>) -> Self {
+        TBounds3 { p_min, p_max }
+    }
+}
+
+pub type Bounds3 = TBounds3<f32>;
 
 pub struct Object {
     pub world_to_obj: na::Projective3<f32>,
