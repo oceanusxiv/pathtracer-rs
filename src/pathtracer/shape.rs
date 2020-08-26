@@ -25,9 +25,9 @@ impl Shape for Triangle {
         // transform triangle vertices to ray coordinate space
 
         // translate vertices based on ray origin
-        let mut p0t: glm::Vec3 = p0 - r.o.coords;
-        let mut p1t: glm::Vec3 = p1 - r.o.coords;
-        let mut p2t: glm::Vec3 = p2 - r.o.coords;
+        let mut p0t = p0 - r.o;
+        let mut p1t = p1 - r.o;
+        let mut p2t = p2 - r.o;
         // permute components of triangle vertices and ray direction
         let kz = max_dimension(&glm::abs(&r.d));
         let mut kx = kz + 1;
@@ -135,7 +135,7 @@ impl Shape for Triangle {
         let p_error: glm::Vec3 = gamma(7) * glm::vec3(x_abs_sum, y_abs_sum, z_abs_sum);
 
         // Interpolate (u,v) parametric coordinates and hit point
-        let p_hit: glm::Vec3 = b0 * p0 + b1 * p1 + b2 * p2;
+        let p_hit= b0 * p0.coords + b1 * p1.coords  + b2 * p2.coords;
 
         Some((
             t,
@@ -154,7 +154,7 @@ impl Mesh {
         let mut world_mesh = (*self).clone();
 
         for pos in &mut world_mesh.pos {
-            *pos = (object.obj_to_world * glm::vec4(pos.x, pos.y, pos.z, 1.0)).xyz();
+            *pos = object.obj_to_world * *pos;
         }
 
         let mut shapes: Vec<Box<dyn Shape>> = Vec::new();

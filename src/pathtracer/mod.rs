@@ -142,17 +142,16 @@ impl DirectLightingIntegrator {
         );
         println!("{:?}", &camera.cam_to_world.translation);
         let mut intersections = 0;
-        // let bar = ProgressBar::new((film.image.width() * film.image.height()) as u64);
+        let bar = ProgressBar::new((film.image.width() * film.image.height()) as u64);
         for (x, y, pixel) in film.image.enumerate_pixels_mut() {
             let ray = camera.generate_ray(glm::vec2(x as f32, y as f32) + glm::vec2(0.5, 0.5));
             if let Some(isect) = scene.scene.intersect(&ray) {
-                // println!("{:?}, {:?}, {:?}, {:?}", x, y, &ray, isect.p);
                 *pixel = image::Rgb([255u8, 255u8, 255u8]);
                 intersections += 1;
             }
-            // bar.inc(1);
+            bar.inc(1);
         }
-        // bar.finish();
+        bar.finish();
         println!("{:?} collisions", intersections);
         println!("saving image to {:?}", out_path);
         film.save(out_path);

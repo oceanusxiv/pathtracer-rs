@@ -32,11 +32,11 @@ unsafe impl bytemuck::Zeroable for DrawVertex {}
 
 unsafe impl bytemuck::Pod for DrawVertex {}
 
-impl From<(&glm::Vec3, &glm::Vec3)> for DrawVertex {
-    fn from(pair: (&glm::Vec3, &glm::Vec3)) -> Self {
+impl From<(&na::Point3<f32>, &na::Vector3<f32>)> for DrawVertex {
+    fn from(pair: (&na::Point3<f32>, &na::Vector3<f32>)) -> Self {
         let (position, normal) = pair;
         DrawVertex {
-            position: *position,
+            position: position.coords,
             normal: *normal,
         }
     }
@@ -140,7 +140,7 @@ impl DrawMeshInstances {
             .iter()
             .filter(|obj| obj.mesh.index == mesh.index)
             .map(|obj| Instance {
-                model: obj.obj_to_world,
+                model: obj.obj_to_world.to_homogeneous(),
             })
             .collect_vec();
 

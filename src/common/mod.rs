@@ -23,10 +23,11 @@ impl Camera {
     ) -> Camera {
         let screen_to_raster = glm::scaling(&glm::vec3(resolution.x, resolution.y, 1.0))
             * glm::scaling(&glm::vec3(
-            1.0 / (2.0 * resolution.x / resolution.y),
-            1.0 / -2.0,
-            1.0,
-        )) * glm::translation(&glm::vec3((resolution.x / resolution.y), -1.0, 0.0));
+                1.0 / (2.0 * resolution.x / resolution.y),
+                1.0 / -2.0,
+                1.0,
+            ))
+            * glm::translation(&glm::vec3((resolution.x / resolution.y), -1.0, 0.0));
         let screen_to_raster = na::Affine3::from_matrix_unchecked(screen_to_raster);
         let resolution = glm::vec2(resolution.x as u32, resolution.y as u32);
         Camera {
@@ -43,7 +44,8 @@ impl Camera {
                 &na::Point3::new(0.2, 0.05, 0.2),
                 &na::Point3::new(0.0, 0.0, 0.0),
                 &na::Vector3::new(0.0, 1.0, 0.0),
-            ).inverse(),
+            )
+            .inverse(),
             &na::Perspective3::new(
                 DEFAULT_RESOLUTION.x / DEFAULT_RESOLUTION.y,
                 std::f32::consts::FRAC_PI_2,
@@ -59,13 +61,13 @@ impl Camera {
 pub struct Mesh {
     pub index: usize,
     pub indices: Vec<u32>,
-    pub pos: Vec<glm::Vec3>,
-    pub normal: Vec<glm::Vec3>,
+    pub pos: Vec<na::Point3<f32>>,
+    pub normal: Vec<na::Vector3<f32>>,
 }
 
 pub struct Object {
-    pub world_to_obj: glm::Mat4,
-    pub obj_to_world: glm::Mat4,
+    pub world_to_obj: na::Projective3<f32>,
+    pub obj_to_world: na::Projective3<f32>,
     pub mesh: Rc<Mesh>,
 }
 
@@ -95,7 +97,7 @@ impl World {
         world.populate_meshes(&document, &buffers);
         for scene in document.scenes() {
             for node in scene.nodes() {
-                world.populate_scene(&na::Transform3::identity(), &node);
+                world.populate_scene(&na::Projective3::identity(), &node);
 
                 if let Some(curr_cam) = World::get_camera(&na::Transform3::identity(), &node) {
                     camera = curr_cam;
@@ -123,7 +125,7 @@ impl World {
                     pos: reader
                         .read_positions()
                         .unwrap()
-                        .map(|vertex| glm::make_vec3(&vertex))
+                        .map(|vertex| na::Point3::from_slice(&vertex))
                         .collect(),
                     normal: match reader.read_normals() {
                         Some(normals) => normals.map(|normal| glm::make_vec3(&normal)).collect(),
@@ -134,7 +136,10 @@ impl World {
         }
     }
 
-    fn get_camera(parent_transform: &na::Transform3<f32>, current_node: &gltf::Node) -> Option<Camera> {
+    fn get_camera(
+        parent_transform: &na::Transform3<f32>,
+        current_node: &gltf::Node,
+    ) -> Option<Camera> {
         let current_transform = *parent_transform * from_gltf(current_node.transform());
         if let Some(camera) = current_node.camera() {
             if let gltf::camera::Projection::Perspective(projection) = camera.projection() {
@@ -174,13 +179,17 @@ impl World {
         }
     }
 
-    fn populate_scene(&mut self, parent_transform: &na::Transform3<f32>, current_node: &gltf::Node) {
+    fn populate_scene(
+        &mut self,
+        parent_transform: &na::Projective3<f32>,
+        current_node: &gltf::Node,
+    ) {
         let current_transform = *parent_transform * from_gltf(current_node.transform());
         if let Some(mesh) = current_node.mesh() {
             for prim in mesh.primitives() {
                 self.objects.push(Object {
-                    world_to_obj: glm::inverse(&current_transform.to_homogeneous()),
-                    obj_to_world: current_transform.to_homogeneous(),
+                    world_to_obj: current_transform.inverse(),
+                    obj_to_world: current_transform,
                     mesh: Rc::clone(
                         &self.meshes[self.mesh_prim_indice_map[&[mesh.index(), prim.index()]]],
                     ),
@@ -194,90 +203,101 @@ impl World {
     }
 }
 
-fn from_gltf(transform: gltf::scene::Transform) -> na::Transform3<f32> {
+fn from_gltf(transform: gltf::scene::Transform) -> na::Projective3<f32> {
     let (translation, rotation, scaling) = transform.decomposed();
 
     let t = glm::translation(&glm::make_vec3(&translation));
     let r = glm::quat_to_mat4(&glm::make_quat(&rotation));
     let s = glm::scaling(&glm::make_vec3(&scaling));
 
-    na::Transform3::from_matrix_unchecked(t * r * s)
+    na::Projective3::from_matrix_unchecked(t * r * s)
 }
 
 mod tests {
     use super::*;
 
-    // fn cam_with_look_at(eye: &glm::Vec3, center: &glm::Vec3) -> Camera {
-    //     Camera::new(
-    //         &glm::inverse(&glm::look_at(eye, center, &glm::vec3(0.0, 1.0, 0.0))),
-    //         &glm::perspective_zo(
-    //             DEFAULT_RESOLUTION.x / DEFAULT_RESOLUTION.y,
-    //             std::f32::consts::FRAC_PI_2,
-    //             DEFAULT_Z_NEAR,
-    //             DEFAULT_Z_FAR,
-    //         ),
-    //         &DEFAULT_RESOLUTION,
-    //     )
-    // }
-    //
-    // #[test]
-    // fn test_camera_wold_to_screen() {
-    //     let test_cam = cam_with_look_at(&glm::vec3(10.0, 10.0, 10.0), &glm::vec3(0.0, 0.0, 0.0));
-    //
-    //     let test_world_space = glm::vec4(0.0, 0.0, 0.0, 1.0);
-    //     let test_cam_space = glm::inverse(&test_cam.cam_to_world) * test_world_space;
-    //     let test_screen_space = test_cam.cam_to_screen * test_cam_space;
-    //     approx::assert_relative_eq!(
-    //         test_cam_space / test_cam_space.w,
-    //         glm::vec4(0.0, 0.0, -glm::length(&glm::vec3(10.0, 10.0, 10.0)), 1.0),
-    //         epsilon = 0.000_001
-    //     );
-    //
-    //     let z = glm::length(&glm::vec3(10.0, 10.0, 10.0));
-    //     let z_screen =
-    //         ((z - DEFAULT_Z_NEAR) * DEFAULT_Z_FAR) / ((DEFAULT_Z_FAR - DEFAULT_Z_NEAR) * z);
-    //
-    //     approx::assert_relative_eq!(
-    //         test_screen_space / test_screen_space.w,
-    //         glm::vec4(0.0, 0.0, z_screen, 1.0),
-    //         epsilon = 0.000_001
-    //     );
-    // }
-    //
-    // #[test]
-    // fn test_camera_screen_to_raster() {
-    //     let test_cam = cam_with_look_at(&glm::vec3(0.0, 0.0, 0.0), &glm::vec3(1.0, 0.0, 0.0));
-    //
-    //     let test_screen_space1 = glm::vec4(1.0, 1.0, 0.5, 1.0);
-    //     let test_raster_space1 = test_cam.screen_to_raster * test_screen_space1;
-    //
-    //     approx::assert_relative_eq!(
-    //         test_raster_space1 / test_raster_space1.w,
-    //         glm::vec4(DEFAULT_RESOLUTION.x, DEFAULT_RESOLUTION.y, 0.5, 1.0),
-    //         epsilon = 0.000_001
-    //     );
-    //
-    //     let test_screen_space2 = glm::vec4(-1.0, -1.0, 0.5, 1.0);
-    //     let test_raster_space2 = test_cam.screen_to_raster * test_screen_space2;
-    //
-    //     approx::assert_relative_eq!(
-    //         test_raster_space2 / test_raster_space2.w,
-    //         glm::vec4(0.0, 0.0, 0.5, 1.0),
-    //         epsilon = 0.000_001
-    //     );
-    // }
-    //
-    // #[test]
-    // fn test_camera_raster_to_screen() {
-    //     let test_cam = cam_with_look_at(&glm::vec3(0.0, 0.0, 0.0), &glm::vec3(1.0, 0.0, 0.0));
-    //
-    //     let test_raster_space1 = glm::vec4(640.0, 360.0, 0.0, 1.0);
-    //     let test_cam_space1 = test_cam.raster_to_cam * test_raster_space1;
-    //
-    //     approx::assert_relative_eq!(
-    //         test_cam_space1 / test_cam_space1.w,
-    //         glm::vec4(0.0, 0.0, -0.1, 1.0),
-    //         epsilon = 0.000_001
-    //     );
-    // }
+    fn cam_with_look_at(eye: &na::Point3<f32>, center: &na::Point3<f32>) -> Camera {
+        Camera::new(
+            &na::Isometry3::look_at_rh(eye, center, &glm::vec3(0.0, 1.0, 0.0)).inverse(),
+            &na::Perspective3::new(
+                DEFAULT_RESOLUTION.x / DEFAULT_RESOLUTION.y,
+                std::f32::consts::FRAC_PI_2,
+                DEFAULT_Z_NEAR,
+                DEFAULT_Z_FAR,
+            ),
+            &DEFAULT_RESOLUTION,
+        )
+    }
+
+    #[test]
+    fn test_camera_wold_to_screen() {
+        let test_cam = cam_with_look_at(
+            &na::Point3::new(10.0, 10.0, 10.0),
+            &na::Point3::new(0.0, 0.0, 0.0),
+        );
+
+        let test_world_space = na::Point3::new(0.0, 0.0, 0.0);
+        let test_cam_space = test_cam.cam_to_world.inverse() * test_world_space;
+        let test_screen_space = test_cam.cam_to_screen.project_point(&test_cam_space);
+        approx::assert_relative_eq!(
+            test_cam_space,
+            na::Point3::new(0.0, 0.0, -glm::length(&glm::vec3(10.0, 10.0, 10.0))),
+            epsilon = 0.000_001
+        );
+
+        let z = glm::length(&glm::vec3(10.0, 10.0, 10.0));
+        let z_screen =
+            ((z - DEFAULT_Z_NEAR) * DEFAULT_Z_FAR) / ((DEFAULT_Z_FAR - DEFAULT_Z_NEAR) * z);
+
+        approx::assert_relative_eq!(
+            test_screen_space,
+            na::Point3::new(0.0, 0.0, z_screen),
+            epsilon = 0.000_001
+        );
+    }
+
+    #[test]
+    fn test_camera_screen_to_raster() {
+        let test_cam = cam_with_look_at(
+            &na::Point3::new(0.0, 0.0, 0.0),
+            &na::Point3::new(1.0, 0.0, 0.0),
+        );
+
+        let test_screen_space1 = na::Point3::new(1.0, 1.0, 0.5);
+        let test_raster_space1 = test_cam.screen_to_raster * test_screen_space1;
+
+        approx::assert_relative_eq!(
+            test_raster_space1,
+            na::Point3::new(DEFAULT_RESOLUTION.x, DEFAULT_RESOLUTION.y, 0.5),
+            epsilon = 0.000_001
+        );
+
+        let test_screen_space2 = na::Point3::new(-1.0, -1.0, 0.5);
+        let test_raster_space2 = test_cam.screen_to_raster * test_screen_space2;
+
+        approx::assert_relative_eq!(
+            test_raster_space2,
+            na::Point3::new(0.0, 0.0, 0.5),
+            epsilon = 0.000_001
+        );
+    }
+
+    #[test]
+    fn test_camera_raster_to_screen() {
+        let test_cam = cam_with_look_at(
+            &na::Point3::new(0.0, 0.0, 0.0),
+            &na::Point3::new(1.0, 0.0, 0.0),
+        );
+
+        let test_raster_space1 = na::Point3::new(640.0, 360.0, 0.0);
+        let test_cam_space1 = test_cam
+            .cam_to_screen
+            .unproject_point(&(test_cam.raster_to_screen * test_raster_space1));
+
+        approx::assert_relative_eq!(
+            test_cam_space1,
+            na::Point3::new(0.0, 0.0, -0.1),
+            epsilon = 0.000_001
+        );
+    }
 }

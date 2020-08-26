@@ -38,8 +38,7 @@ impl OrbitalCameraController {
     pub fn update_camera(&mut self, camera: &mut Camera, dt: std::time::Duration) {
         let dt = dt.as_secs_f32();
 
-        let mut cam_pos =
-            camera.cam_to_world.translation.vector - self.pivot; // relative to pivot
+        let mut cam_pos = camera.cam_to_world.translation.vector - self.pivot; // relative to pivot
 
         let vert_axis = glm::cross(&cam_pos, &glm::vec3(0.0f32, 1.0f32, 0.0f32));
         let horz_axis = glm::cross(&cam_pos, &vert_axis);
@@ -61,7 +60,8 @@ impl OrbitalCameraController {
             &na::Point3::from(cam_pos),
             &na::Point3::from(self.pivot),
             &glm::vec3(0.0, 1.0, 0.0),
-        ).inverse();
+        )
+        .inverse();
 
         self.rotate_horizontal = 0.0;
         self.rotate_vertical = 0.0;
