@@ -61,15 +61,34 @@ pub struct Mesh {
     pub normal: Vec<na::Vector3<f32>>,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub struct TBounds3<T: na::RealField> {
     pub p_min: na::Point3<T>,
     pub p_max: na::Point3<T>,
 }
 
+pub fn min_p<T: na::RealField>(p1: &na::Point3<T>, p2: &na::Point3<T>) -> na::Point3<T> {
+    na::Point3::new(
+        na::RealField::min(p1.x, p2.x),
+        na::RealField::min(p1.y, p2.y),
+        na::RealField::min(p1.z, p2.z),
+    )
+}
+
+pub fn max_p<T: na::RealField>(p1: &na::Point3<T>, p2: &na::Point3<T>) -> na::Point3<T> {
+    na::Point3::new(
+        na::RealField::max(p1.x, p2.x),
+        na::RealField::max(p1.y, p2.y),
+        na::RealField::max(p1.z, p2.z),
+    )
+}
+
 impl<T: na::RealField + na::ClosedSub + num::FromPrimitive> TBounds3<T> {
-    pub fn new(p_min: na::Point3<T>, p_max: na::Point3<T>) -> Self {
-        TBounds3 { p_min, p_max }
+    pub fn new(p1: na::Point3<T>, p2: na::Point3<T>) -> Self {
+        TBounds3 {
+            p_min: min_p(&p1, &p2),
+            p_max: max_p(&p1, &p2),
+        }
     }
 }
 

@@ -4,7 +4,7 @@ mod primitive;
 mod sampling;
 mod shape;
 
-use crate::common::{Bounds3, Camera, TBounds3, World};
+use crate::common::{max_p, min_p, Bounds3, Camera, TBounds3, World};
 use image::RgbImage;
 use indicatif::ProgressBar;
 use material::Material;
@@ -53,22 +53,6 @@ impl Ray {
     pub fn point_at(&self, t: f32) -> na::Point3<f32> {
         self.o + self.d * t
     }
-}
-
-pub fn min_p<T: na::RealField>(p1: &na::Point3<T>, p2: &na::Point3<T>) -> na::Point3<T> {
-    na::Point3::new(
-        na::RealField::min(p1.x, p2.x),
-        na::RealField::min(p1.y, p2.y),
-        na::RealField::min(p1.z, p2.z),
-    )
-}
-
-pub fn max_p<T: na::RealField>(p1: &na::Point3<T>, p2: &na::Point3<T>) -> na::Point3<T> {
-    na::Point3::new(
-        na::RealField::max(p1.x, p2.x),
-        na::RealField::max(p1.y, p2.y),
-        na::RealField::max(p1.z, p2.z),
-    )
 }
 
 impl<T: na::RealField + na::ClosedSub + num::FromPrimitive> TBounds3<T> {
@@ -277,7 +261,7 @@ impl RenderScene {
         }
 
         RenderScene {
-            scene: Box::new(accelerator::BVH::new(primitives, &10)),
+            scene: Box::new(accelerator::BVH::new(primitives, &4)),
         }
     }
 }

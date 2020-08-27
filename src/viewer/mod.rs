@@ -145,10 +145,7 @@ impl Viewer {
             &device,
             &mut compiler,
             &uniform_bind_group_layout,
-            &vec![Bounds3::new(
-                na::Point3::new(0.0, 0.0, 0.0),
-                na::Point3::new(1.0, 1.0, 1.0),
-            )],
+            &vec![],
         );
 
         let depth_texture =

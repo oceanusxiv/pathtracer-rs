@@ -160,7 +160,7 @@ impl BVH {
                 if num_prims <= 2 {
                     mid = (start + end) / 2;
 
-                    primitive_info[start..end].partition_at_index_by(mid, |a, b| {
+                    primitive_info[start..end].partition_at_index_by(mid - start, |a, b| {
                         a.centroid[dim].partial_cmp(&b.centroid[dim]).unwrap()
                     });
                 } else {
@@ -277,7 +277,7 @@ impl BVH {
 
         if node.num_prims > 0 {
             unsafe {
-                linear_nodes[*offset].as_mut_ptr().write(LinearBVHNode {
+                linear_nodes[my_offset].as_mut_ptr().write(LinearBVHNode {
                     bounds: node.bounds,
                     offset: LinearBVHOffset {
                         primitives_offset: node.first_prim_offset as u32,
@@ -299,7 +299,7 @@ impl BVH {
             );
 
             unsafe {
-                linear_nodes[*offset].as_mut_ptr().write(LinearBVHNode {
+                linear_nodes[my_offset].as_mut_ptr().write(LinearBVHNode {
                     bounds: node.bounds,
                     offset: LinearBVHOffset {
                         second_child_offset: second_offset as u32,
@@ -316,13 +316,17 @@ impl BVH {
 
 impl Primitive for BVH {
     fn intersect(&self, r: &Ray, mut isect: &mut SurfaceInteraction) -> bool {
+        if self.nodes.is_empty() {
+            return false;
+        }
+
         let mut hit = false;
         let inv_dir = na::Vector3::new(1.0f32 / r.d.x, 1.0f32 / r.d.y, 1.0f32 / r.d.z);
         let dir_is_neg = [inv_dir.x < 0.0, inv_dir.y < 0.0, inv_dir.z < 0.0];
 
         let mut to_visit_offset = 0;
         let mut curr_node_idx = 0;
-        let mut nodes_to_visit = [0; 64];
+        let mut nodes_to_visit = [0; 128];
         loop {
             let node = &self.nodes[curr_node_idx];
 
