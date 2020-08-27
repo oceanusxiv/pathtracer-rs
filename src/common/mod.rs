@@ -22,11 +22,7 @@ impl Camera {
         resolution: &glm::Vec2,
     ) -> Camera {
         let screen_to_raster = glm::scaling(&glm::vec3(resolution.x, resolution.y, 1.0))
-            * glm::scaling(&glm::vec3(
-                1.0 / (2.0),
-                1.0 / -2.0,
-                1.0,
-            ))
+            * glm::scaling(&glm::vec3(1.0 / (2.0), 1.0 / -2.0, 1.0))
             * glm::translation(&glm::vec3(0.5 * (resolution.x / resolution.y), -1.0, 0.0));
         let screen_to_raster = na::Affine3::from_matrix_unchecked(screen_to_raster);
         let resolution = glm::vec2(resolution.x as u32, resolution.y as u32);

@@ -1,5 +1,5 @@
-use super::vertex::Vertex;
 use super::texture::Texture;
+use super::vertex::Vertex;
 
 pub fn create_render_pipeline<T: Vertex>(
     device: &wgpu::Device,

@@ -4,7 +4,7 @@ mod primitive;
 mod sampling;
 mod shape;
 
-use crate::common::{Camera, World, TBounds3, Bounds3};
+use crate::common::{Bounds3, Camera, TBounds3, World};
 use image::RgbImage;
 use indicatif::ProgressBar;
 use material::Material;
@@ -168,13 +168,13 @@ impl Bounds3 {
         &self,
         r: &Ray,
         inv_dir: &na::Vector3<f32>,
-        dir_is_neg: &[usize; 3],
+        dir_is_neg: &[bool; 3],
     ) -> bool {
         // Check for ray intersection against $x$ and $y$ slabs
-        let mut t_min = (self[dir_is_neg[0]].x - r.o.x) * inv_dir.x;
-        let mut t_max = (self[1 - dir_is_neg[0]].x - r.o.x) * inv_dir.x;
-        let ty_min = (self[dir_is_neg[1]].y - r.o.y) * inv_dir.y;
-        let mut ty_max = (self[1 - dir_is_neg[1]].y - r.o.y) * inv_dir.y;
+        let mut t_min = (self[dir_is_neg[0] as usize].x - r.o.x) * inv_dir.x;
+        let mut t_max = (self[1 - dir_is_neg[0] as usize].x - r.o.x) * inv_dir.x;
+        let ty_min = (self[dir_is_neg[1] as usize].y - r.o.y) * inv_dir.y;
+        let mut ty_max = (self[1 - dir_is_neg[1] as usize].y - r.o.y) * inv_dir.y;
 
         // Update _tMax_ and _tyMax_ to ensure robust bounds intersection
         t_max *= 1.0 + 2.0 * gamma(3);
@@ -190,8 +190,8 @@ impl Bounds3 {
         };
 
         // Check for ray intersection against $z$ slab
-        let tz_min = (self[dir_is_neg[2]].z - r.o.z) * inv_dir.z;
-        let mut tz_max = (self[1 - dir_is_neg[2]].z - r.o.z) * inv_dir.z;
+        let tz_min = (self[dir_is_neg[2] as usize].z - r.o.z) * inv_dir.z;
+        let mut tz_max = (self[1 - dir_is_neg[2] as usize].z - r.o.z) * inv_dir.z;
 
         // Update _tzMax_ to ensure robust bounds intersection
         tz_max *= 1.0 + 2.0 * gamma(3);
@@ -214,6 +214,17 @@ pub struct SurfaceInteraction {
     pub p_error: glm::Vec3,
     pub wo: glm::Vec3,
     pub n: glm::Vec3,
+}
+
+impl SurfaceInteraction {
+    pub fn new() -> Self {
+        SurfaceInteraction {
+            p: glm::zero(),
+            p_error: glm::zero(),
+            wo: glm::zero(),
+            n: glm::zero(),
+        }
+    }
 }
 
 pub trait Sampler {}
@@ -266,7 +277,7 @@ impl RenderScene {
         }
 
         RenderScene {
-            scene: Box::new(primitive::Aggregate::new(primitives)),
+            scene: Box::new(accelerator::BVH::new(primitives, &10)),
         }
     }
 }
@@ -295,7 +306,8 @@ impl DirectLightingIntegrator {
         let bar = ProgressBar::new((film.image.width() * film.image.height()) as u64);
         for (x, y, pixel) in film.image.enumerate_pixels_mut() {
             let ray = camera.generate_ray(glm::vec2(x as f32, y as f32) + glm::vec2(0.5, 0.5));
-            if let Some(isect) = scene.scene.intersect(&ray) {
+            let mut isect = SurfaceInteraction::new();
+            if scene.scene.intersect(&ray, &mut isect) {
                 *pixel = image::Rgb([255u8, 255u8, 255u8]);
                 intersections += 1;
             }

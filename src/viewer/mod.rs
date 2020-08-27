@@ -7,7 +7,7 @@ mod texture;
 mod vertex;
 
 use crate::common::{Bounds3, Camera, World};
-use bounds::{DrawBounds, BoundsRenderPass};
+use bounds::{BoundsRenderPass, DrawBounds};
 use camera::OrbitalCameraController;
 use mesh::{DrawMesh, MeshRenderPass};
 use winit::{event::*, window::Window};

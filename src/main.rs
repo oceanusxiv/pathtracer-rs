@@ -1,5 +1,9 @@
-extern crate nalgebra_glm as glm;
+#![feature(new_uninit)]
+#![feature(slice_partition_at_index)]
+#![feature(iter_partition_in_place)]
+
 extern crate nalgebra as na;
+extern crate nalgebra_glm as glm;
 
 mod common;
 mod pathtracer;
@@ -76,7 +80,7 @@ fn main() {
                         } => integrator.render(
                             &camera,
                             &render_scene,
-                            "/home/eric/Downloads/duck.png",
+                            "/Users/eric/Downloads/duck.png",
                         ),
                         _ => {}
                     },

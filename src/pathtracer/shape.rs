@@ -3,7 +3,7 @@ use crate::common::{Mesh, Object};
 use std::rc::Rc;
 
 pub trait Shape {
-    fn intersect(&self, r: &Ray) -> Option<(f32, SurfaceInteraction)>;
+    fn intersect(&self, r: &Ray, t_hit: &mut f32, isect: &mut SurfaceInteraction) -> bool;
     fn world_bound(&self) -> Bounds3;
 }
 
@@ -15,7 +15,7 @@ pub struct Triangle {
 impl Triangle {}
 
 impl Shape for Triangle {
-    fn intersect(&self, r: &Ray) -> Option<(f32, SurfaceInteraction)> {
+    fn intersect(&self, r: &Ray, t_hit: &mut f32, isect: &mut SurfaceInteraction) -> bool {
         // get triangle vertices
         let p0 = self.mesh.pos[self.indices[0] as usize];
         let p1 = self.mesh.pos[self.indices[1] as usize];
@@ -74,11 +74,11 @@ impl Shape for Triangle {
 
         // Perform triangle edge and determinant tests
         if (e0 < 0.0 || e1 < 0.0 || e2 < 0.0) && (e0 > 0.0 || e1 > 0.0 || e2 > 0.0) {
-            return None;
+            return false;
         }
         let det = e0 + e1 + e2;
         if det == 0.0 {
-            return None;
+            return false;
         }
 
         // Compute scaled hit distance to triangle and test against ray t range
@@ -87,9 +87,9 @@ impl Shape for Triangle {
         p2t.z *= sz;
         let t_scaled = e0 * p0t.z + e1 * p1t.z + e2 * p2t.z;
         if det < 0.0 && (t_scaled >= 0.0 || t_scaled < *r.t_max.borrow() * det) {
-            return None;
+            return false;
         } else if det > 0.0 && (t_scaled <= 0.0 || t_scaled > *r.t_max.borrow() * det) {
-            return None;
+            return false;
         }
 
         // Compute barycentric coordinates and t value for triangle intersection
@@ -120,7 +120,7 @@ impl Shape for Triangle {
             * (gamma(3) * max_e * max_z_t + delta_e * max_z_t + delta_z * max_e)
             * inv_det.abs();
         if t <= delta_t {
-            return None;
+            return false;
         }
 
         // Compute triangle partial derivatives
@@ -138,22 +138,20 @@ impl Shape for Triangle {
         // Interpolate (u,v) parametric coordinates and hit point
         let p_hit = b0 * p0.coords + b1 * p1.coords + b2 * p2.coords;
 
-        Some((
-            t,
-            SurfaceInteraction {
-                p: p_hit,
-                p_error,
-                wo: -r.d,
-                n: glm::normalize(&glm::cross(&dp02, &dp12)),
-            },
-        ))
+        *t_hit = t;
+        (*isect).p = p_hit;
+        (*isect).p_error = p_error;
+        (*isect).wo = -r.d;
+        (*isect).n = glm::normalize(&glm::cross(&dp02, &dp12));
+
+        return true;
     }
 
     fn world_bound(&self) -> Bounds3 {
         let p0 = self.mesh.pos[self.indices[0] as usize];
         let p1 = self.mesh.pos[self.indices[1] as usize];
         let p2 = self.mesh.pos[self.indices[2] as usize];
-        Bounds3::union_p(&Bounds3::new(p0, p1), p2)
+        Bounds3::union_p(&Bounds3::new(p0, p1), &p2)
     }
 }
 

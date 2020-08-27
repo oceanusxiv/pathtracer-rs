@@ -2,7 +2,7 @@ use super::shape::Shape;
 use super::{Bounds3, Material, Ray, SurfaceInteraction};
 use std::rc::Rc;
 pub trait Primitive {
-    fn intersect(&self, r: &Ray) -> Option<SurfaceInteraction>;
+    fn intersect(&self, r: &Ray, isect: &mut SurfaceInteraction) -> bool;
     // fn intersect_p(r: &Ray) -> bool;
     fn world_bound(&self) -> Bounds3;
 }
@@ -12,13 +12,15 @@ pub struct GeometricPrimitive {
 }
 
 impl Primitive for GeometricPrimitive {
-    fn intersect(&self, r: &Ray) -> Option<SurfaceInteraction> {
-        if let Some((t_hit, isect)) = self.shape.intersect(r) {
-            *r.t_max.borrow_mut() = t_hit;
-            Some(isect)
-        } else {
-            None
+    fn intersect(&self, r: &Ray, mut isect: &mut SurfaceInteraction) -> bool {
+        let mut t_hit = 0.0f32;
+        if !self.shape.intersect(r, &mut t_hit, &mut isect) {
+            return false;
         }
+
+        *r.t_max.borrow_mut() = t_hit;
+
+        return true;
     }
 
     fn world_bound(&self) -> Bounds3 {
@@ -37,16 +39,15 @@ impl Aggregate {
 }
 
 impl Primitive for Aggregate {
-    fn intersect(&self, r: &Ray) -> Option<SurfaceInteraction> {
-        let mut isect_final: Option<SurfaceInteraction> = None;
-
+    fn intersect(&self, r: &Ray, mut isect: &mut SurfaceInteraction) -> bool {
+        let mut hit = false;
         for prim in &self.primitives {
-            if let Some(isect) = prim.intersect(r) {
-                isect_final = Some(isect);
+            if prim.intersect(r, &mut isect) {
+                hit = true;
             }
         }
 
-        isect_final
+        hit
     }
 
     fn world_bound(&self) -> Bounds3 {
