@@ -1,4 +1,5 @@
 use super::vertex::VertexPosNorm;
+use super::{pipeline::create_render_pipeline, shaders};
 use crate::common::{Mesh, World};
 use itertools::{zip_eq, Itertools};
 
@@ -110,6 +111,91 @@ impl DrawMeshInstances {
                 start: 0,
                 end: instance_data.len() as u32,
             },
+        }
+    }
+}
+
+pub struct MeshRenderPass {
+    render_pipeline: wgpu::RenderPipeline,
+    draw_mesh_instances: Vec<DrawMeshInstances>,
+}
+
+impl MeshRenderPass {
+    pub fn from_world(
+        device: &wgpu::Device,
+        mut compiler: &mut shaderc::Compiler,
+        uniform_bind_group_layout: &wgpu::BindGroupLayout,
+        world: &World,
+    ) -> Self {
+        let (vs_module, fs_module) = shaders::phong::compile_shaders(&mut compiler, &device);
+
+        let instances_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                bindings: &[Instance::create_bind_group_layout_entry()],
+                label: Some("instances_bind_group_layout"),
+            });
+
+        let draw_mesh_instances = world
+            .meshes
+            .iter()
+            .map(|mesh| {
+                DrawMeshInstances::from_world(
+                    &device,
+                    &instances_bind_group_layout,
+                    &world,
+                    DrawMesh::from_mesh(&device, &mesh),
+                )
+            })
+            .collect_vec();
+
+        let render_pipeline_layout =
+            device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                bind_group_layouts: &[&uniform_bind_group_layout, &instances_bind_group_layout],
+            });
+
+        let render_pipeline = create_render_pipeline::<VertexPosNorm>(
+            &device,
+            render_pipeline_layout,
+            &vs_module,
+            &fs_module,
+            wgpu::PrimitiveTopology::TriangleList,
+        );
+
+        MeshRenderPass {
+            draw_mesh_instances,
+            render_pipeline,
+        }
+    }
+}
+
+pub trait DrawModel<'a, 'b>
+where
+    'b: 'a,
+{
+    fn draw_mesh_instances(&mut self, mesh: &'b DrawMeshInstances);
+    fn draw_all_mesh(&mut self, mesh: &'b MeshRenderPass);
+}
+
+impl<'a, 'b> DrawModel<'a, 'b> for wgpu::RenderPass<'a>
+where
+    'b: 'a,
+{
+    fn draw_mesh_instances(&mut self, mesh_instances: &'b DrawMeshInstances) {
+        self.set_bind_group(1, &mesh_instances.instances_bind_group, &[]);
+        self.set_vertex_buffer(0, &mesh_instances.mesh.vertex_buffer, 0, 0);
+        self.set_index_buffer(&mesh_instances.mesh.index_buffer, 0, 0);
+        self.draw_indexed(
+            0..mesh_instances.mesh.num_elements as u32,
+            0,
+            mesh_instances.visible_instances.clone(),
+        );
+    }
+
+    fn draw_all_mesh(&mut self, meshes: &'b MeshRenderPass) {
+        self.set_pipeline(&meshes.render_pipeline);
+
+        for mesh_instance in &meshes.draw_mesh_instances {
+            self.draw_mesh_instances(&mesh_instance);
         }
     }
 }

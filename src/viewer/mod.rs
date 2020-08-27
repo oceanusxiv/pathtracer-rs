@@ -8,7 +8,7 @@ mod vertex;
 use crate::common::{Camera, World};
 use camera::OrbitalCameraController;
 use itertools::Itertools;
-use mesh::{DrawMesh, DrawMeshInstances, Instance};
+use mesh::{DrawMesh, DrawMeshInstances, DrawModel, Instance, MeshRenderPass};
 use vertex::{Vertex, VertexPosNorm};
 use winit::{event::*, window::Window};
 
@@ -20,29 +20,6 @@ lazy_static::lazy_static! {
         0.0, 0.0, 0.5, 0.0,
         0.0, 0.0, 0.5, 1.0,
     );
-}
-
-pub trait DrawModel<'a, 'b>
-where
-    'b: 'a,
-{
-    fn draw_mesh_instances(&mut self, mesh: &'b DrawMeshInstances);
-}
-
-impl<'a, 'b> DrawModel<'a, 'b> for wgpu::RenderPass<'a>
-where
-    'b: 'a,
-{
-    fn draw_mesh_instances(&mut self, mesh_instances: &'b DrawMeshInstances) {
-        self.set_bind_group(1, &mesh_instances.instances_bind_group, &[]);
-        self.set_vertex_buffer(0, &mesh_instances.mesh.vertex_buffer, 0, 0);
-        self.set_index_buffer(&mesh_instances.mesh.index_buffer, 0, 0);
-        self.draw_indexed(
-            0..mesh_instances.mesh.num_elements as u32,
-            0,
-            mesh_instances.visible_instances.clone(),
-        );
-    }
 }
 
 #[repr(C)] // We need this for Rust to store our data correctly for the shaders
@@ -67,6 +44,14 @@ impl Uniforms {
             * (camera.cam_to_screen.to_projective() * camera.cam_to_world.inverse())
                 .to_homogeneous();
     }
+
+    pub fn create_bind_group_layout_entry() -> wgpu::BindGroupLayoutEntry {
+        wgpu::BindGroupLayoutEntry {
+            binding: 0,
+            visibility: wgpu::ShaderStage::VERTEX,
+            ty: wgpu::BindingType::UniformBuffer { dynamic: false },
+        }
+    }
 }
 
 pub struct Viewer {
@@ -75,8 +60,7 @@ pub struct Viewer {
     queue: wgpu::Queue,
     sc_desc: wgpu::SwapChainDescriptor,
     swap_chain: wgpu::SwapChain,
-    render_pipeline: wgpu::RenderPipeline,
-    draw_mesh_instances: Vec<DrawMeshInstances>,
+    mesh_render_pass: MeshRenderPass,
     uniforms: Uniforms,
     uniform_buffer: wgpu::Buffer,
     uniform_bind_group: wgpu::BindGroup,
@@ -126,8 +110,6 @@ impl Viewer {
 
         let mut compiler = shaderc::Compiler::new().unwrap();
 
-        let (vs_module, fs_module) = shaders::phong::compile_phong_shaders(&mut compiler, &device);
-
         let mut uniforms = Uniforms::new();
         uniforms.update_view_proj(&camera);
 
@@ -138,11 +120,7 @@ impl Viewer {
 
         let uniform_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                bindings: &[wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStage::VERTEX,
-                    ty: wgpu::BindingType::UniformBuffer { dynamic: false },
-                }],
+                bindings: &[Uniforms::create_bind_group_layout_entry()],
                 label: Some("uniform_bind_group_layout"),
             });
 
@@ -159,42 +137,11 @@ impl Viewer {
             label: Some("uniform_bind_group"),
         });
 
-        let instances_bind_group_layout =
-            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                bindings: &[Instance::create_bind_group_layout_entry()],
-                label: Some("instances_bind_group_layout"),
-            });
-
-        let draw_mesh_instances = world
-            .meshes
-            .iter()
-            .map(|mesh| {
-                DrawMeshInstances::from_world(
-                    &device,
-                    &instances_bind_group_layout,
-                    &world,
-                    DrawMesh::from_mesh(&device, &mesh),
-                )
-            })
-            .collect_vec();
-
-        let render_pipeline_layout =
-            device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-                bind_group_layouts: &[&uniform_bind_group_layout, &instances_bind_group_layout],
-            });
+        let mesh_render_pass =
+            MeshRenderPass::from_world(&device, &mut compiler, &uniform_bind_group_layout, &world);
 
         let depth_texture =
             texture::Texture::create_depth_texture(&device, &sc_desc, "depth_texture");
-
-        let mesh_render_pipeline = pipeline::create_render_pipeline::<VertexPosNorm>(
-            &device,
-            render_pipeline_layout,
-            &vs_module,
-            &fs_module,
-            sc_desc.format,
-            texture::Texture::DEPTH_FORMAT,
-            wgpu::PrimitiveTopology::TriangleList,
-        );
 
         Self {
             surface,
@@ -202,8 +149,7 @@ impl Viewer {
             queue,
             sc_desc,
             swap_chain,
-            render_pipeline: mesh_render_pipeline,
-            draw_mesh_instances,
+            mesh_render_pass,
             uniforms,
             uniform_buffer,
             uniform_bind_group,
@@ -295,9 +241,9 @@ impl Viewer {
                     load_op: wgpu::LoadOp::Clear,
                     store_op: wgpu::StoreOp::Store,
                     clear_color: wgpu::Color {
-                        r: 0.1,
-                        g: 0.2,
-                        b: 0.3,
+                        r: 0.0,
+                        g: 0.0,
+                        b: 0.0,
                         a: 1.0,
                     },
                 }],
@@ -312,12 +258,8 @@ impl Viewer {
                 }),
             });
 
-            render_pass.set_pipeline(&self.render_pipeline);
             render_pass.set_bind_group(0, &self.uniform_bind_group, &[]);
-
-            for mesh_instance in &self.draw_mesh_instances {
-                render_pass.draw_mesh_instances(&mesh_instance);
-            }
+            render_pass.draw_all_mesh(&self.mesh_render_pass);
         }
 
         self.queue.submit(&[encoder.finish()]);

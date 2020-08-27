@@ -55,7 +55,7 @@ void main() {
     ".to_string();
 }
 
-pub fn compile_phong_shaders(
+pub fn compile_shaders(
     compiler: &mut shaderc::Compiler,
     device: &wgpu::Device,
 ) -> (wgpu::ShaderModule, wgpu::ShaderModule) {

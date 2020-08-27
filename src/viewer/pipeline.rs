@@ -1,12 +1,11 @@
 use super::vertex::Vertex;
+use super::texture::Texture;
 
 pub fn create_render_pipeline<T: Vertex>(
     device: &wgpu::Device,
     render_pipeline_layout: wgpu::PipelineLayout,
     vs_module: &wgpu::ShaderModule,
     fs_module: &wgpu::ShaderModule,
-    color_format: wgpu::TextureFormat,
-    depth_format: wgpu::TextureFormat,
     primitive_topology: wgpu::PrimitiveTopology,
 ) -> wgpu::RenderPipeline {
     device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
@@ -27,14 +26,14 @@ pub fn create_render_pipeline<T: Vertex>(
             depth_bias_clamp: 0.0,
         }),
         color_states: &[wgpu::ColorStateDescriptor {
-            format: color_format,
+            format: Texture::COLOR_FORMAT,
             color_blend: wgpu::BlendDescriptor::REPLACE,
             alpha_blend: wgpu::BlendDescriptor::REPLACE,
             write_mask: wgpu::ColorWrite::ALL,
         }],
         primitive_topology,
         depth_stencil_state: Some(wgpu::DepthStencilStateDescriptor {
-            format: depth_format,
+            format: Texture::DEPTH_FORMAT,
             depth_write_enabled: true,
             depth_compare: wgpu::CompareFunction::Less, // 1.
             stencil_front: wgpu::StencilStateFaceDescriptor::IGNORE,

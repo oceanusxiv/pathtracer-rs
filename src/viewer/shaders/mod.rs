@@ -1,4 +1,5 @@
 pub mod phong;
+pub mod flat;
 
 fn compile_shader(
     source_text: &str,
