@@ -1,3 +1,4 @@
+mod bounds;
 mod camera;
 mod mesh;
 mod pipeline;
@@ -5,11 +6,10 @@ mod shaders;
 mod texture;
 mod vertex;
 
-use crate::common::{Camera, World};
+use crate::common::{Bounds3, Camera, World};
+use bounds::{DrawBounds, BoundsRenderPass};
 use camera::OrbitalCameraController;
-use itertools::Itertools;
-use mesh::{DrawMesh, DrawMeshInstances, DrawModel, Instance, MeshRenderPass};
-use vertex::{Vertex, VertexPosNorm};
+use mesh::{DrawMesh, MeshRenderPass};
 use winit::{event::*, window::Window};
 
 lazy_static::lazy_static! {
@@ -61,6 +61,7 @@ pub struct Viewer {
     sc_desc: wgpu::SwapChainDescriptor,
     swap_chain: wgpu::SwapChain,
     mesh_render_pass: MeshRenderPass,
+    bounds_render_pass: BoundsRenderPass,
     uniforms: Uniforms,
     uniform_buffer: wgpu::Buffer,
     uniform_bind_group: wgpu::BindGroup,
@@ -140,6 +141,16 @@ impl Viewer {
         let mesh_render_pass =
             MeshRenderPass::from_world(&device, &mut compiler, &uniform_bind_group_layout, &world);
 
+        let bounds_render_pass = BoundsRenderPass::from_bounds(
+            &device,
+            &mut compiler,
+            &uniform_bind_group_layout,
+            &vec![Bounds3::new(
+                na::Point3::new(0.0, 0.0, 0.0),
+                na::Point3::new(1.0, 1.0, 1.0),
+            )],
+        );
+
         let depth_texture =
             texture::Texture::create_depth_texture(&device, &sc_desc, "depth_texture");
 
@@ -150,6 +161,7 @@ impl Viewer {
             sc_desc,
             swap_chain,
             mesh_render_pass,
+            bounds_render_pass,
             uniforms,
             uniform_buffer,
             uniform_bind_group,
@@ -241,9 +253,9 @@ impl Viewer {
                     load_op: wgpu::LoadOp::Clear,
                     store_op: wgpu::StoreOp::Store,
                     clear_color: wgpu::Color {
-                        r: 0.0,
-                        g: 0.0,
-                        b: 0.0,
+                        r: 0.5,
+                        g: 0.5,
+                        b: 0.5,
                         a: 1.0,
                     },
                 }],
@@ -260,6 +272,7 @@ impl Viewer {
 
             render_pass.set_bind_group(0, &self.uniform_bind_group, &[]);
             render_pass.draw_all_mesh(&self.mesh_render_pass);
+            render_pass.draw_all_bounds(&self.bounds_render_pass);
         }
 
         self.queue.submit(&[encoder.finish()]);
