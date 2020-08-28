@@ -91,6 +91,15 @@ impl DirectLightingIntegrator {
         DirectLightingIntegrator {}
     }
 
+    pub fn li(&self, ray: &Ray, scene: &RenderScene, depth: u32) -> Spectrum {
+        let mut isect = SurfaceInteraction::new();
+        if scene.scene.intersect(&ray, &mut isect) {
+            Spectrum::new(1.0)
+        } else {
+            Spectrum::new(0.0)
+        }
+    }
+
     pub fn render(&self, camera: &mut Camera, scene: &RenderScene, out_path: &Path) {
         println!(
             "start rendering image of size: {:?}",
@@ -128,17 +137,11 @@ impl DirectLightingIntegrator {
                 {
                     let film_point = na::Point2::new(x as f32, y as f32) + glm::vec2(0.5, 0.5);
                     let ray = camera.generate_ray(&film_point);
-                    let mut isect = SurfaceInteraction::new();
-                    if scene.scene.intersect(&ray, &mut isect) {
-                        film_tile.add_sample(
-                            &film_point,
-                            &Spectrum {
-                                r: 1.0,
-                                g: 1.0,
-                                b: 1.0,
-                            },
-                        );
-                    }
+
+                    let mut L = Spectrum::new(0.0);
+                    L = self.li(&ray, &scene, 0);
+
+                    film_tile.add_sample(&film_point, &L);
                 }
 
                 film_tile

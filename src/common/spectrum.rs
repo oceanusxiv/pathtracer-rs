@@ -8,6 +8,10 @@ pub struct RGBSpectrum {
 }
 
 impl RGBSpectrum {
+    pub fn new(c: f32) -> Self {
+        RGBSpectrum { r: c, g: c, b: c }
+    }
+
     pub fn to_image_rgb(&self) -> image::Rgb<u8> {
         image::Rgb([
             (self.r * 255.0) as u8,

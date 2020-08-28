@@ -15,11 +15,7 @@ pub struct FilmTilePixel {
 impl FilmTilePixel {
     pub fn new() -> Self {
         FilmTilePixel {
-            contrib_sum: Spectrum {
-                r: 0.0,
-                g: 0.0,
-                b: 0.0,
-            },
+            contrib_sum: Spectrum::new(0.0),
         }
     }
 }
