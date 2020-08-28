@@ -78,7 +78,7 @@ fn main() {
                             virtual_keycode: Some(VirtualKeyCode::R),
                             ..
                         } => integrator.render(
-                            &camera,
+                            &mut camera,
                             &render_scene,
                             "/Users/eric/Downloads/duck.png",
                         ),

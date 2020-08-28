@@ -1,18 +1,25 @@
 use std::collections::HashMap;
 use std::rc::Rc;
+use image::RgbImage;
 
 lazy_static::lazy_static! {
-    pub static ref DEFAULT_RESOLUTION: glm::Vec2 = glm::vec2(352.0, 240.0);
+    pub static ref DEFAULT_RESOLUTION: glm::Vec2 = glm::vec2(1280.0, 720.0);
 }
 
 static DEFAULT_Z_NEAR: f32 = 0.1;
 static DEFAULT_Z_FAR: f32 = 1000.0;
+
+pub struct Film {
+    pub image: Box<RgbImage>,
+}
 
 pub struct Camera {
     pub cam_to_world: na::Isometry3<f32>,
     pub cam_to_screen: na::Perspective3<f32>,
     pub screen_to_raster: na::Affine3<f32>,
     pub raster_to_screen: na::Affine3<f32>,
+
+    pub film: Film,
 }
 
 impl Camera {
@@ -31,6 +38,7 @@ impl Camera {
             cam_to_screen: *cam_to_screen,
             screen_to_raster,
             raster_to_screen: screen_to_raster.inverse(),
+            film : Film::new(&resolution),
         }
     }
 
@@ -62,6 +70,14 @@ pub struct Mesh {
 }
 
 #[derive(Debug, Clone, Copy)]
+pub struct TBounds2<T: na::Scalar> {
+    pub p_min: na::Point2<T>,
+    pub p_max: na::Point2<T>,
+}
+
+pub type Bounds2i = TBounds2<i32>;
+
+#[derive(Debug, Clone, Copy)]
 pub struct TBounds3<T: na::RealField> {
     pub p_min: na::Point3<T>,
     pub p_max: na::Point3<T>,
@@ -83,7 +99,7 @@ pub fn max_p<T: na::RealField>(p1: &na::Point3<T>, p2: &na::Point3<T>) -> na::Po
     )
 }
 
-impl<T: na::RealField + na::ClosedSub + num::FromPrimitive> TBounds3<T> {
+impl<T: na::RealField> TBounds3<T> {
     pub fn new(p1: na::Point3<T>, p2: na::Point3<T>) -> Self {
         TBounds3 {
             p_min: min_p(&p1, &p2),
@@ -99,8 +115,6 @@ pub struct Object {
     pub obj_to_world: na::Projective3<f32>,
     pub mesh: Rc<Mesh>,
 }
-
-pub trait Light {}
 
 pub struct World {
     pub objects: Vec<Object>,

@@ -1,12 +1,5 @@
 use super::SurfaceInteraction;
-
-pub struct RGBSpectrum {
-    pub r: f32,
-    pub g: f32,
-    pub b: f32,
-}
-
-type Spectrum = RGBSpectrum;
+use super::spectrum::Spectrum;
 
 pub trait BxDF {
     fn f(&self, wo: &glm::Vec3, wi: &glm::Vec3) -> Spectrum;

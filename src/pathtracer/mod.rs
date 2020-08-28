@@ -1,13 +1,17 @@
 mod accelerator;
+mod light;
 mod material;
 mod primitive;
 mod sampling;
 mod shape;
+mod spectrum;
 
-use crate::common::{max_p, min_p, Bounds3, Camera, TBounds3, World};
+use crate::common::*;
 use image::RgbImage;
 use indicatif::ProgressBar;
+use itertools::Itertools;
 use material::Material;
+use spectrum::Spectrum;
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -55,7 +59,18 @@ impl Ray {
     }
 }
 
-impl<T: na::RealField + na::ClosedSub + num::FromPrimitive> TBounds3<T> {
+impl<T: na::Scalar + na::ClosedSub + na::ClosedMul + Copy> TBounds2<T> {
+    fn diagonal(&self) -> na::Vector2<T> {
+        self.p_max.coords - self.p_min.coords
+    }
+
+    fn area(&self) -> T {
+        let d = self.p_max.coords - self.p_min.coords;
+        d.x * d.y
+    }
+}
+
+impl<T: na::RealField + na::ClosedSub> TBounds3<T> {
     fn empty() -> Self {
         let min_num = T::min_value();
         let max_num = T::max_value();
@@ -215,7 +230,7 @@ pub trait Sampler {}
 
 impl Camera {
     pub fn generate_ray(&self, film_point: glm::Vec2) -> Ray {
-        let mut cam_dir = self.cam_to_screen.unproject_point(
+        let cam_dir = self.cam_to_screen.unproject_point(
             &(self.raster_to_screen * na::Point3::new(film_point.x, film_point.y, 0.0)),
         );
 
@@ -230,8 +245,44 @@ impl Camera {
     }
 }
 
-pub struct Film {
-    pub image: Box<RgbImage>,
+pub struct FilmTilePixel {
+    contrib_sum: Spectrum,
+}
+
+impl FilmTilePixel {
+    pub fn new() -> Self {
+        FilmTilePixel {
+            contrib_sum: Spectrum {
+                r: 0.0,
+                g: 0.0,
+                b: 0.0,
+            },
+        }
+    }
+}
+
+pub struct FilmTile {
+    tile: Box<[FilmTilePixel]>,
+    pixel_bounds: Bounds2i,
+}
+
+impl FilmTile {
+    pub fn new(pixel_bounds: Bounds2i) -> Self {
+        let width = pixel_bounds.p_max.x - pixel_bounds.p_min.x;
+        let height = pixel_bounds.p_max.y - pixel_bounds.p_min.y;
+        FilmTile {
+            tile: Box::new([]),
+            pixel_bounds,
+        }
+    }
+
+    pub fn add_sample(&mut self, p_film: &na::Point2<f32>, L: &Spectrum) {
+        let p_film_discrete = p_film - na::Vector2::new(0.5, 0.5);
+        let p_tile_x = p_film_discrete.x as i32 - self.pixel_bounds.p_min.x;
+        let p_tile_y = p_film_discrete.y as i32 - self.pixel_bounds.p_min.y;
+        // self.tile
+        //     .put_pixel(p_tile_x as u32, p_tile_y as u32, L.to_image_rgb());
+    }
 }
 
 impl Film {
@@ -243,6 +294,13 @@ impl Film {
 
     pub fn save(&self, file_path: &str) {
         self.image.save(file_path).unwrap()
+    }
+
+    pub fn get_sample_bounds(&self) -> Bounds2i {
+        Bounds2i {
+            p_min: na::Point2::new(0, 0),
+            p_max: na::Point2::new(self.image.width() as i32, self.image.height() as i32),
+        }
     }
 }
 
@@ -275,32 +333,49 @@ impl DirectLightingIntegrator {
         DirectLightingIntegrator {}
     }
 
-    pub fn render(&self, camera: &Camera, scene: &RenderScene, out_path: &str) {
-        let mut film = Film::new(&glm::vec2(
-            super::common::DEFAULT_RESOLUTION.x as u32,
-            super::common::DEFAULT_RESOLUTION.y as u32,
-        ));
-
+    pub fn render(&self, camera: &mut Camera, scene: &RenderScene, out_path: &str) {
+        let mut film = &mut (camera.film);
         println!(
             "start rendering image of size: {:?} x {:?}",
             film.image.width(),
             film.image.height()
         );
         let mut intersections = 0;
-        let bar = ProgressBar::new((film.image.width() * film.image.height()) as u64);
-        for (x, y, pixel) in film.image.enumerate_pixels_mut() {
-            let ray = camera.generate_ray(glm::vec2(x as f32, y as f32) + glm::vec2(0.5, 0.5));
-            let mut isect = SurfaceInteraction::new();
-            if scene.scene.intersect(&ray, &mut isect) {
-                *pixel = image::Rgb([255u8, 255u8, 255u8]);
-                intersections += 1;
-            }
-            bar.inc(1);
+        let sample_bounds = film.get_sample_bounds();
+        let sample_extent = sample_bounds.diagonal();
+        const TILE_SIZE: i32 = 16;
+        let num_tiles = na::Point2::new(
+            (sample_extent.x + TILE_SIZE - 1) / TILE_SIZE,
+            (sample_extent.y + TILE_SIZE - 1) / TILE_SIZE,
+        );
+
+        for (x, y) in (0..num_tiles.x).cartesian_product(0..num_tiles.y) {
+            let tile = na::Point2::new(x, y);
+            let x0 = sample_bounds.p_min.x + tile.x * TILE_SIZE;
+            let x1 = std::cmp::min(x0 + TILE_SIZE, sample_bounds.p_max.x);
+            let y0 = sample_bounds.p_min.y + tile.y * TILE_SIZE;
+            let y1 = std::cmp::min(y0 + TILE_SIZE, sample_bounds.p_max.y);
+
+            let tile_bounds = Bounds2i {
+                p_min: na::Point2::new(x0, y0),
+                p_max: na::Point2::new(x1, y1),
+            };
         }
-        bar.finish();
+
+        // let bar = ProgressBar::new((film.image.width() * film.image.height()) as u64);
+        // for (x, y, pixel) in film.image.enumerate_pixels_mut() {
+        //     let ray = camera.generate_ray(glm::vec2(x as f32, y as f32) + glm::vec2(0.5, 0.5));
+        //     let mut isect = SurfaceInteraction::new();
+        //     if scene.scene.intersect(&ray, &mut isect) {
+        //         *pixel = image::Rgb([255u8, 255u8, 255u8]);
+        //         intersections += 1;
+        //     }
+        //     bar.inc(1);
+        // }
+        // bar.finish();
         println!("{:?} collisions", intersections);
         println!("saving image to {:?}", out_path);
-        film.save(out_path);
+        camera.film.save(out_path);
     }
 }
 
