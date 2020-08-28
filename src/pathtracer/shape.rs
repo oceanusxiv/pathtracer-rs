@@ -145,10 +145,11 @@ impl Shape for Triangle {
         let p_hit = b0 * p0.coords + b1 * p1.coords + b2 * p2.coords;
 
         *t_hit = t;
-        (*isect).p = p_hit;
+        (*isect).p = na::Point3::from(p_hit);
         (*isect).p_error = p_error;
         (*isect).wo = -r.d;
         (*isect).n = glm::normalize(&glm::cross(&dp02, &dp12));
+        (*isect).shading.n = (*isect).n;
 
         return true;
     }

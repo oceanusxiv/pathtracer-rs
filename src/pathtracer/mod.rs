@@ -4,6 +4,7 @@ mod material;
 mod primitive;
 mod sampling;
 mod shape;
+mod interaction;
 
 use crate::common::bounds::Bounds2i;
 use crate::common::film::FilmTile;
@@ -17,30 +18,14 @@ use material::Material;
 use primitive::SyncPrimitive;
 use rayon::prelude::*;
 use shape::Shape;
+use light::SyncLight;
 use std::cell::RefCell;
 use std::sync::Arc;
 use std::{
     path::Path,
     time::{Duration, Instant},
 };
-
-pub struct SurfaceInteraction {
-    pub p: glm::Vec3,
-    pub p_error: glm::Vec3,
-    pub wo: glm::Vec3,
-    pub n: glm::Vec3,
-}
-
-impl SurfaceInteraction {
-    pub fn new() -> Self {
-        SurfaceInteraction {
-            p: glm::zero(),
-            p_error: glm::zero(),
-            wo: glm::zero(),
-            n: glm::zero(),
-        }
-    }
-}
+use interaction::SurfaceInteraction;
 
 pub trait Sampler {}
 
@@ -63,6 +48,7 @@ impl Camera {
 
 pub struct RenderScene {
     scene: Box<dyn SyncPrimitive>,
+    pub lights: Vec<Box<dyn SyncLight>>
 }
 
 impl RenderScene {
@@ -78,7 +64,12 @@ impl RenderScene {
 
         RenderScene {
             scene: Box::new(accelerator::BVH::new(primitives, &4)) as Box<dyn SyncPrimitive>,
+            lights: vec![],
         }
+    }
+
+    pub fn intersect(&self, r: &Ray, mut isect: &mut SurfaceInteraction) -> bool {
+        self.scene.intersect(r, isect)
     }
 }
 
@@ -91,13 +82,20 @@ impl DirectLightingIntegrator {
         DirectLightingIntegrator {}
     }
 
-    pub fn li(&self, ray: &Ray, scene: &RenderScene, depth: u32) -> Spectrum {
-        let mut isect = SurfaceInteraction::new();
-        if scene.scene.intersect(&ray, &mut isect) {
-            Spectrum::new(1.0)
-        } else {
-            Spectrum::new(0.0)
+    pub fn li(&self, r: &Ray, scene: &RenderScene, depth: u32) -> Spectrum {
+        const MAX_DEPTH: u32 = 5;
+        let mut L = Spectrum::new(0.0);
+        let mut isect = SurfaceInteraction::empty();
+
+        if !scene.intersect(&r, &mut isect) {
+            for light in &scene.lights {
+                L += light.le(&r);
+            }
+            return L
         }
+
+
+        Spectrum::new(1.0)
     }
 
     pub fn render(&self, camera: &mut Camera, scene: &RenderScene, out_path: &Path) {
