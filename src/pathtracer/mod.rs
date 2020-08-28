@@ -14,12 +14,15 @@ use image::RgbImage;
 use indicatif::ParallelProgressIterator;
 use itertools::Itertools;
 use material::Material;
+use primitive::SyncPrimitive;
 use rayon::prelude::*;
 use shape::Shape;
 use std::cell::RefCell;
 use std::sync::Arc;
-use std::{path::Path, time::{Duration, Instant}};
-use primitive::SyncPrimitive;
+use std::{
+    path::Path,
+    time::{Duration, Instant},
+};
 
 pub struct SurfaceInteraction {
     pub p: glm::Vec3,
@@ -74,8 +77,7 @@ impl RenderScene {
         }
 
         RenderScene {
-            scene: Box::new(accelerator::BVH::new(primitives, &4))
-                as Box<dyn SyncPrimitive>,
+            scene: Box::new(accelerator::BVH::new(primitives, &4)) as Box<dyn SyncPrimitive>,
         }
     }
 }

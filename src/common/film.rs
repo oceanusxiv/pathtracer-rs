@@ -2,7 +2,10 @@ use super::bounds::Bounds2i;
 use super::spectrum::Spectrum;
 use image::RgbImage;
 use itertools::Itertools;
-use std::{path::Path, sync::{Arc, RwLock}};
+use std::{
+    path::Path,
+    sync::{Arc, RwLock},
+};
 
 #[derive(Clone, Debug)]
 pub struct FilmTilePixel {

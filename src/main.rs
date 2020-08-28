@@ -10,13 +10,13 @@ mod pathtracer;
 mod viewer;
 
 use clap::clap_app;
+use std::path::Path;
 use winit::{
     dpi::{LogicalSize, Size},
     event::*,
     event_loop::{ControlFlow, EventLoop},
     window::WindowBuilder,
 };
-use std::path::Path;
 
 fn main() {
     env_logger::Builder::from_default_env()
@@ -80,11 +80,7 @@ fn main() {
                             state: ElementState::Pressed,
                             virtual_keycode: Some(VirtualKeyCode::R),
                             ..
-                        } => integrator.render(
-                            &mut camera,
-                            &render_scene,
-                            &output_path,
-                        ),
+                        } => integrator.render(&mut camera, &render_scene, &output_path),
                         _ => {}
                     },
                     WindowEvent::Resized(physical_size) => {

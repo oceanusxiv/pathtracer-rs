@@ -1,4 +1,4 @@
-use super::shape::{SyncShape, Shape};
+use super::shape::{Shape, SyncShape};
 use super::{Material, SurfaceInteraction};
 use crate::common::bounds::Bounds3;
 use crate::common::ray::Ray;

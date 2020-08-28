@@ -1,5 +1,5 @@
 use super::primitive::Primitive;
-use super::{SyncPrimitive, SurfaceInteraction};
+use super::{SurfaceInteraction, SyncPrimitive};
 use crate::common::bounds::{Bounds3, TBounds3};
 use crate::common::ray::Ray;
 use std::sync::Arc;
@@ -85,10 +85,7 @@ pub struct BVH {
 }
 
 impl BVH {
-    pub fn new(
-        primitives: Vec<Arc<dyn SyncPrimitive>>,
-        max_prims_in_node: &usize,
-    ) -> Self {
+    pub fn new(primitives: Vec<Arc<dyn SyncPrimitive>>, max_prims_in_node: &usize) -> Self {
         let mut primitive_info = Vec::<BVHPrimitiveInfo>::with_capacity(primitives.len());
 
         for i in 0..primitives.len() {
@@ -96,8 +93,7 @@ impl BVH {
         }
 
         let mut total_nodes = 0usize;
-        let mut ordered_prims =
-            Vec::<Arc<dyn SyncPrimitive>>::with_capacity(primitives.len());
+        let mut ordered_prims = Vec::<Arc<dyn SyncPrimitive>>::with_capacity(primitives.len());
 
         let root = BVH::recursive_build(
             &mut primitive_info,
