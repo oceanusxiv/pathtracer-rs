@@ -1,10 +1,10 @@
 mod accelerator;
+mod interaction;
 mod light;
 mod material;
 mod primitive;
 mod sampling;
 mod shape;
-mod interaction;
 
 use crate::common::bounds::Bounds2i;
 use crate::common::film::FilmTile;
@@ -13,20 +13,24 @@ use crate::common::spectrum::Spectrum;
 use crate::common::{Camera, World};
 use image::RgbImage;
 use indicatif::ParallelProgressIterator;
+use interaction::SurfaceInteraction;
 use itertools::Itertools;
-use material::Material;
+use light::SyncLight;
+use material::{Material, MatteMaterial, SyncMaterial};
 use primitive::SyncPrimitive;
 use rayon::prelude::*;
 use shape::Shape;
-use light::SyncLight;
 use std::cell::RefCell;
 use std::sync::Arc;
 use std::{
     path::Path,
     time::{Duration, Instant},
 };
-use interaction::SurfaceInteraction;
 
+enum TransportMode {
+    Radiance,
+    Importance,
+}
 pub trait Sampler {}
 
 impl Camera {
@@ -48,17 +52,20 @@ impl Camera {
 
 pub struct RenderScene {
     scene: Box<dyn SyncPrimitive>,
-    pub lights: Vec<Box<dyn SyncLight>>
+    pub lights: Vec<Box<dyn SyncLight>>,
 }
 
 impl RenderScene {
     pub fn from_world(world: &World) -> Self {
         let mut primitives: Vec<Arc<dyn SyncPrimitive>> = Vec::new();
+        let matte = Arc::new(MatteMaterial {}) as Arc<dyn SyncMaterial>;
 
         for obj in &world.objects {
             for shape in obj.mesh.to_shapes(&obj) {
-                primitives.push(Arc::new(primitive::GeometricPrimitive { shape: shape })
-                    as Arc<dyn SyncPrimitive>)
+                primitives.push(Arc::new(primitive::GeometricPrimitive {
+                    shape: shape,
+                    material: Arc::clone(&matte),
+                }) as Arc<dyn SyncPrimitive>)
             }
         }
 
@@ -91,9 +98,8 @@ impl DirectLightingIntegrator {
             for light in &scene.lights {
                 L += light.le(&r);
             }
-            return L
+            return L;
         }
-
 
         Spectrum::new(1.0)
     }

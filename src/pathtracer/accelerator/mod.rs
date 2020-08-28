@@ -379,4 +379,16 @@ impl Primitive for BVH {
     fn world_bound(&self) -> Bounds3 {
         todo!()
     }
+
+    fn get_material(&self) -> &dyn super::material::Material {
+        unimplemented!()
+    }
+
+    fn compute_scattering_functions(
+        &self,
+        si: &mut SurfaceInteraction,
+        mode: super::TransportMode,
+    ) {
+        unimplemented!()
+    }
 }

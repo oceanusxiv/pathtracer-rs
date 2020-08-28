@@ -13,7 +13,7 @@ pub struct SurfaceInteraction<'a> {
     pub shading: SurfaceInteractionShading,
     pub shape: Option<&'a dyn Shape>,
     pub primitive: Option<&'a dyn Primitive>,
-    pub bsdf: Option<&'a dyn BSDF>,
+    pub bsdf: Option<BSDF>,
 }
 
 impl<'a> SurfaceInteraction<'a> {
