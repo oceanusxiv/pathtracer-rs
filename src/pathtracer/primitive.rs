@@ -1,5 +1,7 @@
 use super::shape::Shape;
-use super::{Bounds3, Material, Ray, SurfaceInteraction};
+use super::{Material, SurfaceInteraction};
+use crate::common::bounds::Bounds3;
+use crate::common::ray::Ray;
 use std::rc::Rc;
 pub trait Primitive {
     fn intersect(&self, r: &Ray, isect: &mut SurfaceInteraction) -> bool;
@@ -8,7 +10,7 @@ pub trait Primitive {
 }
 
 pub struct GeometricPrimitive {
-    pub shape: Box<dyn Shape>,
+    pub shape: Box<dyn Shape + Send + Sync>,
 }
 
 impl Primitive for GeometricPrimitive {

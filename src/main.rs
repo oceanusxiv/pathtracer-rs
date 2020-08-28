@@ -80,7 +80,7 @@ fn main() {
                         } => integrator.render(
                             &mut camera,
                             &render_scene,
-                            "/Users/eric/Downloads/duck.png",
+                            "/home/eric/Downloads/duck.png",
                         ),
                         _ => {}
                     },

@@ -1,6 +1,6 @@
 use super::vertex::VertexPos;
 use super::{pipeline::create_render_pipeline, shaders};
-use crate::common::Bounds3;
+use crate::common::bounds::Bounds3;
 use itertools::Itertools;
 
 pub struct BoundsHandle {

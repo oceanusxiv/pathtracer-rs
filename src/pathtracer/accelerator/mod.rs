@@ -1,6 +1,8 @@
 use super::primitive::Primitive;
-use super::{Bounds3, Ray, SurfaceInteraction};
-use std::rc::Rc;
+use super::SurfaceInteraction;
+use crate::common::bounds::{Bounds3, TBounds3};
+use crate::common::ray::Ray;
+use std::sync::Arc;
 
 struct BVHPrimitiveInfo {
     pub prim_num: usize,
@@ -78,12 +80,15 @@ struct LinearBVHNode {
 }
 
 pub struct BVH {
-    primitives: Vec<Rc<dyn Primitive>>,
+    primitives: Vec<Arc<dyn Primitive + Send + Sync>>,
     nodes: Box<[LinearBVHNode]>,
 }
 
 impl BVH {
-    pub fn new(primitives: Vec<Rc<dyn Primitive>>, max_prims_in_node: &usize) -> Self {
+    pub fn new(
+        primitives: Vec<Arc<dyn Primitive + Send + Sync>>,
+        max_prims_in_node: &usize,
+    ) -> Self {
         let mut primitive_info = Vec::<BVHPrimitiveInfo>::with_capacity(primitives.len());
 
         for i in 0..primitives.len() {
@@ -91,7 +96,8 @@ impl BVH {
         }
 
         let mut total_nodes = 0usize;
-        let mut ordered_prims = Vec::<Rc<dyn Primitive>>::with_capacity(primitives.len());
+        let mut ordered_prims =
+            Vec::<Arc<dyn Primitive + Send + Sync>>::with_capacity(primitives.len());
 
         let root = BVH::recursive_build(
             &mut primitive_info,
@@ -120,8 +126,8 @@ impl BVH {
         start: usize,
         end: usize,
         total_size: &mut usize,
-        ordered_prims: &mut Vec<Rc<dyn Primitive>>,
-        primitives: &Vec<Rc<dyn Primitive>>,
+        ordered_prims: &mut Vec<Arc<dyn Primitive + Send + Sync>>,
+        primitives: &Vec<Arc<dyn Primitive + Send + Sync>>,
     ) -> Box<BVHBuildNode> {
         *total_size += 1;
 
@@ -135,7 +141,7 @@ impl BVH {
             let first_prim_offset = ordered_prims.len();
             for i in start..end {
                 let prim_num = primitive_info[i].prim_num;
-                ordered_prims.push(Rc::clone(&primitives[prim_num]));
+                ordered_prims.push(Arc::clone(&primitives[prim_num]));
             }
 
             return Box::new(BVHBuildNode::new_leaf(first_prim_offset, num_prims, bounds));
@@ -152,7 +158,7 @@ impl BVH {
                 let first_prim_offset = ordered_prims.len();
                 for i in start..end {
                     let prim_num = primitive_info[i].prim_num;
-                    ordered_prims.push(Rc::clone(&primitives[prim_num]));
+                    ordered_prims.push(Arc::clone(&primitives[prim_num]));
                 }
 
                 return Box::new(BVHBuildNode::new_leaf(first_prim_offset, num_prims, bounds));
@@ -231,7 +237,7 @@ impl BVH {
                         let first_prim_offset = ordered_prims.len();
                         for i in start..end {
                             let prim_num = primitive_info[i].prim_num;
-                            ordered_prims.push(Rc::clone(&primitives[prim_num]));
+                            ordered_prims.push(Arc::clone(&primitives[prim_num]));
                         }
 
                         return Box::new(BVHBuildNode::new_leaf(

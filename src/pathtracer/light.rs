@@ -1,3 +1,1 @@
-pub trait Light {
-    
-}
+pub trait Light {}

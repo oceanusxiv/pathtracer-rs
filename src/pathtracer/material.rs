@@ -1,5 +1,5 @@
 use super::SurfaceInteraction;
-use super::spectrum::Spectrum;
+use crate::common::spectrum::Spectrum;
 
 pub trait BxDF {
     fn f(&self, wo: &glm::Vec3, wi: &glm::Vec3) -> Spectrum;

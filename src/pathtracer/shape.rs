@@ -1,6 +1,9 @@
-use super::{gamma, max_dimension, permute, Bounds3, Ray, SurfaceInteraction};
+use super::SurfaceInteraction;
+use crate::common::bounds::Bounds3;
+use crate::common::math::*;
+use crate::common::ray::Ray;
 use crate::common::{Mesh, Object};
-use std::rc::Rc;
+use std::sync::Arc;
 
 pub trait Shape {
     fn intersect(&self, r: &Ray, t_hit: &mut f32, isect: &mut SurfaceInteraction) -> bool;
@@ -8,7 +11,7 @@ pub trait Shape {
 }
 
 pub struct Triangle {
-    mesh: Rc<Mesh>,
+    mesh: Arc<Mesh>,
     indices: [u32; 3],
 }
 
@@ -156,21 +159,21 @@ impl Shape for Triangle {
 }
 
 impl Mesh {
-    pub fn to_shapes(&self, object: &Object) -> Vec<Box<dyn Shape>> {
+    pub fn to_shapes(&self, object: &Object) -> Vec<Box<dyn Shape + Send + Sync>> {
         let mut world_mesh = (*self).clone();
 
         for pos in &mut world_mesh.pos {
             *pos = object.obj_to_world * *pos;
         }
 
-        let mut shapes: Vec<Box<dyn Shape>> = Vec::new();
+        let mut shapes = Vec::new();
 
-        let world_mesh = Rc::new(world_mesh);
+        let world_mesh = Arc::new(world_mesh);
         for chunk in world_mesh.indices.chunks_exact(3) {
             shapes.push(Box::new(Triangle {
-                mesh: Rc::clone(&world_mesh),
+                mesh: Arc::clone(&world_mesh),
                 indices: [chunk[0], chunk[1], chunk[2]],
-            }))
+            }) as Box<dyn Shape + Send + Sync>)
         }
 
         shapes

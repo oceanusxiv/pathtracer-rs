@@ -1,6 +1,13 @@
+pub mod bounds;
+pub mod film;
+pub mod math;
+pub mod ray;
+pub mod spectrum;
+
+use film::Film;
+use image::RgbImage;
 use std::collections::HashMap;
 use std::rc::Rc;
-use image::RgbImage;
 
 lazy_static::lazy_static! {
     pub static ref DEFAULT_RESOLUTION: glm::Vec2 = glm::vec2(1280.0, 720.0);
@@ -8,10 +15,6 @@ lazy_static::lazy_static! {
 
 static DEFAULT_Z_NEAR: f32 = 0.1;
 static DEFAULT_Z_FAR: f32 = 1000.0;
-
-pub struct Film {
-    pub image: Box<RgbImage>,
-}
 
 pub struct Camera {
     pub cam_to_world: na::Isometry3<f32>,
@@ -38,7 +41,7 @@ impl Camera {
             cam_to_screen: *cam_to_screen,
             screen_to_raster,
             raster_to_screen: screen_to_raster.inverse(),
-            film : Film::new(&resolution),
+            film: Film::new(&resolution),
         }
     }
 
@@ -68,47 +71,6 @@ pub struct Mesh {
     pub pos: Vec<na::Point3<f32>>,
     pub normal: Vec<na::Vector3<f32>>,
 }
-
-#[derive(Debug, Clone, Copy)]
-pub struct TBounds2<T: na::Scalar> {
-    pub p_min: na::Point2<T>,
-    pub p_max: na::Point2<T>,
-}
-
-pub type Bounds2i = TBounds2<i32>;
-
-#[derive(Debug, Clone, Copy)]
-pub struct TBounds3<T: na::RealField> {
-    pub p_min: na::Point3<T>,
-    pub p_max: na::Point3<T>,
-}
-
-pub fn min_p<T: na::RealField>(p1: &na::Point3<T>, p2: &na::Point3<T>) -> na::Point3<T> {
-    na::Point3::new(
-        na::RealField::min(p1.x, p2.x),
-        na::RealField::min(p1.y, p2.y),
-        na::RealField::min(p1.z, p2.z),
-    )
-}
-
-pub fn max_p<T: na::RealField>(p1: &na::Point3<T>, p2: &na::Point3<T>) -> na::Point3<T> {
-    na::Point3::new(
-        na::RealField::max(p1.x, p2.x),
-        na::RealField::max(p1.y, p2.y),
-        na::RealField::max(p1.z, p2.z),
-    )
-}
-
-impl<T: na::RealField> TBounds3<T> {
-    pub fn new(p1: na::Point3<T>, p2: na::Point3<T>) -> Self {
-        TBounds3 {
-            p_min: min_p(&p1, &p2),
-            p_max: max_p(&p1, &p2),
-        }
-    }
-}
-
-pub type Bounds3 = TBounds3<f32>;
 
 pub struct Object {
     pub world_to_obj: na::Projective3<f32>,

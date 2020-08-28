@@ -6,7 +6,8 @@ mod shaders;
 mod texture;
 mod vertex;
 
-use crate::common::{Bounds3, Camera, World};
+use crate::common::bounds::Bounds3;
+use crate::common::{Camera, World};
 use bounds::{BoundsRenderPass, DrawBounds};
 use camera::OrbitalCameraController;
 use mesh::{DrawMesh, MeshRenderPass};
