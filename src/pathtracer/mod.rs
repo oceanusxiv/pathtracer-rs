@@ -27,7 +27,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-enum TransportMode {
+pub enum TransportMode {
     Radiance,
     Importance,
 }
