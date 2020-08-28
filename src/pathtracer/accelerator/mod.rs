@@ -1,5 +1,5 @@
 use super::primitive::Primitive;
-use super::SurfaceInteraction;
+use super::{SyncPrimitive, SurfaceInteraction};
 use crate::common::bounds::{Bounds3, TBounds3};
 use crate::common::ray::Ray;
 use std::sync::Arc;
@@ -80,13 +80,13 @@ struct LinearBVHNode {
 }
 
 pub struct BVH {
-    primitives: Vec<Arc<dyn Primitive + Send + Sync>>,
+    primitives: Vec<Arc<dyn SyncPrimitive>>,
     nodes: Box<[LinearBVHNode]>,
 }
 
 impl BVH {
     pub fn new(
-        primitives: Vec<Arc<dyn Primitive + Send + Sync>>,
+        primitives: Vec<Arc<dyn SyncPrimitive>>,
         max_prims_in_node: &usize,
     ) -> Self {
         let mut primitive_info = Vec::<BVHPrimitiveInfo>::with_capacity(primitives.len());
@@ -97,7 +97,7 @@ impl BVH {
 
         let mut total_nodes = 0usize;
         let mut ordered_prims =
-            Vec::<Arc<dyn Primitive + Send + Sync>>::with_capacity(primitives.len());
+            Vec::<Arc<dyn SyncPrimitive>>::with_capacity(primitives.len());
 
         let root = BVH::recursive_build(
             &mut primitive_info,
@@ -126,8 +126,8 @@ impl BVH {
         start: usize,
         end: usize,
         total_size: &mut usize,
-        ordered_prims: &mut Vec<Arc<dyn Primitive + Send + Sync>>,
-        primitives: &Vec<Arc<dyn Primitive + Send + Sync>>,
+        ordered_prims: &mut Vec<Arc<dyn SyncPrimitive>>,
+        primitives: &Vec<Arc<dyn SyncPrimitive>>,
     ) -> Box<BVHBuildNode> {
         *total_size += 1;
 

@@ -2,7 +2,7 @@ use super::bounds::Bounds2i;
 use super::spectrum::Spectrum;
 use image::RgbImage;
 use itertools::Itertools;
-use std::sync::{Arc, RwLock};
+use std::{path::Path, sync::{Arc, RwLock}};
 
 #[derive(Clone, Debug)]
 pub struct FilmTilePixel {
@@ -71,7 +71,7 @@ impl Film {
         }
     }
 
-    pub fn save(&self, file_path: &str) {
+    pub fn save(&self, file_path: &Path) {
         self.image.read().unwrap().save(file_path).unwrap()
     }
 

@@ -16,6 +16,7 @@ use winit::{
     event_loop::{ControlFlow, EventLoop},
     window::WindowBuilder,
 };
+use std::path::Path;
 
 fn main() {
     env_logger::Builder::from_default_env()
@@ -28,11 +29,13 @@ fn main() {
         (author: "Eric F. <eric1221bday@gmail.com>")
         (about: "Rust path tracer")
         (@arg SCENE: +required "Sets the input scene to use")
+        (@arg output: -o --output +takes_value +required "Sets the output directory to save renders at")
         (@arg verbose: -v --verbose "Print test information verbosely")
     )
     .get_matches();
 
     let scene_path = matches.value_of("SCENE").unwrap();
+    let output_path = Path::new(matches.value_of("output").unwrap()).join("render.png");
     let (world, mut camera) = common::World::from_gltf(scene_path);
     let render_scene = pathtracer::RenderScene::from_world(&world);
     let integrator = pathtracer::DirectLightingIntegrator::new();
@@ -80,7 +83,7 @@ fn main() {
                         } => integrator.render(
                             &mut camera,
                             &render_scene,
-                            "/home/eric/Downloads/duck.png",
+                            &output_path,
                         ),
                         _ => {}
                     },

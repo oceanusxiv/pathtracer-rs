@@ -18,7 +18,8 @@ use rayon::prelude::*;
 use shape::Shape;
 use std::cell::RefCell;
 use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::{path::Path, time::{Duration, Instant}};
+use primitive::SyncPrimitive;
 
 pub struct SurfaceInteraction {
     pub p: glm::Vec3,
@@ -58,23 +59,23 @@ impl Camera {
 }
 
 pub struct RenderScene {
-    scene: Box<dyn primitive::Primitive + Send + Sync>,
+    scene: Box<dyn SyncPrimitive>,
 }
 
 impl RenderScene {
     pub fn from_world(world: &World) -> Self {
-        let mut primitives: Vec<Arc<dyn primitive::Primitive + Send + Sync>> = Vec::new();
+        let mut primitives: Vec<Arc<dyn SyncPrimitive>> = Vec::new();
 
         for obj in &world.objects {
             for shape in obj.mesh.to_shapes(&obj) {
                 primitives.push(Arc::new(primitive::GeometricPrimitive { shape: shape })
-                    as Arc<dyn primitive::Primitive + Send + Sync>)
+                    as Arc<dyn SyncPrimitive>)
             }
         }
 
         RenderScene {
             scene: Box::new(accelerator::BVH::new(primitives, &4))
-                as Box<dyn primitive::Primitive + Send + Sync>,
+                as Box<dyn SyncPrimitive>,
         }
     }
 }
@@ -88,7 +89,7 @@ impl DirectLightingIntegrator {
         DirectLightingIntegrator {}
     }
 
-    pub fn render(&self, camera: &mut Camera, scene: &RenderScene, out_path: &str) {
+    pub fn render(&self, camera: &mut Camera, scene: &RenderScene, out_path: &Path) {
         println!(
             "start rendering image of size: {:?}",
             camera.film.get_sample_bounds(),

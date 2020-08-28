@@ -10,6 +10,9 @@ pub trait Shape {
     fn world_bound(&self) -> Bounds3;
 }
 
+pub trait SyncShape: Shape + Send + Sync {}
+impl<T> SyncShape for T where T: Shape + Send + Sync {}
+
 pub struct Triangle {
     mesh: Arc<Mesh>,
     indices: [u32; 3],
@@ -159,7 +162,7 @@ impl Shape for Triangle {
 }
 
 impl Mesh {
-    pub fn to_shapes(&self, object: &Object) -> Vec<Box<dyn Shape + Send + Sync>> {
+    pub fn to_shapes(&self, object: &Object) -> Vec<Box<dyn SyncShape>> {
         let mut world_mesh = (*self).clone();
 
         for pos in &mut world_mesh.pos {
@@ -173,7 +176,7 @@ impl Mesh {
             shapes.push(Box::new(Triangle {
                 mesh: Arc::clone(&world_mesh),
                 indices: [chunk[0], chunk[1], chunk[2]],
-            }) as Box<dyn Shape + Send + Sync>)
+            }) as Box<dyn SyncShape>)
         }
 
         shapes

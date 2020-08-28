@@ -1,4 +1,4 @@
-use super::shape::Shape;
+use super::shape::{SyncShape, Shape};
 use super::{Material, SurfaceInteraction};
 use crate::common::bounds::Bounds3;
 use crate::common::ray::Ray;
@@ -9,8 +9,11 @@ pub trait Primitive {
     fn world_bound(&self) -> Bounds3;
 }
 
+pub trait SyncPrimitive: Primitive + Send + Sync {}
+impl<T> SyncPrimitive for T where T: Primitive + Send + Sync {}
+
 pub struct GeometricPrimitive {
-    pub shape: Box<dyn Shape + Send + Sync>,
+    pub shape: Box<dyn SyncShape>,
 }
 
 impl Primitive for GeometricPrimitive {
