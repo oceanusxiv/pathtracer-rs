@@ -6,7 +6,7 @@ use crate::common::{Mesh, Object};
 use std::sync::Arc;
 
 pub trait Shape {
-    fn intersect(&self, r: &Ray, t_hit: &mut f32, isect: &mut SurfaceInteraction) -> bool;
+    fn intersect<'a>(&'a self, r: &Ray, t_hit: &mut f32, isect: &mut SurfaceInteraction<'a>) -> bool;
     fn world_bound(&self) -> Bounds3;
 }
 
@@ -21,7 +21,7 @@ pub struct Triangle {
 impl Triangle {}
 
 impl Shape for Triangle {
-    fn intersect(&self, r: &Ray, t_hit: &mut f32, isect: &mut SurfaceInteraction) -> bool {
+    fn intersect<'a>(&'a self, r: &Ray, t_hit: &mut f32, isect: &mut SurfaceInteraction<'a>) -> bool {
         // get triangle vertices
         let p0 = self.mesh.pos[self.indices[0] as usize];
         let p1 = self.mesh.pos[self.indices[1] as usize];
@@ -150,6 +150,7 @@ impl Shape for Triangle {
         (*isect).wo = -r.d;
         (*isect).n = glm::normalize(&glm::cross(&dp02, &dp12));
         (*isect).shading.n = (*isect).n;
+        (*isect).shape = Some(self);
 
         return true;
     }

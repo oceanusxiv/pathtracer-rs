@@ -4,7 +4,7 @@ use crate::common::bounds::Bounds3;
 use crate::common::ray::Ray;
 use std::{rc::Rc, sync::Arc};
 pub trait Primitive {
-    fn intersect(&self, r: &Ray, isect: &mut SurfaceInteraction) -> bool;
+    fn intersect<'a>(&'a self, r: &Ray, isect: &mut SurfaceInteraction<'a>) -> bool;
     // fn intersect_p(r: &Ray) -> bool;
     fn world_bound(&self) -> Bounds3;
     fn get_material(&self) -> &dyn Material;
@@ -20,7 +20,7 @@ pub struct GeometricPrimitive {
 }
 
 impl Primitive for GeometricPrimitive {
-    fn intersect(&self, r: &Ray, mut isect: &mut SurfaceInteraction) -> bool {
+    fn intersect<'a>(&'a self, r: &Ray, mut isect: &mut SurfaceInteraction<'a>) -> bool {
         let mut t_hit = 0.0f32;
         if !self.shape.intersect(r, &mut t_hit, &mut isect) {
             return false;
@@ -55,7 +55,7 @@ impl Aggregate {
 }
 
 impl Primitive for Aggregate {
-    fn intersect(&self, r: &Ray, mut isect: &mut SurfaceInteraction) -> bool {
+    fn intersect<'a>(&'a self, r: &Ray, mut isect: &mut SurfaceInteraction<'a>) -> bool {
         let mut hit = false;
         for prim in &self.primitives {
             if prim.intersect(r, &mut isect) {

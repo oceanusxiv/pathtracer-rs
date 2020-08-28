@@ -75,7 +75,7 @@ impl RenderScene {
         }
     }
 
-    pub fn intersect(&self, r: &Ray, mut isect: &mut SurfaceInteraction) -> bool {
+    pub fn intersect<'a>(&'a self, r: &Ray, isect: &mut SurfaceInteraction<'a>) -> bool {
         self.scene.intersect(r, isect)
     }
 }
