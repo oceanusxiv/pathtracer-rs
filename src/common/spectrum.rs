@@ -1,4 +1,5 @@
 use std::ops::{Add, AddAssign, Div, Mul};
+use super::math::gamma_correct;
 
 #[derive(Clone, Debug, Copy)]
 pub struct RGBSpectrum {
@@ -14,9 +15,9 @@ impl RGBSpectrum {
 
     pub fn to_image_rgb(&self) -> image::Rgb<u8> {
         image::Rgb([
-            (self.r * 255.0) as u8,
-            (self.g * 255.0) as u8,
-            (self.b * 255.0) as u8,
+            (gamma_correct(self.r) * 255.0 + 0.5).clamp(0.0, 255.0) as u8,
+            (gamma_correct(self.g) * 255.0 + 0.5).clamp(0.0, 255.0) as u8,
+            (gamma_correct(self.b) * 255.0 + 0.5).clamp(0.0, 255.0) as u8,
         ])
     }
 
