@@ -136,8 +136,6 @@ impl DirectLightingIntegrator {
 
             let f = isect.bsdf.as_ref().unwrap().f(&wo, &wi, BxDFType::BSDF_ALL);
 
-            println!("f: {:?}", f);
-
             if !f.is_black() {
                 if let Some(visibility) = visibility {
                     if visibility.unoccluded(&scene) {

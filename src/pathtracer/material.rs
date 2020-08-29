@@ -57,7 +57,7 @@ pub trait BxDF {
     ) -> Spectrum;
 
     fn matches_flags(&self, t: BxDFType) -> bool {
-        self.get_type().contains(t)
+        (self.get_type() & t) == self.get_type()
     }
     fn get_type(&self) -> BxDFType;
     fn pdf(&self, wo: &na::Vector3<f32>, wi: &na::Vector3<f32>) -> f32 {

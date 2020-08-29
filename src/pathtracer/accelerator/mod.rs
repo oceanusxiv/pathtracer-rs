@@ -377,7 +377,61 @@ impl Primitive for BVH {
     }
 
     fn intersect_p(&self, r: &Ray) -> bool {
-        todo!()
+        if self.nodes.is_empty() {
+            return false;
+        }
+
+        let inv_dir = na::Vector3::new(1.0f32 / r.d.x, 1.0f32 / r.d.y, 1.0f32 / r.d.z);
+        let dir_is_neg = [inv_dir.x < 0.0, inv_dir.y < 0.0, inv_dir.z < 0.0];
+
+        let mut to_visit_offset = 0;
+        let mut curr_node_idx = 0;
+        let mut nodes_to_visit = [0; 128];
+        loop {
+            let node = &self.nodes[curr_node_idx];
+
+            if node.bounds.intersect_p_precomp(r, &inv_dir, &dir_is_neg) {
+                if node.num_prims > 0 {
+                    for i in 0..node.num_prims {
+                        unsafe {
+                            if self.primitives[node.offset.primitives_offset as usize + i as usize]
+                                .intersect_p(r)
+                            {
+                                return true;
+                            }
+                        }
+                    }
+
+                    if to_visit_offset == 0 {
+                        break;
+                    }
+                    to_visit_offset -= 1;
+                    curr_node_idx = nodes_to_visit[to_visit_offset];
+                } else {
+                    if dir_is_neg[node.axis as usize] {
+                        nodes_to_visit[to_visit_offset] = curr_node_idx + 1;
+                        unsafe {
+                            curr_node_idx = node.offset.second_child_offset as usize;
+                        }
+                    } else {
+                        unsafe {
+                            nodes_to_visit[to_visit_offset] =
+                                node.offset.second_child_offset as usize;
+                        }
+                        curr_node_idx += 1;
+                    }
+                    to_visit_offset += 1;
+                }
+            } else {
+                if to_visit_offset == 0 {
+                    break;
+                }
+                to_visit_offset -= 1;
+                curr_node_idx = nodes_to_visit[to_visit_offset];
+            }
+        }
+
+        false
     }
 
     fn world_bound(&self) -> Bounds3 {
