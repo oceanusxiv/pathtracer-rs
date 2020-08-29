@@ -1,5 +1,5 @@
-use std::ops::{Add, AddAssign, Div, Mul};
 use super::math::gamma_correct;
+use std::ops::{Add, AddAssign, Div, Mul};
 
 #[derive(Clone, Debug, Copy)]
 pub struct RGBSpectrum {

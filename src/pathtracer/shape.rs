@@ -1,4 +1,7 @@
-use super::SurfaceInteraction;
+use super::{
+    texture::{SyncTexture, Texture},
+    SurfaceInteraction,
+};
 use crate::common::bounds::Bounds3;
 use crate::common::math::*;
 use crate::common::ray::Ray;
@@ -20,7 +23,7 @@ pub trait SyncShape: Shape + Send + Sync {}
 impl<T> SyncShape for T where T: Shape + Send + Sync {}
 
 pub struct Triangle {
-    mesh: Arc<Mesh>,
+    mesh: Arc<TriangleMesh>,
     indices: [u32; 3],
     reverse_orientation: bool,
     transform_swaps_handedness: bool,
@@ -427,34 +430,50 @@ impl Shape for Triangle {
     }
 }
 
-impl Mesh {
-    pub fn to_shapes(&self, object: &Object) -> Vec<Box<dyn SyncShape>> {
-        let mut world_mesh = (*self).clone();
+pub struct TriangleMesh {
+    pub indices: Vec<u32>,
+    pub pos: Vec<na::Point3<f32>>,
+    pub normal: Vec<na::Vector3<f32>>,
+    pub s: Vec<na::Vector3<f32>>,
+    pub uv: Vec<na::Point2<f32>>,
+    pub colors: Vec<na::Vector3<f32>>,
+    pub alpha_mask: Option<Arc<dyn SyncTexture<f32>>>,
+}
 
-        for pos in &mut world_mesh.pos {
-            *pos = object.obj_to_world * *pos;
-        }
+pub fn shape_from_mesh(mesh: &Mesh, object: &Object) -> Vec<Box<dyn SyncShape>> {
+    let mut world_mesh = TriangleMesh {
+        indices: mesh.indices.clone(),
+        pos: mesh.pos.clone(),
+        normal: mesh.normal.clone(),
+        s: mesh.s.clone(),
+        uv: mesh.uv.clone(),
+        colors: mesh.colors.clone(),
+        alpha_mask: None,
+    };
 
-        for normal in &mut world_mesh.normal {
-            *normal = object.obj_to_world * *normal;
-        }
-
-        for s in &mut world_mesh.s {
-            *s = object.obj_to_world * *s;
-        }
-
-        let mut shapes = Vec::new();
-
-        let world_mesh = Arc::new(world_mesh);
-        for chunk in world_mesh.indices.chunks_exact(3) {
-            shapes.push(Box::new(Triangle {
-                mesh: Arc::clone(&world_mesh),
-                indices: [chunk[0], chunk[1], chunk[2]],
-                reverse_orientation: false,
-                transform_swaps_handedness: false,
-            }) as Box<dyn SyncShape>)
-        }
-
-        shapes
+    for pos in &mut world_mesh.pos {
+        *pos = object.obj_to_world * *pos;
     }
+
+    for normal in &mut world_mesh.normal {
+        *normal = object.obj_to_world * *normal;
+    }
+
+    for s in &mut world_mesh.s {
+        *s = object.obj_to_world * *s;
+    }
+
+    let mut shapes = Vec::new();
+
+    let world_mesh = Arc::new(world_mesh);
+    for chunk in world_mesh.indices.chunks_exact(3) {
+        shapes.push(Box::new(Triangle {
+            mesh: Arc::clone(&world_mesh),
+            indices: [chunk[0], chunk[1], chunk[2]],
+            reverse_orientation: false,
+            transform_swaps_handedness: false,
+        }) as Box<dyn SyncShape>)
+    }
+
+    shapes
 }

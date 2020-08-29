@@ -129,6 +129,6 @@ pub fn gamma_correct(value: f32) -> f32 {
     if value <= 0.0031308f32 {
         return 12.92 * value;
     }
-    
+
     1.055 * value.powf(1.0 / 2.4) - 0.055
 }

@@ -7,7 +7,7 @@ pub mod spectrum;
 use film::Film;
 use image::RgbImage;
 use std::collections::HashMap;
-use std::rc::Rc;
+use std::{rc::Rc, sync::Arc};
 
 lazy_static::lazy_static! {
     pub static ref DEFAULT_RESOLUTION: glm::Vec2 = glm::vec2(1280.0, 720.0);
@@ -74,6 +74,7 @@ pub struct Mesh {
     pub normal: Vec<na::Vector3<f32>>,
     pub s: Vec<na::Vector3<f32>>,
     pub uv: Vec<na::Point2<f32>>,
+    pub colors: Vec<na::Vector3<f32>>,
 }
 
 pub struct Object {
@@ -104,6 +105,7 @@ impl World {
         let mut camera = Default::default();
         let mut world = World::empty();
         world.populate_meshes(&document, &buffers);
+        world.populate_materials(&document, &images);
         for scene in document.scenes() {
             for node in scene.nodes() {
                 world.populate_scene(&na::Projective3::identity(), &node);
@@ -117,8 +119,17 @@ impl World {
         (world, camera)
     }
 
-    fn populate_materials(&mut self, document: &gltf::Document) {
-        for material in document.materials() {}
+    fn populate_materials(&mut self, document: &gltf::Document, images: &[gltf::image::Data]) {
+        for material in document.materials() {
+            let index = material
+                .pbr_metallic_roughness()
+                .base_color_texture()
+                .unwrap()
+                .texture()
+                .source()
+                .index();
+            println!("{:?}", images[index].format);
+        }
     }
 
     fn populate_meshes(&mut self, document: &gltf::Document, buffers: &[gltf::buffer::Data]) {
@@ -140,8 +151,26 @@ impl World {
                         Some(normals) => normals.map(|normal| glm::make_vec3(&normal)).collect(),
                         None => vec![],
                     },
-                    s: vec![],
-                    uv: vec![],
+                    s: match reader.read_tangents() {
+                        Some(tangents) => {
+                            tangents.map(|tangent| glm::make_vec3(&tangent)).collect()
+                        }
+                        None => vec![],
+                    },
+                    uv: match reader.read_tex_coords(0) {
+                        Some(read_texels) => read_texels
+                            .into_f32()
+                            .map(|texel| na::Point2::new(texel[0], texel[1]))
+                            .collect(),
+                        None => vec![],
+                    },
+                    colors: match reader.read_colors(0) {
+                        Some(colors) => colors
+                            .into_rgb_f32()
+                            .map(|color| glm::make_vec3(&color))
+                            .collect(),
+                        None => vec![],
+                    },
                 }));
             }
         }

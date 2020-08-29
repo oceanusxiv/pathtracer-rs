@@ -5,6 +5,7 @@ mod material;
 mod primitive;
 mod sampling;
 mod shape;
+mod texture;
 
 use crate::common::bounds::Bounds2i;
 use crate::common::film::FilmTile;
@@ -19,7 +20,7 @@ use light::{Light, PointLight, SyncLight};
 use material::{BxDFType, Material, MatteMaterial, SyncMaterial};
 use primitive::SyncPrimitive;
 use rayon::prelude::*;
-use shape::Shape;
+use shape::{shape_from_mesh, Shape};
 use std::cell::RefCell;
 use std::sync::Arc;
 use std::{
@@ -61,12 +62,12 @@ impl RenderScene {
         let mut primitives: Vec<Arc<dyn SyncPrimitive>> = Vec::new();
         let materials = vec![Arc::new(MatteMaterial {}) as Arc<dyn SyncMaterial>];
         let lights = vec![Box::new(PointLight::new(
-            na::convert(na::Translation3::new(0.0, 3.0, 0.0)),
-            Spectrum::new(1.0),
+            na::convert(na::Translation3::new(0.0, 3.5, 0.0)),
+            Spectrum::new(10.0),
         )) as Box<dyn SyncLight>];
 
         for obj in &world.objects {
-            for shape in obj.mesh.to_shapes(&obj) {
+            for shape in shape_from_mesh(&obj.mesh, &obj) {
                 primitives.push(Arc::new(primitive::GeometricPrimitive {
                     shape: shape,
                     material: Arc::clone(&materials[0]),
@@ -93,6 +94,15 @@ impl RenderScene {
 pub trait Integrator {}
 
 pub struct DirectLightingIntegrator {}
+
+pub fn specular_reflect(r: &Ray, isect: &SurfaceInteraction, scene: &RenderScene, depth: u32) {
+    let wo = isect.general.wo;
+    // let wi = glm::zero();
+    let pdf = 0.0;
+    let bxdf_type = BxDFType::BSDF_REFLECTION | BxDFType::BSDF_SPECULAR;
+
+    // let f = isect.bsdf.sam
+}
 
 impl DirectLightingIntegrator {
     pub fn new() -> Self {
