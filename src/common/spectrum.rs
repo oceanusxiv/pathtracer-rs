@@ -1,4 +1,4 @@
-use std::ops::{Add, AddAssign};
+use std::ops::{Add, AddAssign, Div, Mul};
 
 #[derive(Clone, Debug, Copy)]
 pub struct RGBSpectrum {
@@ -19,26 +19,70 @@ impl RGBSpectrum {
             (self.b * 255.0) as u8,
         ])
     }
+
+    pub fn is_black(&self) -> bool {
+        self.r == 0.0 && self.g == 0.0 && self.b == 0.0
+    }
 }
 
 impl AddAssign for RGBSpectrum {
     fn add_assign(&mut self, other: Self) {
-        *self = Self {
-            r: self.r + other.r,
-            g: self.g + other.g,
-            b: self.b + other.b,
-        };
+        *self = *self + other;
     }
 }
 
 impl Add for RGBSpectrum {
     type Output = Self;
 
-    fn add(self, other: Self) -> Self {
+    fn add(self, rhs: Self) -> Self::Output {
         Self {
-            r: self.r + other.r,
-            g: self.g + other.g,
-            b: self.b + other.b,
+            r: self.r + rhs.r,
+            g: self.g + rhs.g,
+            b: self.b + rhs.b,
+        }
+    }
+}
+
+impl Mul for RGBSpectrum {
+    type Output = Self;
+
+    fn mul(self, rhs: Self) -> Self::Output {
+        Self {
+            r: self.r * rhs.r,
+            g: self.g * rhs.g,
+            b: self.b * rhs.b,
+        }
+    }
+}
+
+impl Mul<Spectrum> for f32 {
+    type Output = Spectrum;
+
+    fn mul(self, rhs: Spectrum) -> Self::Output {
+        rhs * self
+    }
+}
+
+impl Mul<f32> for RGBSpectrum {
+    type Output = Self;
+
+    fn mul(self, rhs: f32) -> Self::Output {
+        Self {
+            r: self.r * rhs,
+            g: self.g * rhs,
+            b: self.b * rhs,
+        }
+    }
+}
+
+impl Div<f32> for RGBSpectrum {
+    type Output = Self;
+
+    fn div(self, rhs: f32) -> Self::Output {
+        Self {
+            r: self.r / rhs,
+            g: self.g / rhs,
+            b: self.b / rhs,
         }
     }
 }

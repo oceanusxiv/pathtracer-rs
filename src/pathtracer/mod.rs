@@ -13,10 +13,10 @@ use crate::common::spectrum::Spectrum;
 use crate::common::{Camera, World};
 use image::RgbImage;
 use indicatif::ParallelProgressIterator;
-use interaction::SurfaceInteraction;
+use interaction::{Interaction, SurfaceInteraction};
 use itertools::Itertools;
-use light::SyncLight;
-use material::{Material, MatteMaterial, SyncMaterial};
+use light::{Light, PointLight, SyncLight};
+use material::{BxDFType, Material, MatteMaterial, SyncMaterial};
 use primitive::SyncPrimitive;
 use rayon::prelude::*;
 use shape::Shape;
@@ -45,38 +45,48 @@ impl Camera {
         Ray {
             o: world_orig,
             d: world_dir.normalize(),
-            t_max: RefCell::new(std::f32::INFINITY),
+            t_max: RefCell::new(f32::INFINITY),
         }
     }
 }
 
 pub struct RenderScene {
     scene: Box<dyn SyncPrimitive>,
+    materials: Vec<Arc<dyn SyncMaterial>>,
     pub lights: Vec<Box<dyn SyncLight>>,
 }
 
 impl RenderScene {
     pub fn from_world(world: &World) -> Self {
         let mut primitives: Vec<Arc<dyn SyncPrimitive>> = Vec::new();
-        let matte = Arc::new(MatteMaterial {}) as Arc<dyn SyncMaterial>;
+        let materials = vec![Arc::new(MatteMaterial {}) as Arc<dyn SyncMaterial>];
+        let lights = vec![Box::new(PointLight::new(
+            na::convert(na::Translation3::new(0.0, 3.0, 0.0)),
+            Spectrum::new(1.0),
+        )) as Box<dyn SyncLight>];
 
         for obj in &world.objects {
             for shape in obj.mesh.to_shapes(&obj) {
                 primitives.push(Arc::new(primitive::GeometricPrimitive {
                     shape: shape,
-                    material: Arc::clone(&matte),
+                    material: Arc::clone(&materials[0]),
                 }) as Arc<dyn SyncPrimitive>)
             }
         }
 
         RenderScene {
             scene: Box::new(accelerator::BVH::new(primitives, &4)) as Box<dyn SyncPrimitive>,
-            lights: vec![],
+            materials,
+            lights,
         }
     }
 
     pub fn intersect<'a>(&'a self, r: &Ray, isect: &mut SurfaceInteraction<'a>) -> bool {
         self.scene.intersect(r, isect)
+    }
+
+    pub fn intersect_p(&self, r: &Ray) -> bool {
+        self.scene.intersect_p(r)
     }
 }
 
@@ -92,7 +102,7 @@ impl DirectLightingIntegrator {
     pub fn li(&self, r: &Ray, scene: &RenderScene, depth: u32) -> Spectrum {
         const MAX_DEPTH: u32 = 5;
         let mut L = Spectrum::new(0.0);
-        let mut isect = SurfaceInteraction::empty();
+        let mut isect = Default::default();
 
         if !scene.intersect(&r, &mut isect) {
             for light in &scene.lights {
@@ -101,7 +111,43 @@ impl DirectLightingIntegrator {
             return L;
         }
 
-        Spectrum::new(1.0)
+        let n = isect.shading.n;
+        let wo = isect.general.wo;
+
+        isect.compute_scattering_functions(r, TransportMode::Radiance);
+
+        L += isect.le(&wo);
+
+        for light in &scene.lights {
+            let mut wi: na::Vector3<f32> = glm::zero();
+            let mut pdf = 0.0;
+            let mut visibility = None;
+            let li = light.sample_li(
+                &isect.general,
+                &na::Point2::new(0.0, 0.0),
+                &mut wi,
+                &mut pdf,
+                &mut visibility,
+            );
+
+            if li.is_black() || pdf == 0.0 {
+                continue;
+            }
+
+            let f = isect.bsdf.as_ref().unwrap().f(&wo, &wi, BxDFType::BSDF_ALL);
+
+            println!("f: {:?}", f);
+
+            if !f.is_black() {
+                if let Some(visibility) = visibility {
+                    if visibility.unoccluded(&scene) {
+                        L += f * li * wi.dot(&n) / pdf;
+                    }
+                }
+            }
+        }
+
+        L
     }
 
     pub fn render(&self, camera: &mut Camera, scene: &RenderScene, out_path: &Path) {

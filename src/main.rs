@@ -2,6 +2,8 @@
 #![feature(slice_partition_at_index)]
 #![feature(iter_partition_in_place)]
 
+#[macro_use]
+extern crate bitflags;
 extern crate nalgebra as na;
 extern crate nalgebra_glm as glm;
 
@@ -39,6 +41,8 @@ fn main() {
     let (world, mut camera) = common::World::from_gltf(scene_path);
     let render_scene = pathtracer::RenderScene::from_world(&world);
     let integrator = pathtracer::DirectLightingIntegrator::new();
+
+    print!("camera starting at: {:?}", camera.cam_to_world);
 
     let event_loop = EventLoop::new();
     let window = WindowBuilder::new()

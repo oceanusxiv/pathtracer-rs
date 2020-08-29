@@ -13,7 +13,7 @@ lazy_static::lazy_static! {
     pub static ref DEFAULT_RESOLUTION: glm::Vec2 = glm::vec2(1280.0, 720.0);
 }
 
-static DEFAULT_Z_NEAR: f32 = 0.1;
+static DEFAULT_Z_NEAR: f32 = 0.01;
 static DEFAULT_Z_FAR: f32 = 1000.0;
 
 pub struct Camera {
@@ -44,8 +44,10 @@ impl Camera {
             film: Film::new(&resolution),
         }
     }
+}
 
-    pub fn default() -> Camera {
+impl Default for Camera {
+    fn default() -> Self {
         Camera::new(
             &na::Isometry3::look_at_rh(
                 &na::Point3::new(0.2, 0.05, 0.2),
@@ -70,6 +72,8 @@ pub struct Mesh {
     pub indices: Vec<u32>,
     pub pos: Vec<na::Point3<f32>>,
     pub normal: Vec<na::Vector3<f32>>,
+    pub s: Vec<na::Vector3<f32>>,
+    pub uv: Vec<na::Point2<f32>>,
 }
 
 pub struct Object {
@@ -97,7 +101,7 @@ impl World {
     pub fn from_gltf(path: &str) -> (World, Camera) {
         let (document, buffers, images) = gltf::import(path).unwrap();
 
-        let mut camera = Camera::default();
+        let mut camera = Default::default();
         let mut world = World::empty();
         world.populate_meshes(&document, &buffers);
         for scene in document.scenes() {
@@ -136,6 +140,8 @@ impl World {
                         Some(normals) => normals.map(|normal| glm::make_vec3(&normal)).collect(),
                         None => vec![],
                     },
+                    s: vec![],
+                    uv: vec![],
                 }));
             }
         }

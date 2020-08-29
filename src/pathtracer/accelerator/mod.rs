@@ -317,7 +317,7 @@ impl BVH {
 }
 
 impl Primitive for BVH {
-    fn intersect<'a>(&'a self, r: &Ray, mut isect: &mut SurfaceInteraction<'a>)-> bool {
+    fn intersect<'a>(&'a self, r: &Ray, mut isect: &mut SurfaceInteraction<'a>) -> bool {
         if self.nodes.is_empty() {
             return false;
         }
@@ -376,11 +376,15 @@ impl Primitive for BVH {
         hit
     }
 
+    fn intersect_p(&self, r: &Ray) -> bool {
+        todo!()
+    }
+
     fn world_bound(&self) -> Bounds3 {
         todo!()
     }
 
-    fn get_material(&self) -> &dyn super::material::Material {
+    fn get_material(&self) -> &dyn super::material::SyncMaterial {
         unimplemented!()
     }
 

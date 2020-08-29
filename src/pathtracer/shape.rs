@@ -6,7 +6,13 @@ use crate::common::{Mesh, Object};
 use std::sync::Arc;
 
 pub trait Shape {
-    fn intersect<'a>(&'a self, r: &Ray, t_hit: &mut f32, isect: &mut SurfaceInteraction<'a>) -> bool;
+    fn intersect<'a>(
+        &'a self,
+        r: &Ray,
+        t_hit: &mut f32,
+        isect: &mut SurfaceInteraction<'a>,
+    ) -> bool;
+    fn intersect_p(&self, r: &Ray) -> bool;
     fn world_bound(&self) -> Bounds3;
 }
 
@@ -16,12 +22,35 @@ impl<T> SyncShape for T where T: Shape + Send + Sync {}
 pub struct Triangle {
     mesh: Arc<Mesh>,
     indices: [u32; 3],
+    reverse_orientation: bool,
+    transform_swaps_handedness: bool,
 }
 
-impl Triangle {}
+impl Triangle {
+    fn get_uvs(&self) -> [na::Point2<f32>; 3] {
+        if !self.mesh.uv.is_empty() {
+            [
+                self.mesh.uv[self.indices[0] as usize],
+                self.mesh.uv[self.indices[1] as usize],
+                self.mesh.uv[self.indices[2] as usize],
+            ]
+        } else {
+            [
+                na::Point2::new(0.0, 0.0),
+                na::Point2::new(1.0, 0.0),
+                na::Point2::new(1.0, 1.0),
+            ]
+        }
+    }
+}
 
 impl Shape for Triangle {
-    fn intersect<'a>(&'a self, r: &Ray, t_hit: &mut f32, isect: &mut SurfaceInteraction<'a>) -> bool {
+    fn intersect<'a>(
+        &'a self,
+        r: &Ray,
+        t_hit: &mut f32,
+        isect: &mut SurfaceInteraction<'a>,
+    ) -> bool {
         // get triangle vertices
         let p0 = self.mesh.pos[self.indices[0] as usize];
         let p1 = self.mesh.pos[self.indices[1] as usize];
@@ -130,10 +159,34 @@ impl Shape for Triangle {
         }
 
         // Compute triangle partial derivatives
+        let mut dpdu = na::Vector3::new(0.0, 0.0, 0.0);
+        let mut dpdv = na::Vector3::new(0.0, 0.0, 0.0);
+        let uv = self.get_uvs();
 
         // Compute deltas for triangle partial derivatives
+        let duv02 = uv[0] - uv[2];
+        let duv12 = uv[1] - uv[2];
         let dp02 = p0 - p2;
         let dp12 = p1 - p2;
+        let determinant = duv02[0] * duv12[1] - duv02[1] * duv12[0];
+        let degenerate_uv = determinant.abs() < 1e-8;
+
+        if !degenerate_uv {
+            let invdet = 1.0 / determinant;
+            dpdu = (duv12[1] * dp02 - duv02[1] * dp12) * invdet;
+            dpdv = (-duv12[0] * dp02 + duv02[0] * dp12) * invdet;
+        }
+        if degenerate_uv || dpdu.cross(&dpdv).norm_squared() == 0.0 {
+            // Handle zero determinant for triangle partial derivative matrix
+            let ng = (p2 - p0).cross(&(p1 - p0));
+            if ng.norm_squared() == 0.0 {
+                // The triangle is actually degenerate; the intersection is
+                // bogus.
+                return false;
+            }
+
+            coordinate_system(&ng.normalize(), &mut dpdu, &mut dpdv);
+        }
 
         // Compute error bounds for triangle intersection
         let x_abs_sum = (b0 * p0.x).abs() + (b1 * p1.x).abs() + (b2 * p2.x).abs();
@@ -143,16 +196,120 @@ impl Shape for Triangle {
 
         // Interpolate (u,v) parametric coordinates and hit point
         let p_hit = b0 * p0.coords + b1 * p1.coords + b2 * p2.coords;
+        let uv_hit = b0 * uv[0].coords + b1 * uv[1].coords + b2 * uv[2].coords;
+
+        // Test intersection against alpha texture, if present
+
+        // Fill in SurfaceInteraction from triangle hit
+        (*isect) = SurfaceInteraction::new(
+            &na::Point3::from(p_hit),
+            &p_error,
+            &na::Point2::from(uv_hit),
+            &-r.d,
+            &dpdu,
+            &dpdv,
+            &glm::zero(),
+            &glm::zero(),
+            0.0,
+            self,
+        );
+
+        // Override surface normal in isect for triangle
+        (*isect).general.n = glm::normalize(&glm::cross(&dp02, &dp12));
+        (*isect).shading.n = (*isect).general.n;
+
+        if !self.mesh.normal.is_empty() || !self.mesh.s.is_empty() {
+            // Initialize _Triangle_ shading geometry
+
+            // Compute shading normal _ns_ for triangle
+            let mut ns = isect.general.n;
+            if !self.mesh.normal.is_empty() {
+                let n0 = self.mesh.normal[self.indices[0] as usize];
+                let n1 = self.mesh.normal[self.indices[1] as usize];
+                let n2 = self.mesh.normal[self.indices[2] as usize];
+                ns = b0 * n0 + b1 * n1 + b2 * n2;
+                if ns.norm_squared() > 0.0 {
+                    ns = ns.normalize();
+                } else {
+                    ns = isect.general.n;
+                }
+            }
+
+            // Compute shading tangent _ss_ for triangle
+            let mut ss = isect.dpdu.normalize();
+            if !self.mesh.s.is_empty() {
+                let s0 = self.mesh.s[self.indices[0] as usize];
+                let s1 = self.mesh.s[self.indices[1] as usize];
+                let s2 = self.mesh.s[self.indices[2] as usize];
+
+                ss = b0 * s0 + b1 * s1 + b2 * s2;
+                if ss.norm_squared() > 0.0 {
+                    ss = ss.normalize();
+                } else {
+                    ss = isect.dpdu.normalize();
+                }
+            }
+
+            // Compute shading bitangent _ts_ for triangle and adjust _ss_
+            let mut ts = ss.cross(&ns);
+            if ts.norm_squared() > 0.0 {
+                ts = ts.normalize();
+                ss = ts.cross(&ns);
+            } else {
+                coordinate_system(&ns, &mut ss, &mut ts);
+            }
+
+            // Compute dndu and dndv for triangle shading geometry
+            let mut dndu = na::Vector3::new(0.0, 0.0, 0.0);
+            let mut dndv = na::Vector3::new(0.0, 0.0, 0.0);
+            if !self.mesh.normal.is_empty() {
+                // Compute deltas for triangle partial derivatives of normal
+                let duv02 = uv[0] - uv[2];
+                let duv12 = uv[1] - uv[2];
+                let n0 = self.mesh.normal[self.indices[0] as usize];
+                let n1 = self.mesh.normal[self.indices[1] as usize];
+                let n2 = self.mesh.normal[self.indices[2] as usize];
+                let dn1 = n0 - n2;
+                let dn2 = n1 - n2;
+                let determinant = duv02[0] * duv12[1] - duv02[1] * duv12[0];
+                let degenerate_uv = determinant.abs() < 1e-8;
+
+                if degenerate_uv {
+                    // We can still compute dndu and dndv, with respect to the
+                    // same arbitrary coordinate system we use to compute dpdu
+                    // and dpdv when this happens. It's important to do this
+                    // (rather than giving up) so that ray differentials for
+                    // rays reflected from triangles with degenerate
+                    // parameterizations are still reasonable.
+                    let dn = (n2 - n0).cross(&(n1 - n0));
+                    if dn.norm_squared() == 0.0 {
+                        dndu = na::Vector3::new(0.0, 0.0, 0.0);
+                        dndv = na::Vector3::new(0.0, 0.0, 0.0);
+                    } else {
+                        let mut dnu = na::Vector3::new(0.0, 0.0, 0.0);
+                        let mut dnv = na::Vector3::new(0.0, 0.0, 0.0);
+                        coordinate_system(&dn, &mut dnu, &mut dnv);
+                        dndu = dnu;
+                        dndv = dnv;
+                    }
+                } else {
+                    let inv_det = 1.0 / determinant;
+                    dndu = (duv12[1] * dn1 - duv02[1] * dn2) * inv_det;
+                    dndv = (-duv12[0] * dn1 + duv02[0] * dn2) * inv_det;
+                }
+            }
+            if self.reverse_orientation {
+                ts = -ts;
+            }
+            isect.set_shading_geometry(&ss, &ts, &dndu, &dndv, true);
+        }
 
         *t_hit = t;
-        (*isect).p = na::Point3::from(p_hit);
-        (*isect).p_error = p_error;
-        (*isect).wo = -r.d;
-        (*isect).n = glm::normalize(&glm::cross(&dp02, &dp12));
-        (*isect).shading.n = (*isect).n;
-        (*isect).shape = Some(self);
-
         return true;
+    }
+
+    fn intersect_p(&self, r: &Ray) -> bool {
+        todo!()
     }
 
     fn world_bound(&self) -> Bounds3 {
@@ -178,6 +335,8 @@ impl Mesh {
             shapes.push(Box::new(Triangle {
                 mesh: Arc::clone(&world_mesh),
                 indices: [chunk[0], chunk[1], chunk[2]],
+                reverse_orientation: false,
+                transform_swaps_handedness: false,
             }) as Box<dyn SyncShape>)
         }
 
