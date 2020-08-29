@@ -328,6 +328,14 @@ impl Mesh {
             *pos = object.obj_to_world * *pos;
         }
 
+        for normal in &mut world_mesh.normal {
+            *normal = object.obj_to_world * *normal;
+        }
+
+        for s in &mut world_mesh.s {
+            *s = object.obj_to_world * *s;
+        }
+
         let mut shapes = Vec::new();
 
         let world_mesh = Arc::new(world_mesh);
