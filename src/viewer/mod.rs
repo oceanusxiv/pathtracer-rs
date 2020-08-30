@@ -161,12 +161,6 @@ impl Viewer {
         let depth_texture =
             texture::Texture::create_depth_texture(&device, &sc_desc, "depth_texture");
 
-        let mut render_image = camera.film.copy_image();
-        render_image
-            .as_mut_rgba8()
-            .unwrap()
-            .enumerate_pixels_mut()
-            .for_each(|(x, y, p)| *p = image::Rgba([100, 0, 100, 1]));
         let (rendered_texture, rendered_command_buffer) = texture::Texture::from_image(
             &device,
             &camera.film.copy_image(),
@@ -230,7 +224,17 @@ impl Viewer {
         }
     }
 
-    pub fn update(&mut self, camera: &mut Camera, dt: std::time::Duration) {
+    pub fn update_rendered_texture(&mut self, camera: &Camera) {
+        let cmd = texture::Texture::get_image_to_texture_cmd(
+            &self.device,
+            &camera.film.copy_image(),
+            &self.quad_render_pass.quad.texture.texture,
+        );
+
+        self.queue.submit(&[cmd]);
+    }
+
+    pub fn update_camera(&mut self, camera: &mut Camera, dt: std::time::Duration) {
         self.camera_controller.update_camera(camera, dt);
         self.uniforms.update_view_proj(camera);
 

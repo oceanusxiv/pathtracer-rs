@@ -74,8 +74,8 @@ impl Film {
         self.image.read().unwrap().save(file_path).unwrap()
     }
 
-    pub fn copy_image(&self) -> image::DynamicImage {
-        image::DynamicImage::ImageRgba8(self.image.read().unwrap().clone())
+    pub fn copy_image(&self) -> image::RgbaImage {
+        self.image.read().unwrap().clone()
     }
 
     pub fn get_sample_bounds(&self) -> Bounds2i {

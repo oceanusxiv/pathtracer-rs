@@ -87,6 +87,7 @@ fn main() {
                             ..
                         } => {
                             integrator.render(&mut camera, &render_scene, &output_path);
+                            viewer.update_rendered_texture(&camera);
                             viewer.state = viewer::ViewerState::RenderImage
                         }
                         KeyboardInput {
@@ -113,7 +114,7 @@ fn main() {
                 let now = std::time::Instant::now();
                 let dt = now - last_render_time;
                 last_render_time = now;
-                viewer.update(&mut camera, dt);
+                viewer.update_camera(&mut camera, dt);
                 viewer.render();
             }
             Event::MainEventsCleared => {

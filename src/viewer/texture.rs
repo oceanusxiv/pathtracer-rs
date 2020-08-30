@@ -60,34 +60,22 @@ impl Texture {
         label: &str,
     ) -> Result<(Self, wgpu::CommandBuffer), anyhow::Error> {
         let img = image::load_from_memory(bytes)?;
-        Self::from_image(device, &img, Some(label))
+        Self::from_image(device, img.as_rgba8().unwrap(), Some(label))
     }
 
-    pub fn from_image(
+    pub fn get_image_to_texture_cmd(
         device: &wgpu::Device,
-        img: &image::DynamicImage,
-        label: Option<&str>,
-    ) -> Result<(Self, wgpu::CommandBuffer), anyhow::Error> {
-        let rgba = img.as_rgba8().unwrap();
+        img: &image::RgbaImage,
+        texture: &wgpu::Texture,
+    ) -> wgpu::CommandBuffer {
         let dimensions = img.dimensions();
-
         let size = wgpu::Extent3d {
             width: dimensions.0,
             height: dimensions.1,
             depth: 1,
         };
-        let texture = device.create_texture(&wgpu::TextureDescriptor {
-            label,
-            size,
-            array_layer_count: 1,
-            mip_level_count: 1,
-            sample_count: 1,
-            dimension: wgpu::TextureDimension::D2,
-            format: wgpu::TextureFormat::Rgba8UnormSrgb,
-            usage: wgpu::TextureUsage::SAMPLED | wgpu::TextureUsage::COPY_DST,
-        });
 
-        let buffer = device.create_buffer_with_data(&rgba, wgpu::BufferUsage::COPY_SRC);
+        let buffer = device.create_buffer_with_data(&img, wgpu::BufferUsage::COPY_SRC);
 
         let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
             label: Some("texture_buffer_copy_encoder"),
@@ -109,7 +97,33 @@ impl Texture {
             size,
         );
 
-        let cmd_buffer = encoder.finish();
+        encoder.finish()
+    }
+
+    pub fn from_image(
+        device: &wgpu::Device,
+        img: &image::RgbaImage,
+        label: Option<&str>,
+    ) -> Result<(Self, wgpu::CommandBuffer), anyhow::Error> {
+        let dimensions = img.dimensions();
+
+        let size = wgpu::Extent3d {
+            width: dimensions.0,
+            height: dimensions.1,
+            depth: 1,
+        };
+        let texture = device.create_texture(&wgpu::TextureDescriptor {
+            label,
+            size,
+            array_layer_count: 1,
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Rgba8UnormSrgb,
+            usage: wgpu::TextureUsage::SAMPLED | wgpu::TextureUsage::COPY_DST,
+        });
+
+        let cmd_buffer = Texture::get_image_to_texture_cmd(&device, &img, &texture);
 
         let view = texture.create_default_view();
         let sampler = device.create_sampler(&wgpu::SamplerDescriptor {

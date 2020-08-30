@@ -1,16 +1,25 @@
-use super::{shaders, vertex::VertexPosTex, pipeline::create_render_pipeline, texture};
+use super::{pipeline::create_render_pipeline, shaders, texture, vertex::VertexPosTex};
 
 const DEPTH_VERTICES: &[VertexPosTex] = &[
-    VertexPosTex { position: [0.0, 0.0, 0.0], tex_coords: [0.0, 1.0]},
-    VertexPosTex { position: [1.0, 0.0, 0.0], tex_coords: [1.0, 1.0]},
-    VertexPosTex { position: [1.0, 1.0, 0.0], tex_coords: [1.0, 0.0]},
-    VertexPosTex { position: [0.0, 1.0, 0.0], tex_coords: [0.0, 0.0]},
+    VertexPosTex {
+        position: [-1.0, -1.0, 0.0],
+        tex_coords: [0.0, 1.0],
+    },
+    VertexPosTex {
+        position: [1.0, -1.0, 0.0],
+        tex_coords: [1.0, 1.0],
+    },
+    VertexPosTex {
+        position: [1.0, 1.0, 0.0],
+        tex_coords: [1.0, 0.0],
+    },
+    VertexPosTex {
+        position: [-1.0, 1.0, 0.0],
+        tex_coords: [0.0, 0.0],
+    },
 ];
 
-const DEPTH_INDICES: &[u32] = &[
-    0, 1, 2,
-    0, 2, 3,
-];
+const DEPTH_INDICES: &[u32] = &[0, 1, 2, 0, 2, 3];
 
 pub struct QuadHandle {
     pub vertex_buffer: wgpu::Buffer,
@@ -21,10 +30,14 @@ pub struct QuadHandle {
 }
 
 impl QuadHandle {
-    pub fn from_texture(device: &wgpu::Device, texture_bind_group_layout: &wgpu::BindGroupLayout, texture: texture::Texture) -> Self {
+    pub fn from_texture(
+        device: &wgpu::Device,
+        texture_bind_group_layout: &wgpu::BindGroupLayout,
+        texture: texture::Texture,
+    ) -> Self {
         let vertex_buffer = device.create_buffer_with_data(
-            bytemuck::cast_slice(DEPTH_VERTICES), 
-            wgpu::BufferUsage::VERTEX
+            bytemuck::cast_slice(DEPTH_VERTICES),
+            wgpu::BufferUsage::VERTEX,
         );
         let index_buffer = device.create_buffer_with_data(
             bytemuck::cast_slice(DEPTH_INDICES),
@@ -41,7 +54,7 @@ impl QuadHandle {
                 wgpu::Binding {
                     binding: 1,
                     resource: wgpu::BindingResource::Sampler(&texture.sampler),
-                }
+                },
             ],
             label: Some("depth_pass.bind_group"),
         });
@@ -58,7 +71,7 @@ impl QuadHandle {
 
 pub struct QuadRenderPass {
     render_pipeline: wgpu::RenderPipeline,
-    quad: QuadHandle,
+    pub quad: QuadHandle,
 }
 
 impl QuadRenderPass {
@@ -69,27 +82,26 @@ impl QuadRenderPass {
     ) -> Self {
         let (vs_module, fs_module) = shaders::quad::compile_shaders(&mut compiler, &device);
 
-        let texture_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-            bindings: &[
-                wgpu::BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: wgpu::ShaderStage::FRAGMENT,
-                    ty: wgpu::BindingType::SampledTexture {
-                        multisampled: false,
-                        dimension: wgpu::TextureViewDimension::D2,
-                        component_type: wgpu::TextureComponentType::Uint,
+        let texture_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                bindings: &[
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: wgpu::ShaderStage::FRAGMENT,
+                        ty: wgpu::BindingType::SampledTexture {
+                            multisampled: false,
+                            dimension: wgpu::TextureViewDimension::D2,
+                            component_type: wgpu::TextureComponentType::Uint,
+                        },
                     },
-                },
-                wgpu::BindGroupLayoutEntry {
-                    binding: 1,
-                    visibility: wgpu::ShaderStage::FRAGMENT,
-                    ty: wgpu::BindingType::Sampler {
-                        comparison: true,
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 1,
+                        visibility: wgpu::ShaderStage::FRAGMENT,
+                        ty: wgpu::BindingType::Sampler { comparison: true },
                     },
-                },
-            ],
-            label: Some("texture_bind_group_layout"),
-        });
+                ],
+                label: Some("texture_bind_group_layout"),
+            });
 
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
