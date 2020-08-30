@@ -1,6 +1,6 @@
 use super::bounds::Bounds2i;
 use super::spectrum::Spectrum;
-use image::RgbImage;
+use image::RgbaImage;
 use itertools::Itertools;
 use std::{
     path::Path,
@@ -60,18 +60,22 @@ impl FilmTile {
 }
 
 pub struct Film {
-    image: RwLock<RgbImage>,
+    image: RwLock<RgbaImage>,
 }
 
 impl Film {
     pub fn new(resolution: &glm::UVec2) -> Self {
         Film {
-            image: RwLock::new(RgbImage::new(resolution.x, resolution.y)),
+            image: RwLock::new(RgbaImage::new(resolution.x, resolution.y)),
         }
     }
 
     pub fn save(&self, file_path: &Path) {
         self.image.read().unwrap().save(file_path).unwrap()
+    }
+
+    pub fn copy_image(&self) -> image::DynamicImage {
+        image::DynamicImage::ImageRgba8(self.image.read().unwrap().clone())
     }
 
     pub fn get_sample_bounds(&self) -> Bounds2i {
@@ -99,7 +103,7 @@ impl Film {
             image.put_pixel(
                 x as u32,
                 y as u32,
-                film_tile_pixel.contrib_sum.to_image_rgb(),
+                film_tile_pixel.contrib_sum.to_image_rgba(),
             );
         }
     }

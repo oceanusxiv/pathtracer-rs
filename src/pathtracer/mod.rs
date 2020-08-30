@@ -62,7 +62,7 @@ impl RenderScene {
         let mut primitives: Vec<Arc<dyn SyncPrimitive>> = Vec::new();
         let materials = vec![Arc::new(MatteMaterial {}) as Arc<dyn SyncMaterial>];
         let lights = vec![Box::new(PointLight::new(
-            na::convert(na::Translation3::new(0.0, 3.5, 0.0)),
+            na::convert(na::Translation3::new(1.0, 3.5, 0.0)),
             Spectrum::new(10.0),
         )) as Box<dyn SyncLight>];
 

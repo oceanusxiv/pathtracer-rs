@@ -88,6 +88,7 @@ impl BoundsRenderPass {
             &vs_module,
             &fs_module,
             wgpu::PrimitiveTopology::LineList,
+            true,
         );
 
         BoundsRenderPass {

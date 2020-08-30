@@ -85,7 +85,15 @@ fn main() {
                             state: ElementState::Pressed,
                             virtual_keycode: Some(VirtualKeyCode::R),
                             ..
-                        } => integrator.render(&mut camera, &render_scene, &output_path),
+                        } => {
+                            integrator.render(&mut camera, &render_scene, &output_path);
+                            viewer.state = viewer::ViewerState::RenderImage
+                        }
+                        KeyboardInput {
+                            state: ElementState::Pressed,
+                            virtual_keycode: Some(VirtualKeyCode::C),
+                            ..
+                        } => viewer.state = viewer::ViewerState::RenderScene,
                         _ => {}
                     },
                     WindowEvent::Resized(physical_size) => {

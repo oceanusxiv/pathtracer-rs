@@ -1,5 +1,6 @@
 pub mod flat;
 pub mod phong;
+pub mod quad;
 
 fn compile_shader(
     source_text: &str,

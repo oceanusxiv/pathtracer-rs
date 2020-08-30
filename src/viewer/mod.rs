@@ -2,6 +2,7 @@ mod bounds;
 mod camera;
 mod mesh;
 mod pipeline;
+mod quad;
 mod shaders;
 mod texture;
 mod vertex;
@@ -11,6 +12,7 @@ use crate::common::{Camera, World};
 use bounds::{BoundsRenderPass, DrawBounds};
 use camera::OrbitalCameraController;
 use mesh::{DrawMesh, MeshRenderPass};
+use quad::{DrawQuad, QuadRenderPass};
 use winit::{event::*, window::Window};
 
 lazy_static::lazy_static! {
@@ -55,6 +57,11 @@ impl Uniforms {
     }
 }
 
+pub enum ViewerState {
+    RenderScene,
+    RenderImage,
+}
+
 pub struct Viewer {
     surface: wgpu::Surface,
     device: wgpu::Device,
@@ -63,6 +70,7 @@ pub struct Viewer {
     swap_chain: wgpu::SwapChain,
     mesh_render_pass: MeshRenderPass,
     bounds_render_pass: BoundsRenderPass,
+    quad_render_pass: QuadRenderPass,
     uniforms: Uniforms,
     uniform_buffer: wgpu::Buffer,
     uniform_bind_group: wgpu::BindGroup,
@@ -70,6 +78,7 @@ pub struct Viewer {
     size: winit::dpi::PhysicalSize<u32>,
     camera_controller: OrbitalCameraController,
     mouse_pressed: bool,
+    pub state: ViewerState,
 }
 
 impl Viewer {
@@ -152,6 +161,23 @@ impl Viewer {
         let depth_texture =
             texture::Texture::create_depth_texture(&device, &sc_desc, "depth_texture");
 
+        let mut render_image = camera.film.copy_image();
+        render_image
+            .as_mut_rgba8()
+            .unwrap()
+            .enumerate_pixels_mut()
+            .for_each(|(x, y, p)| *p = image::Rgba([100, 0, 100, 1]));
+        let (rendered_texture, rendered_command_buffer) = texture::Texture::from_image(
+            &device,
+            &camera.film.copy_image(),
+            Some("rendered_texture"),
+        )
+        .unwrap();
+        queue.submit(&[rendered_command_buffer]);
+
+        let quad_render_pass =
+            QuadRenderPass::from_texture(&device, &mut compiler, rendered_texture);
+
         Self {
             surface,
             device,
@@ -160,6 +186,7 @@ impl Viewer {
             swap_chain,
             mesh_render_pass,
             bounds_render_pass,
+            quad_render_pass,
             uniforms,
             uniform_buffer,
             uniform_bind_group,
@@ -167,6 +194,7 @@ impl Viewer {
             size,
             camera_controller,
             mouse_pressed: false,
+            state: ViewerState::RenderScene,
         }
     }
 
@@ -233,6 +261,45 @@ impl Viewer {
     }
 
     pub fn render(&mut self) {
+        match self.state {
+            ViewerState::RenderScene => {
+                self.render_scene();
+            }
+            ViewerState::RenderImage => {
+                self.render_image();
+            }
+        }
+    }
+
+    pub fn render_image(&mut self) {
+        let frame = self
+            .swap_chain
+            .get_next_texture()
+            .expect("Timeout getting texture");
+        let mut encoder = self
+            .device
+            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                label: Some("Render Encoder"),
+            });
+
+        {
+            let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
+                    attachment: &frame.view,
+                    resolve_target: None,
+                    load_op: wgpu::LoadOp::Clear,
+                    store_op: wgpu::StoreOp::Store,
+                    clear_color: wgpu::Color::BLACK,
+                }],
+                depth_stencil_attachment: None,
+            });
+            render_pass.draw_quad(&self.quad_render_pass);
+        }
+
+        self.queue.submit(&[encoder.finish()]);
+    }
+
+    pub fn render_scene(&mut self) {
         let frame = self
             .swap_chain
             .get_next_texture()

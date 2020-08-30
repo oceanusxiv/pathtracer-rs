@@ -159,6 +159,7 @@ impl MeshRenderPass {
             &vs_module,
             &fs_module,
             wgpu::PrimitiveTopology::TriangleList,
+            true,
         );
 
         MeshRenderPass {

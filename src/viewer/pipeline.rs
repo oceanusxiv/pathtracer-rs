@@ -7,6 +7,7 @@ pub fn create_render_pipeline<T: Vertex>(
     vs_module: &wgpu::ShaderModule,
     fs_module: &wgpu::ShaderModule,
     primitive_topology: wgpu::PrimitiveTopology,
+    depth_test: bool,
 ) -> wgpu::RenderPipeline {
     device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
         layout: &render_pipeline_layout,
@@ -32,15 +33,19 @@ pub fn create_render_pipeline<T: Vertex>(
             write_mask: wgpu::ColorWrite::ALL,
         }],
         primitive_topology,
-        depth_stencil_state: Some(wgpu::DepthStencilStateDescriptor {
-            format: Texture::DEPTH_FORMAT,
-            depth_write_enabled: true,
-            depth_compare: wgpu::CompareFunction::Less, // 1.
-            stencil_front: wgpu::StencilStateFaceDescriptor::IGNORE,
-            stencil_back: wgpu::StencilStateFaceDescriptor::IGNORE,
-            stencil_read_mask: 0,
-            stencil_write_mask: 0,
-        }),
+        depth_stencil_state: if depth_test {
+            Some(wgpu::DepthStencilStateDescriptor {
+                format: Texture::DEPTH_FORMAT,
+                depth_write_enabled: true,
+                depth_compare: wgpu::CompareFunction::Less, // 1.
+                stencil_front: wgpu::StencilStateFaceDescriptor::IGNORE,
+                stencil_back: wgpu::StencilStateFaceDescriptor::IGNORE,
+                stencil_read_mask: 0,
+                stencil_write_mask: 0,
+            })
+        } else {
+            None
+        },
         vertex_state: wgpu::VertexStateDescriptor {
             index_format: wgpu::IndexFormat::Uint32,
             vertex_buffers: &[T::desc()],

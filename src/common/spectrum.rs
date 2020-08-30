@@ -21,6 +21,15 @@ impl RGBSpectrum {
         ])
     }
 
+    pub fn to_image_rgba(&self) -> image::Rgba<u8> {
+        image::Rgba([
+            (gamma_correct(self.r) * 255.0 + 0.5).clamp(0.0, 255.0) as u8,
+            (gamma_correct(self.g) * 255.0 + 0.5).clamp(0.0, 255.0) as u8,
+            (gamma_correct(self.b) * 255.0 + 0.5).clamp(0.0, 255.0) as u8,
+            255,
+        ])
+    }
+
     pub fn is_black(&self) -> bool {
         self.r == 0.0 && self.g == 0.0 && self.b == 0.0
     }
