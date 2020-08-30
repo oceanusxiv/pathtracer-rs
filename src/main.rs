@@ -56,8 +56,7 @@ fn main() {
     let mut viewer = futures::executor::block_on(viewer::Viewer::new(&window, &world, &camera));
 
     let mut last_render_time = std::time::Instant::now();
-    let mut window_focused = true;
-
+    let mut cursor_in_window = true;
     event_loop.run(move |event, _, control_flow| {
         *control_flow = ControlFlow::Poll;
         match event {
@@ -65,7 +64,7 @@ fn main() {
                 ref event,
                 device_id: _,
             } => {
-                if window_focused {
+                if cursor_in_window {
                     viewer.input(event);
                 }
             }
@@ -104,9 +103,12 @@ fn main() {
                         // new_inner_size is &mut so w have to dereference it twice
                         viewer.resize(**new_inner_size);
                     }
-                    WindowEvent::Focused(focused) => {
-                        window_focused = *focused;
-                    }
+                    WindowEvent::CursorEntered {device_id} => {
+                        cursor_in_window = true;
+                    },
+                    WindowEvent::CursorLeft {device_id} => {
+                        cursor_in_window = false;
+                    },
                     _ => {}
                 }
             }
