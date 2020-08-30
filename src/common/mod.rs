@@ -66,7 +66,7 @@ impl Default for Camera {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct Mesh {
     pub index: usize,
     pub indices: Vec<u32>,
@@ -75,13 +75,26 @@ pub struct Mesh {
     pub s: Vec<na::Vector3<f32>>,
     pub uv: Vec<na::Point2<f32>>,
     pub colors: Vec<na::Vector3<f32>>,
+    pub material: Rc<Material>,
 }
 
 pub struct PbrMetallicRoughness {
-    color_texture: Box<[u8]>,
+    pub color_texture: Option<image::RgbImage>,
+    pub alpha_texture: Option<image::GrayImage>,
 }
 pub struct Material {
     pub pbr_metallic_roughness: PbrMetallicRoughness,
+}
+
+impl Material {
+    pub fn default() -> Self {
+        Material {
+            pbr_metallic_roughness: PbrMetallicRoughness {
+                color_texture: None,
+                alpha_texture: None,
+            },
+        }
+    }
 }
 
 pub struct Object {
@@ -93,6 +106,7 @@ pub struct Object {
 pub struct World {
     pub objects: Vec<Object>,
     pub meshes: Vec<Rc<Mesh>>,
+    pub materials: Vec<Rc<Material>>,
 
     mesh_prim_indice_map: HashMap<[usize; 2], usize>,
 }
@@ -102,6 +116,7 @@ impl World {
         World {
             objects: vec![],
             meshes: vec![],
+            materials: vec![Rc::new(Material::default())], // must always have a default material
             mesh_prim_indice_map: HashMap::new(),
         }
     }
@@ -111,8 +126,8 @@ impl World {
 
         let mut camera = Default::default();
         let mut world = World::empty();
-        world.populate_meshes(&document, &buffers);
         world.populate_materials(&document, &images);
+        world.populate_meshes(&document, &buffers);
         for scene in document.scenes() {
             for node in scene.nodes() {
                 world.populate_scene(&na::Projective3::identity(), &node);
@@ -128,14 +143,31 @@ impl World {
 
     fn populate_materials(&mut self, document: &gltf::Document, images: &[gltf::image::Data]) {
         for material in document.materials() {
-            // let index = material
-            //     .pbr_metallic_roughness()
-            //     .base_color_texture()
-            //     .unwrap()
-            //     .texture()
-            //     .source()
-            //     .index();
-            // println!("{:?}", images[index].format);
+            let mut color_texture = None;
+            let mut alpha_texture = None;
+            if let Some(texture) = material.pbr_metallic_roughness().base_color_texture() {
+                let image = &images[texture.texture().source().index()];
+                match image.format {
+                    gltf::image::Format::R8 => {}
+                    gltf::image::Format::R8G8 => {}
+                    gltf::image::Format::R8G8B8 => {
+                        color_texture = image::RgbImage::from_raw(image.width, image.height, image.pixels.clone());
+                    }
+                    gltf::image::Format::R8G8B8A8 => {
+                        color_texture = image::RgbImage::from_raw(image.width, image.height, image.pixels.iter().enumerate().filter(|&(i, _)| i % 4 != 3).map(|(_, v)| *v).collect());
+                        alpha_texture = image::GrayImage::from_raw(image.width, image.height, image.pixels.iter().skip(3).step_by(4).map(|v| *v).collect());
+                    }
+                    gltf::image::Format::B8G8R8 => {}
+                    gltf::image::Format::B8G8R8A8 => {}
+                }
+            }
+
+            self.materials.push(Rc::new(Material {
+                pbr_metallic_roughness: PbrMetallicRoughness {
+                    color_texture,
+                    alpha_texture,
+                },
+            }))
         }
     }
 
@@ -177,6 +209,11 @@ impl World {
                             .map(|color| glm::make_vec3(&color))
                             .collect(),
                         None => vec![],
+                    },
+                    material: if let Some(idx) = prim.material().index() {
+                        Rc::clone(&self.materials[idx + 1]) // default material on first idx
+                    } else {
+                        Rc::clone(&self.materials[0])
                     },
                 }));
             }
