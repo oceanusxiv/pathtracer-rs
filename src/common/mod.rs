@@ -32,8 +32,8 @@ impl Camera {
         resolution: &glm::Vec2,
     ) -> Camera {
         let screen_to_raster = glm::scaling(&glm::vec3(resolution.x, resolution.y, 1.0))
-            * glm::scaling(&glm::vec3(1.0 / (2.0), 1.0 / -2.0, 1.0))
-            * glm::translation(&glm::vec3(0.5 * (resolution.x / resolution.y), -1.0, 0.0));
+            * glm::scaling(&glm::vec3(1.0 / (3.0), 1.0 / (-3.0), 1.0))
+            * glm::translation(&glm::vec3(1.5, -1.5, 0.0));
         let screen_to_raster = na::Affine3::from_matrix_unchecked(screen_to_raster);
         let resolution = glm::vec2(resolution.x as u32, resolution.y as u32);
         Camera {
@@ -75,6 +75,13 @@ pub struct Mesh {
     pub s: Vec<na::Vector3<f32>>,
     pub uv: Vec<na::Point2<f32>>,
     pub colors: Vec<na::Vector3<f32>>,
+}
+
+pub struct PbrMetallicRoughness {
+    color_texture: Box<[u8]>,
+}
+pub struct Material {
+    pub pbr_metallic_roughness: PbrMetallicRoughness,
 }
 
 pub struct Object {
@@ -121,14 +128,14 @@ impl World {
 
     fn populate_materials(&mut self, document: &gltf::Document, images: &[gltf::image::Data]) {
         for material in document.materials() {
-            let index = material
-                .pbr_metallic_roughness()
-                .base_color_texture()
-                .unwrap()
-                .texture()
-                .source()
-                .index();
-            println!("{:?}", images[index].format);
+            // let index = material
+            //     .pbr_metallic_roughness()
+            //     .base_color_texture()
+            //     .unwrap()
+            //     .texture()
+            //     .source()
+            //     .index();
+            // println!("{:?}", images[index].format);
         }
     }
 
