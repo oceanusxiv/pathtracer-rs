@@ -85,7 +85,7 @@ fn main() {
                             virtual_keycode: Some(VirtualKeyCode::R),
                             ..
                         } => {
-                            integrator.render(&mut camera, &render_scene, &output_path);
+                            integrator.render(&mut camera, &render_scene);
                             viewer.update_rendered_texture(&camera);
                             viewer.state = viewer::ViewerState::RenderImage
                         }
@@ -94,6 +94,14 @@ fn main() {
                             virtual_keycode: Some(VirtualKeyCode::C),
                             ..
                         } => viewer.state = viewer::ViewerState::RenderScene,
+                        KeyboardInput {
+                            state: ElementState::Pressed,
+                            virtual_keycode: Some(VirtualKeyCode::S),
+                            ..
+                        } => {
+                            println!("saving image to {:?}", &output_path);
+                            camera.film.save(&output_path);
+                        }
                         _ => {}
                     },
                     WindowEvent::Resized(physical_size) => {
@@ -103,12 +111,12 @@ fn main() {
                         // new_inner_size is &mut so w have to dereference it twice
                         viewer.resize(**new_inner_size);
                     }
-                    WindowEvent::CursorEntered {device_id} => {
+                    WindowEvent::CursorEntered { device_id } => {
                         cursor_in_window = true;
-                    },
-                    WindowEvent::CursorLeft {device_id} => {
+                    }
+                    WindowEvent::CursorLeft { device_id } => {
                         cursor_in_window = false;
-                    },
+                    }
                     _ => {}
                 }
             }

@@ -158,7 +158,7 @@ impl DirectLightingIntegrator {
         L
     }
 
-    pub fn render(&self, camera: &mut Camera, scene: &RenderScene, out_path: &Path) {
+    pub fn render(&self, camera: &mut Camera, scene: &RenderScene) {
         println!(
             "start rendering image of size: {:?}",
             camera.film.get_sample_bounds(),
@@ -214,8 +214,6 @@ impl DirectLightingIntegrator {
         let duration = start.elapsed();
 
         println!("rendering took: {:?}", duration);
-        println!("saving image to {:?}", out_path);
-        camera.film.save(out_path);
     }
 }
 

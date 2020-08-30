@@ -151,11 +151,29 @@ impl World {
                     gltf::image::Format::R8 => {}
                     gltf::image::Format::R8G8 => {}
                     gltf::image::Format::R8G8B8 => {
-                        color_texture = image::RgbImage::from_raw(image.width, image.height, image.pixels.clone());
+                        color_texture = image::RgbImage::from_raw(
+                            image.width,
+                            image.height,
+                            image.pixels.clone(),
+                        );
                     }
                     gltf::image::Format::R8G8B8A8 => {
-                        color_texture = image::RgbImage::from_raw(image.width, image.height, image.pixels.iter().enumerate().filter(|&(i, _)| i % 4 != 3).map(|(_, v)| *v).collect());
-                        alpha_texture = image::GrayImage::from_raw(image.width, image.height, image.pixels.iter().skip(3).step_by(4).map(|v| *v).collect());
+                        color_texture = image::RgbImage::from_raw(
+                            image.width,
+                            image.height,
+                            image
+                                .pixels
+                                .iter()
+                                .enumerate()
+                                .filter(|&(i, _)| i % 4 != 3)
+                                .map(|(_, v)| *v)
+                                .collect(),
+                        );
+                        alpha_texture = image::GrayImage::from_raw(
+                            image.width,
+                            image.height,
+                            image.pixels.iter().skip(3).step_by(4).map(|v| *v).collect(),
+                        );
                     }
                     gltf::image::Format::B8G8R8 => {}
                     gltf::image::Format::B8G8R8A8 => {}
