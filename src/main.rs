@@ -5,6 +5,10 @@
 
 #[macro_use]
 extern crate bitflags;
+
+#[macro_use]
+extern crate hexf;
+
 extern crate nalgebra as na;
 extern crate nalgebra_glm as glm;
 
@@ -41,7 +45,8 @@ fn main() {
     let output_path = Path::new(matches.value_of("output").unwrap()).join("render.png");
     let (world, mut camera) = common::World::from_gltf(scene_path);
     let render_scene = pathtracer::RenderScene::from_world(&world);
-    let integrator = pathtracer::DirectLightingIntegrator::new();
+    let sampler = pathtracer::sampling::Sampler::new(2, 2, true, 8);
+    let integrator = pathtracer::DirectLightingIntegrator::new(sampler);
 
     print!("camera starting at: {:?}", camera.cam_to_world);
 

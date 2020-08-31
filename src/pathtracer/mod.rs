@@ -3,7 +3,7 @@ mod interaction;
 mod light;
 mod material;
 mod primitive;
-mod sampling;
+pub mod sampling;
 mod shape;
 mod texture;
 
@@ -32,12 +32,15 @@ pub enum TransportMode {
     Radiance,
     Importance,
 }
-pub trait Sampler {}
+
+pub struct CameraSample {
+    p_film: na::Point2<f32>,
+}
 
 impl Camera {
-    pub fn generate_ray(&self, film_point: &na::Point2<f32>) -> Ray {
+    pub fn generate_ray(&self, sample: &CameraSample) -> Ray {
         let cam_dir = self.cam_to_screen.unproject_point(
-            &(self.raster_to_screen * na::Point3::new(film_point.x, film_point.y, 0.0)),
+            &(self.raster_to_screen * na::Point3::new(sample.p_film.x, sample.p_film.y, 0.0)),
         );
 
         let cam_orig = na::Point3::<f32>::new(0.0, 0.0, 0.0);
@@ -91,9 +94,9 @@ impl RenderScene {
     }
 }
 
-pub trait Integrator {}
-
-pub struct DirectLightingIntegrator {}
+pub struct DirectLightingIntegrator {
+    sampler: sampling::Sampler,
+}
 
 pub fn specular_reflect(r: &Ray, isect: &SurfaceInteraction, scene: &RenderScene, depth: u32) {
     let wo = isect.general.wo;
@@ -105,11 +108,11 @@ pub fn specular_reflect(r: &Ray, isect: &SurfaceInteraction, scene: &RenderScene
 }
 
 impl DirectLightingIntegrator {
-    pub fn new() -> Self {
-        DirectLightingIntegrator {}
+    pub fn new(sampler: sampling::Sampler) -> Self {
+        DirectLightingIntegrator { sampler }
     }
 
-    pub fn li(&self, r: &Ray, scene: &RenderScene, depth: u32) -> Spectrum {
+    pub fn li(&self, r: &Ray, scene: &RenderScene, sampler: &mut sampling::Sampler, depth: u32) -> Spectrum {
         const MAX_DEPTH: u32 = 5;
         let mut L = Spectrum::new(0.0);
         let mut isect = Default::default();
@@ -134,7 +137,7 @@ impl DirectLightingIntegrator {
             let mut visibility = None;
             let li = light.sample_li(
                 &isect.general,
-                &na::Point2::new(0.0, 0.0),
+                &sampler.get_2d(),
                 &mut wi,
                 &mut pdf,
                 &mut visibility,
@@ -179,6 +182,9 @@ impl DirectLightingIntegrator {
             .progress()
             .map(|(x, y)| {
                 let tile = na::Point2::new(*x, *y);
+                let seed = (tile.y * num_tiles.x + tile.x) as u64;
+                let mut tile_sampler = self.sampler.clone_with_seed(seed);
+
                 let x0 = sample_bounds.p_min.x + tile.x * TILE_SIZE;
                 let x1 = std::cmp::min(x0 + TILE_SIZE, sample_bounds.p_max.x);
                 let y0 = sample_bounds.p_min.y + tile.y * TILE_SIZE;
@@ -193,13 +199,23 @@ impl DirectLightingIntegrator {
                 for (x, y) in (tile_bounds.p_min.x..tile_bounds.p_max.x)
                     .cartesian_product(tile_bounds.p_min.y..tile_bounds.p_max.y)
                 {
-                    let film_point = na::Point2::new(x as f32, y as f32) + glm::vec2(0.5, 0.5);
-                    let ray = camera.generate_ray(&film_point);
+                    let pixel = na::Point2::new(x, y);
+                    tile_sampler.start_pixel(&pixel);
 
-                    let mut L = Spectrum::new(0.0);
-                    L = self.li(&ray, &scene, 0);
+                    loop {
+                        let camera_sample = tile_sampler.get_camera_sample(&pixel);
 
-                    film_tile.add_sample(&film_point, &L);
+                        let ray = camera.generate_ray(&camera_sample);
+
+                        let mut L = Spectrum::new(0.0);
+                        L = self.li(&ray, &scene, &mut tile_sampler, 0);
+
+                        film_tile.add_sample(&camera_sample.p_film, &L);
+
+                        if !tile_sampler.start_next_sample() {
+                            break;
+                        }
+                    }
                 }
 
                 film_tile
@@ -216,5 +232,3 @@ impl DirectLightingIntegrator {
         println!("rendering took: {:?}", duration);
     }
 }
-
-impl Integrator for DirectLightingIntegrator {}

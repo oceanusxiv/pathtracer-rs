@@ -10,12 +10,14 @@ use std::{
 #[derive(Clone, Debug)]
 pub struct FilmTilePixel {
     contrib_sum: Spectrum,
+    filter_wight_sum: f32,
 }
 
 impl FilmTilePixel {
     pub fn new() -> Self {
         FilmTilePixel {
             contrib_sum: Spectrum::new(0.0),
+            filter_wight_sum: 0.0,
         }
     }
 }
@@ -39,19 +41,28 @@ impl FilmTile {
         return &self.tile[offset as usize];
     }
 
-    pub fn get_pixel_mut(&mut self, p: &na::Point2<i32>) -> &mut FilmTilePixel {
+    fn get_pixel_mut(&mut self, p: &na::Point2<i32>) -> &mut FilmTilePixel {
         let width = self.pixel_bounds.p_max.x - self.pixel_bounds.p_min.x;
         let offset = (p.x - self.pixel_bounds.p_min.x) + (p.y - self.pixel_bounds.p_min.y) * width;
+
         return &mut self.tile[offset as usize];
     }
 
     pub fn add_sample(&mut self, p_film: &na::Point2<f32>, L: &Spectrum) {
-        let p_film_discrete = p_film - na::Vector2::new(0.5, 0.5);
-        let pixel = self.get_pixel_mut(&na::Point2::new(
-            p_film_discrete.x.floor() as i32,
-            p_film_discrete.y.floor() as i32,
-        ));
+        let discrete_x = p_film
+            .x
+            .floor()
+            .min((self.pixel_bounds.p_max.coords.x - 1) as f32)
+            .max(self.pixel_bounds.p_min.coords.x as f32) as i32;
+        let discrete_y = p_film
+            .y
+            .floor()
+            .min((self.pixel_bounds.p_max.coords.y - 1) as f32)
+            .max(self.pixel_bounds.p_min.coords.y as f32) as i32;
+
+        let pixel = self.get_pixel_mut(&na::Point2::new(discrete_x, discrete_y));
         pixel.contrib_sum += *L;
+        pixel.filter_wight_sum += 1.0;
     }
 
     pub fn get_pixel_bounds(&self) -> Bounds2i {
@@ -103,7 +114,7 @@ impl Film {
             image.put_pixel(
                 x as u32,
                 y as u32,
-                film_tile_pixel.contrib_sum.to_image_rgba(),
+                (film_tile_pixel.contrib_sum / film_tile_pixel.filter_wight_sum).to_image_rgba(),
             );
         }
     }

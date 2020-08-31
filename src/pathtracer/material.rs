@@ -162,6 +162,16 @@ impl BSDF {
         )
     }
 
+    pub fn sample_f(
+        wo_world: &na::Vector3<f32>,
+        wi_world: &mut na::Vector3<f32>,
+        u: &na::Point2<f32>,
+        pdf: &mut f32,
+        bxdf_type: BxDFType,
+        sampled_type: BxDFType,
+    ) {
+    }
+
     pub fn f(&self, wo_w: &na::Vector3<f32>, wi_w: &na::Vector3<f32>, flags: BxDFType) -> Spectrum {
         let wi = self.world_to_local(&wi_w);
         let wo = self.world_to_local(&wo_w);
