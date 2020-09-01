@@ -70,7 +70,7 @@ impl RenderScene {
             Spectrum::new(1.0),
             na::Vector3::new(1.0, 1.0, 1.0),
         )) as Box<dyn SyncLight>];
-        // let lights = vec![Box::new(PointLight::new(
+        // let mut lights = vec![Box::new(PointLight::new(
         //     na::convert(na::Translation3::new(1.0, 3.5, 0.0)),
         //     Spectrum::new(10.0),
         // )) as Box<dyn SyncLight>];
@@ -218,6 +218,8 @@ impl DirectLightingIntegrator {
                 break;
             }
         }
+
+        trace!("actual image color: {:?}", camera.film.get_pixel(&pixel));
     }
 
     pub fn render(&self, camera: &mut Camera, scene: &RenderScene) {

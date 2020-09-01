@@ -10,7 +10,7 @@ use std::collections::HashMap;
 use std::{rc::Rc, sync::Arc};
 
 lazy_static::lazy_static! {
-    pub static ref DEFAULT_RESOLUTION: glm::Vec2 = glm::vec2(1280.0, 720.0);
+    pub static ref DEFAULT_RESOLUTION: glm::Vec2 = glm::vec2(640.0, 480.0);
 }
 
 static DEFAULT_Z_NEAR: f32 = 0.01;

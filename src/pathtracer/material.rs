@@ -175,9 +175,13 @@ impl BSDF {
     pub fn f(&self, wo_w: &na::Vector3<f32>, wi_w: &na::Vector3<f32>, flags: BxDFType) -> Spectrum {
         let wi = self.world_to_local(&wi_w);
         let wo = self.world_to_local(&wo_w);
+        if wo.z == 0.0 {
+            return Spectrum::new(0.0);
+        }
         let reflect = wi_w.dot(&self.ng) * wo_w.dot(&self.ng) > 0.0;
-        trace!("local wi: {:?}, local wo: {:?}", wi, wo);
         if log_enabled!(log::Level::Trace) {
+            trace!("local wi: {:?}, local wo: {:?}", wi, wo);
+            trace!("ng: {:?}, ns: {:?}", self.ng, self.ns);
             trace!(
                 "wi_w dot ng: {:?}, wo_w dot ng: {:?}",
                 wi_w.dot(&self.ng),

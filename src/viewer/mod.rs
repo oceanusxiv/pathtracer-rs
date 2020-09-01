@@ -203,23 +203,26 @@ impl Viewer {
 
     // input() won't deal with GPU code, so it can be synchronous
     pub fn input(&mut self, event: &DeviceEvent) -> bool {
-        match event {
-            DeviceEvent::MouseWheel { delta, .. } => {
-                self.camera_controller.process_scroll(delta);
-                true
-            }
-            DeviceEvent::Button { button, state, .. } => {
-                self.mouse_pressed =
-                    (*button == 0 || *button == 1) && *state == ElementState::Pressed;
-                true
-            }
-            DeviceEvent::MouseMotion { delta, .. } => {
-                let (mouse_dx, mouse_dy) = delta;
-                if self.mouse_pressed {
-                    self.camera_controller.process_mouse(*mouse_dx, *mouse_dy);
+        match self.state {
+            ViewerState::RenderScene => match event {
+                DeviceEvent::MouseWheel { delta, .. } => {
+                    self.camera_controller.process_scroll(delta);
+                    true
                 }
-                true
-            }
+                DeviceEvent::Button { button, state, .. } => {
+                    self.mouse_pressed =
+                        (*button == 0 || *button == 1) && *state == ElementState::Pressed;
+                    true
+                }
+                DeviceEvent::MouseMotion { delta, .. } => {
+                    let (mouse_dx, mouse_dy) = delta;
+                    if self.mouse_pressed {
+                        self.camera_controller.process_mouse(*mouse_dx, *mouse_dy);
+                    }
+                    true
+                }
+                _ => false,
+            },
             _ => false,
         }
     }
