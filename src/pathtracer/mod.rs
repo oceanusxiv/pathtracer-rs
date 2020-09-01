@@ -176,6 +176,31 @@ impl DirectLightingIntegrator {
         L
     }
 
+    pub fn render_single_pixel(
+        &self,
+        camera: &mut Camera,
+        pixel: na::Point2<i32>,
+        scene: &RenderScene,
+    ) {
+        let mut pixel_sampler = self.sampler.clone_with_seed(0);
+        pixel_sampler.start_pixel(&pixel);
+
+        loop {
+            let camera_sample = pixel_sampler.get_camera_sample(&pixel);
+
+            let ray = camera.generate_ray(&camera_sample);
+
+            let mut L = Spectrum::new(0.0);
+            L = self.li(&ray, &scene, &mut pixel_sampler, 0);
+
+            debug!("output L: {:?}", L);
+
+            if !pixel_sampler.start_next_sample() {
+                break;
+            }
+        }
+    }
+
     pub fn render(&self, camera: &mut Camera, scene: &RenderScene) {
         println!(
             "start rendering image of size: {:?}",

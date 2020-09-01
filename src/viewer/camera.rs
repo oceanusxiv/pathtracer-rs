@@ -53,7 +53,7 @@ impl OrbitalCameraController {
             &vert_axis,
         );
         cam_pos = glm::normalize(&cam_pos)
-            * 0.1_f32.max(glm::length(&cam_pos) * (1.0 + self.scroll * self.zoom_speed * dt));
+            * 0.01_f32.max(glm::length(&cam_pos) * (1.0 + self.scroll * self.zoom_speed * dt));
 
         cam_pos += &self.pivot; // retransform back to global frame
         camera.cam_to_world = na::Isometry3::look_at_rh(

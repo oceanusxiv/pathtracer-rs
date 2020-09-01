@@ -9,6 +9,9 @@ extern crate bitflags;
 #[macro_use]
 extern crate hexf;
 
+#[macro_use]
+extern crate log;
+
 extern crate nalgebra as na;
 extern crate nalgebra_glm as glm;
 
@@ -45,7 +48,7 @@ fn main() {
     let output_path = Path::new(matches.value_of("output").unwrap()).join("render.png");
     let (world, mut camera) = common::World::from_gltf(scene_path);
     let render_scene = pathtracer::RenderScene::from_world(&world);
-    let sampler = pathtracer::sampling::Sampler::new(2, 2, true, 8);
+    let sampler = pathtracer::sampling::Sampler::new(1, 1, true, 8);
     let integrator = pathtracer::DirectLightingIntegrator::new(sampler);
 
     print!("camera starting at: {:?}", camera.cam_to_world);
@@ -62,6 +65,9 @@ fn main() {
 
     let mut last_render_time = std::time::Instant::now();
     let mut cursor_in_window = true;
+    let mut crtl_clicked = false;
+    let mut cursor_position: winit::dpi::PhysicalPosition<f64> =
+        winit::dpi::PhysicalPosition::new(0.0, 0.0);
     event_loop.run(move |event, _, control_flow| {
         *control_flow = ControlFlow::Poll;
         match event {
@@ -121,6 +127,30 @@ fn main() {
                     }
                     WindowEvent::CursorLeft { device_id } => {
                         cursor_in_window = false;
+                    }
+                    WindowEvent::ModifiersChanged(modifier) => match *modifier {
+                        ModifiersState::CTRL => {
+                            crtl_clicked = true;
+                        }
+                        _ => {
+                            crtl_clicked = false;
+                        }
+                    },
+                    WindowEvent::MouseInput {
+                        state: ElementState::Released,
+                        button: MouseButton::Left,
+                        ..
+                    } => {
+                        if crtl_clicked {
+                            let pixel = na::Point2::new(
+                                cursor_position.x.floor() as i32,
+                                cursor_position.y.floor() as i32,
+                            );
+                            integrator.render_single_pixel(&mut camera, pixel, &render_scene);
+                        }
+                    }
+                    WindowEvent::CursorMoved { position, .. } => {
+                        cursor_position = *position;
                     }
                     _ => {}
                 }
