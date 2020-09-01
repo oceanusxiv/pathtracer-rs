@@ -32,6 +32,7 @@ pub enum TransportMode {
     Importance,
 }
 
+#[derive(Debug)]
 pub struct CameraSample {
     p_film: na::Point2<f32>,
 }
@@ -146,6 +147,7 @@ impl DirectLightingIntegrator {
             }
             return L;
         }
+        trace!("intersected geometry at: {:?}", isect.general.p);
 
         let n = isect.shading.n;
         let wo = isect.general.wo;
@@ -165,16 +167,24 @@ impl DirectLightingIntegrator {
                 &mut pdf,
                 &mut visibility,
             );
+            trace!(
+                "light {:p} gives li: {:?} for intersection point: {:?}",
+                light,
+                li,
+                isect.general.p
+            );
 
             if li.is_black() || pdf == 0.0 {
                 continue;
             }
 
             let f = isect.bsdf.as_ref().unwrap().f(&wo, &wi, BxDFType::BSDF_ALL);
+            trace!("bsdf f: {:?} for wo: {:?}, wi: {:?}", f, wo, wi);
 
             if !f.is_black() {
                 if let Some(visibility) = visibility {
                     if visibility.unoccluded(&scene) {
+                        trace!("light: {:p}, unoccluded", light);
                         L += f * li * wi.dot(&n) / pdf;
                     }
                 }
@@ -190,18 +200,19 @@ impl DirectLightingIntegrator {
         pixel: na::Point2<i32>,
         scene: &RenderScene,
     ) {
+        trace!("render single pixel: {:?}", pixel);
+        trace!("camera at location: {:?}", camera.cam_to_world.translation);
         let mut pixel_sampler = self.sampler.clone_with_seed(0);
         pixel_sampler.start_pixel(&pixel);
 
         loop {
             let camera_sample = pixel_sampler.get_camera_sample(&pixel);
-
+            trace!("generated camera sample: {:?}", camera_sample);
             let ray = camera.generate_ray(&camera_sample);
-
+            trace!("generated ray: {:?}", ray);
             let mut L = Spectrum::new(0.0);
             L = self.li(&ray, &scene, &mut pixel_sampler, 0);
-
-            debug!("output L: {:?}", L);
+            trace!("output L: {:?}", L);
 
             if !pixel_sampler.start_next_sample() {
                 break;
@@ -212,7 +223,7 @@ impl DirectLightingIntegrator {
     pub fn render(&self, camera: &mut Camera, scene: &RenderScene) {
         debug!(
             "start rendering image of size: {:?}",
-            camera.film.get_sample_bounds(),
+            camera.film.get_sample_bounds().diagonal(),
         );
         let start = Instant::now();
         let sample_bounds = camera.film.get_sample_bounds();

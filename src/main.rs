@@ -143,8 +143,8 @@ fn main() {
                     } => {
                         if crtl_clicked {
                             let pixel = na::Point2::new(
-                                cursor_position.x.floor() as i32,
-                                cursor_position.y.floor() as i32,
+                                (cursor_position.x / window.scale_factor()).floor() as i32,
+                                (cursor_position.y / window.scale_factor()).floor() as i32,
                             );
                             integrator.render_single_pixel(&mut camera, pixel, &render_scene);
                         }

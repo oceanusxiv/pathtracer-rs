@@ -176,6 +176,19 @@ impl BSDF {
         let wi = self.world_to_local(&wi_w);
         let wo = self.world_to_local(&wo_w);
         let reflect = wi_w.dot(&self.ng) * wo_w.dot(&self.ng) > 0.0;
+        trace!("local wi: {:?}, local wo: {:?}", wi, wo);
+        if log_enabled!(log::Level::Trace) {
+            trace!(
+                "wi_w dot ng: {:?}, wo_w dot ng: {:?}",
+                wi_w.dot(&self.ng),
+                wo_w.dot(&self.ng)
+            );
+            trace!(
+                "wi_w dot ns: {:?}, wo_w dot ns: {:?}",
+                wi_w.dot(&self.ns),
+                wo_w.dot(&self.ns)
+            );
+        }
         let mut f = Spectrum::new(0.0);
 
         for i in 0..self.n_bxdfs {
