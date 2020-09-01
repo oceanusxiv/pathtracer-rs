@@ -18,7 +18,7 @@ pub struct Interaction {
 impl Default for Interaction {
     fn default() -> Self {
         Interaction {
-            p: na::Point3::new(0.0, 0.0, 0.0),
+            p: na::Point3::origin(),
             time: 0.0,
             p_error: glm::zero(),
             wo: glm::zero(),
@@ -104,7 +104,7 @@ impl<'a> Default for SurfaceInteraction<'a> {
     fn default() -> SurfaceInteraction<'a> {
         SurfaceInteraction {
             general: Interaction {
-                p: na::Point3::new(0.0, 0.0, 0.0),
+                p: na::Point3::origin(),
                 time: 0.0,
                 p_error: glm::zero(),
                 wo: glm::zero(),

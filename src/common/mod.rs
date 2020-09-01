@@ -51,7 +51,7 @@ impl Default for Camera {
         Camera::new(
             &na::Isometry3::look_at_rh(
                 &na::Point3::new(0.2, 0.05, 0.2),
-                &na::Point3::new(0.0, 0.0, 0.0),
+                &na::Point3::origin(),
                 &na::Vector3::new(0.0, 1.0, 0.0),
             )
             .inverse(),
@@ -333,12 +333,9 @@ mod tests {
 
     #[test]
     fn test_camera_wold_to_screen() {
-        let test_cam = cam_with_look_at(
-            &na::Point3::new(10.0, 10.0, 10.0),
-            &na::Point3::new(0.0, 0.0, 0.0),
-        );
+        let test_cam = cam_with_look_at(&na::Point3::new(10.0, 10.0, 10.0), &na::Point3::origin());
 
-        let test_world_space = na::Point3::new(0.0, 0.0, 0.0);
+        let test_world_space = na::Point3::origin();
         let test_cam_space = test_cam.cam_to_world.inverse() * test_world_space;
         let test_screen_space = test_cam.cam_to_screen.project_point(&test_cam_space);
         approx::assert_relative_eq!(
@@ -360,10 +357,7 @@ mod tests {
 
     #[test]
     fn test_camera_screen_to_raster() {
-        let test_cam = cam_with_look_at(
-            &na::Point3::new(0.0, 0.0, 0.0),
-            &na::Point3::new(1.0, 0.0, 0.0),
-        );
+        let test_cam = cam_with_look_at(&na::Point3::origin(), &na::Point3::new(1.0, 0.0, 0.0));
 
         let test_screen_space1 = na::Point3::new(1.0, 1.0, 0.5);
         let test_raster_space1 = test_cam.screen_to_raster * test_screen_space1;
@@ -386,10 +380,7 @@ mod tests {
 
     #[test]
     fn test_camera_raster_to_screen() {
-        let test_cam = cam_with_look_at(
-            &na::Point3::new(0.0, 0.0, 0.0),
-            &na::Point3::new(1.0, 0.0, 0.0),
-        );
+        let test_cam = cam_with_look_at(&na::Point3::origin(), &na::Point3::new(1.0, 0.0, 0.0));
 
         let test_raster_space1 = na::Point3::new(640.0, 360.0, 0.0);
         let test_cam_space1 = test_cam

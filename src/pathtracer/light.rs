@@ -73,7 +73,7 @@ impl PointLight {
             num_samples: 1,
             light_to_world,
             world_to_light: light_to_world.inverse(),
-            p_light: light_to_world * na::Point3::new(0.0, 0.0, 0.0),
+            p_light: light_to_world * na::Point3::origin(),
             I,
         }
     }
@@ -108,6 +108,89 @@ impl Light for PointLight {
 
     fn pdf_li(&self, reference: &Interaction, wi: &na::Vector3<f32>) -> f32 {
         todo!()
+    }
+
+    fn sample_le(
+        &self,
+        u1: &na::Point2<f32>,
+        u2: &na::Point2<f32>,
+        r: &mut Ray,
+        n_light: &na::Vector3<f32>,
+        pdf_pos: &mut f32,
+        pdf_dir: &mut f32,
+    ) {
+        todo!()
+    }
+
+    fn pdf_le(&self, r: &Ray, n_light: &na::Vector3<f32>, pdf_pos: &mut f32, pdf_dir: &mut f32) {
+        todo!()
+    }
+}
+
+pub struct DirectionalLight {
+    flags: LightFlags,
+    light_to_world: na::Projective3<f32>,
+    world_to_light: na::Projective3<f32>,
+    L: Spectrum,
+    w_light: na::Vector3<f32>,
+    world_center: na::Point3<f32>,
+    world_radius: f32,
+}
+
+impl DirectionalLight {
+    pub fn new(
+        light_to_world: na::Projective3<f32>,
+        L: Spectrum,
+        w_light: na::Vector3<f32>,
+    ) -> Self {
+        DirectionalLight {
+            flags: LightFlags::DELTA_POSITION,
+            light_to_world,
+            world_to_light: light_to_world.inverse(),
+            L,
+            w_light: (light_to_world * w_light).normalize(),
+            world_center: na::Point3::origin(),
+            world_radius: 0.0,
+        }
+    }
+}
+
+impl Light for DirectionalLight {
+    fn sample_li(
+        &self,
+        reference: &Interaction,
+        u: &na::Point2<f32>,
+        wi: &mut na::Vector3<f32>,
+        pdf: &mut f32,
+        vis: &mut Option<VisibilityTester>,
+    ) -> Spectrum {
+        *wi = self.w_light;
+        *pdf = 1.0;
+        let p_outside = reference.p + self.w_light * (2.0 * self.world_radius);
+        *vis = Some(VisibilityTester {
+            p0: *reference,
+            p1: Interaction {
+                p: p_outside,
+                time: reference.time,
+                ..Default::default()
+            },
+        });
+
+        self.L
+    }
+
+    fn power(&self) -> Spectrum {
+        self.L * std::f32::consts::PI * self.world_radius * self.world_radius
+    }
+
+    fn pdf_li(&self, reference: &Interaction, wi: &na::Vector3<f32>) -> f32 {
+        todo!()
+    }
+
+    fn preprocess(&mut self, scene: &RenderScene) {
+        scene
+            .world_bound()
+            .bounding_sphere(&mut self.world_center, &mut self.world_radius);
     }
 
     fn sample_le(

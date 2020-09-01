@@ -7,7 +7,7 @@ pub mod sampling;
 mod shape;
 mod texture;
 
-use crate::common::bounds::Bounds2i;
+use crate::common::bounds::{Bounds2i, Bounds3};
 use crate::common::film::FilmTile;
 use crate::common::ray::Ray;
 use crate::common::spectrum::Spectrum;
@@ -16,7 +16,7 @@ use image::RgbImage;
 use indicatif::ParallelProgressIterator;
 use interaction::{Interaction, SurfaceInteraction};
 use itertools::Itertools;
-use light::{Light, PointLight, SyncLight};
+use light::{DirectionalLight, Light, SyncLight};
 use material::{BxDFType, Material, MatteMaterial, SyncMaterial};
 use primitive::SyncPrimitive;
 use rayon::prelude::*;
@@ -56,17 +56,19 @@ impl Camera {
 
 pub struct RenderScene {
     scene: Box<dyn SyncPrimitive>,
-    materials: Vec<Arc<dyn SyncMaterial>>,
     pub lights: Vec<Box<dyn SyncLight>>,
+    materials: Vec<Arc<dyn SyncMaterial>>,
+    world_bound: Bounds3,
 }
 
 impl RenderScene {
     pub fn from_world(world: &World) -> Self {
         let mut primitives: Vec<Arc<dyn SyncPrimitive>> = Vec::new();
         let materials = vec![Arc::new(MatteMaterial {}) as Arc<dyn SyncMaterial>];
-        let lights = vec![Box::new(PointLight::new(
+        let lights = vec![Box::new(DirectionalLight::new(
             na::convert(na::Translation3::new(1.0, 3.5, 0.0)),
-            Spectrum::new(10.0),
+            Spectrum::new(1.0),
+            na::Vector3::new(1.0, 1.0, 1.0),
         )) as Box<dyn SyncLight>];
 
         for obj in &world.objects {
@@ -78,11 +80,18 @@ impl RenderScene {
             }
         }
 
+        let bvh = Box::new(accelerator::BVH::new(primitives, &4)) as Box<dyn SyncPrimitive>;
+        let world_bound = bvh.world_bound();
         RenderScene {
-            scene: Box::new(accelerator::BVH::new(primitives, &4)) as Box<dyn SyncPrimitive>,
+            scene: bvh,
             materials,
             lights,
+            world_bound,
         }
+    }
+
+    pub fn world_bound(&self) -> Bounds3 {
+        self.world_bound
     }
 
     pub fn intersect<'a>(&'a self, r: &Ray, isect: &mut SurfaceInteraction<'a>) -> bool {
@@ -112,7 +121,13 @@ impl DirectLightingIntegrator {
         DirectLightingIntegrator { sampler }
     }
 
-    pub fn li(&self, r: &Ray, scene: &RenderScene, sampler: &mut sampling::Sampler, depth: u32) -> Spectrum {
+    pub fn li(
+        &self,
+        r: &Ray,
+        scene: &RenderScene,
+        sampler: &mut sampling::Sampler,
+        depth: u32,
+    ) -> Spectrum {
         const MAX_DEPTH: u32 = 5;
         let mut L = Spectrum::new(0.0);
         let mut isect = Default::default();

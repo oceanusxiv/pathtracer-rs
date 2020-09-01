@@ -91,6 +91,25 @@ impl<T: na::RealField + na::ClosedSub> TBounds3<T> {
         let d = self.diagonal();
         T::from_f64(2.0).unwrap() * (d.x * d.y + d.x * d.z + d.y * d.z)
     }
+
+    pub fn inside(p: &na::Point3<T>, b: &Self) -> bool {
+        p.x >= b.p_min.x
+            && p.x <= b.p_max.x
+            && p.y >= b.p_min.y
+            && p.y <= b.p_max.y
+            && p.z >= b.p_min.z
+            && p.z <= b.p_max.z
+    }
+
+    pub fn bounding_sphere(&self, center: &mut na::Point3<T>, radius: &mut T) {
+        let mul = T::from_f64(0.5).unwrap();
+        *center = na::Point3::from((self.p_min.coords + self.p_max.coords) * mul);
+        *radius = if TBounds3::inside(center, self) {
+            (center.coords - self.p_max.coords).norm()
+        } else {
+            T::from_f64(0.0).unwrap()
+        };
+    }
 }
 
 impl<T: na::RealField> std::ops::Index<usize> for TBounds3<T> {

@@ -435,7 +435,11 @@ impl Primitive for BVH {
     }
 
     fn world_bound(&self) -> Bounds3 {
-        todo!()
+        if self.nodes.is_empty() {
+            Bounds3::empty()
+        } else {
+            self.nodes[0].bounds
+        }
     }
 
     fn get_material(&self) -> &dyn super::material::SyncMaterial {
