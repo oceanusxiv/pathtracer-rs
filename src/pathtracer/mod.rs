@@ -13,10 +13,9 @@ use crate::common::ray::Ray;
 use crate::common::spectrum::Spectrum;
 use crate::common::{Camera, World};
 use image::RgbImage;
-use indicatif::ParallelProgressIterator;
 use interaction::{Interaction, SurfaceInteraction};
 use itertools::Itertools;
-use light::{DirectionalLight, Light, SyncLight};
+use light::{DirectionalLight, Light, PointLight, SyncLight};
 use material::{BxDFType, Material, MatteMaterial, SyncMaterial};
 use primitive::SyncPrimitive;
 use rayon::prelude::*;
@@ -65,11 +64,15 @@ impl RenderScene {
     pub fn from_world(world: &World) -> Self {
         let mut primitives: Vec<Arc<dyn SyncPrimitive>> = Vec::new();
         let materials = vec![Arc::new(MatteMaterial {}) as Arc<dyn SyncMaterial>];
-        let lights = vec![Box::new(DirectionalLight::new(
+        let mut lights = vec![Box::new(DirectionalLight::new(
             na::convert(na::Translation3::new(1.0, 3.5, 0.0)),
             Spectrum::new(1.0),
             na::Vector3::new(1.0, 1.0, 1.0),
         )) as Box<dyn SyncLight>];
+        // let lights = vec![Box::new(PointLight::new(
+        //     na::convert(na::Translation3::new(1.0, 3.5, 0.0)),
+        //     Spectrum::new(10.0),
+        // )) as Box<dyn SyncLight>];
 
         for obj in &world.objects {
             for shape in shape_from_mesh(&obj.mesh, &obj) {
@@ -82,6 +85,11 @@ impl RenderScene {
 
         let bvh = Box::new(accelerator::BVH::new(primitives, &4)) as Box<dyn SyncPrimitive>;
         let world_bound = bvh.world_bound();
+
+        for light in &mut lights {
+            light.preprocess(&world_bound);
+        }
+
         RenderScene {
             scene: bvh,
             materials,
@@ -202,7 +210,7 @@ impl DirectLightingIntegrator {
     }
 
     pub fn render(&self, camera: &mut Camera, scene: &RenderScene) {
-        println!(
+        debug!(
             "start rendering image of size: {:?}",
             camera.film.get_sample_bounds(),
         );
@@ -219,7 +227,6 @@ impl DirectLightingIntegrator {
             .cartesian_product(0..num_tiles.y)
             .collect_vec()
             .par_iter()
-            .progress()
             .map(|(x, y)| {
                 let tile = na::Point2::new(*x, *y);
                 let seed = (tile.y * num_tiles.x + tile.x) as u64;
@@ -269,6 +276,6 @@ impl DirectLightingIntegrator {
 
         let duration = start.elapsed();
 
-        println!("rendering took: {:?}", duration);
+        info!("rendering took: {:?}", duration);
     }
 }

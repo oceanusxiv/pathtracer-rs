@@ -99,7 +99,7 @@ impl Viewer {
         .await
         .unwrap();
 
-        println!("{:?}", adapter.get_info());
+        debug!("{:?}", adapter.get_info());
 
         let (device, queue) = adapter
             .request_device(&wgpu::DeviceDescriptor {

@@ -2,7 +2,7 @@ use super::primitive::Primitive;
 use super::{SurfaceInteraction, SyncPrimitive};
 use crate::common::bounds::{Bounds3, TBounds3};
 use crate::common::ray::Ray;
-use std::sync::Arc;
+use std::{sync::Arc, time::Instant};
 
 struct BVHPrimitiveInfo {
     pub prim_num: usize,
@@ -86,6 +86,8 @@ pub struct BVH {
 
 impl BVH {
     pub fn new(primitives: Vec<Arc<dyn SyncPrimitive>>, max_prims_in_node: &usize) -> Self {
+        let start = Instant::now();
+
         let mut primitive_info = Vec::<BVHPrimitiveInfo>::with_capacity(primitives.len());
 
         for i in 0..primitives.len() {
@@ -109,6 +111,8 @@ impl BVH {
         let mut offset = 0usize;
         BVH::flatten_bvh_tree(&root, &mut nodes, &mut offset);
 
+        let duration = start.elapsed();
+        debug!("bvh tree took {:?} to construct", duration);
         let nodes = unsafe { nodes.assume_init() };
         BVH {
             primitives: ordered_prims,

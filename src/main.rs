@@ -29,10 +29,7 @@ use winit::{
 };
 
 fn main() {
-    env_logger::Builder::from_default_env()
-        .filter_level(log::LevelFilter::Warn)
-        .filter_module("pathtracer_rs", log::LevelFilter::Info)
-        .init();
+    env_logger::Builder::from_default_env().init();
 
     let matches = clap_app!(pathtracer_rs =>
         (version: "1.0")
@@ -51,7 +48,7 @@ fn main() {
     let sampler = pathtracer::sampling::Sampler::new(1, 1, true, 8);
     let integrator = pathtracer::DirectLightingIntegrator::new(sampler);
 
-    print!("camera starting at: {:?}", camera.cam_to_world);
+    debug!("camera starting at: {:?}", camera.cam_to_world);
 
     let event_loop = EventLoop::new();
     let window = WindowBuilder::new()
@@ -130,6 +127,9 @@ fn main() {
                     }
                     WindowEvent::ModifiersChanged(modifier) => match *modifier {
                         ModifiersState::CTRL => {
+                            crtl_clicked = true;
+                        }
+                        ModifiersState::LOGO => {
                             crtl_clicked = true;
                         }
                         _ => {

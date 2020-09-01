@@ -1,5 +1,5 @@
 use super::{interaction::Interaction, RenderScene};
-use crate::common::{ray::Ray, spectrum::Spectrum};
+use crate::common::{bounds::Bounds3, ray::Ray, spectrum::Spectrum};
 
 bitflags! {
     pub struct LightFlags: u32 {
@@ -37,7 +37,7 @@ pub trait Light {
 
     fn power(&self) -> Spectrum;
 
-    fn preprocess(&mut self, scene: &RenderScene) {}
+    fn preprocess(&mut self, world_bound: &Bounds3) {}
 
     fn pdf_li(&self, reference: &Interaction, wi: &na::Vector3<f32>) -> f32;
 
@@ -187,10 +187,10 @@ impl Light for DirectionalLight {
         todo!()
     }
 
-    fn preprocess(&mut self, scene: &RenderScene) {
-        scene
-            .world_bound()
-            .bounding_sphere(&mut self.world_center, &mut self.world_radius);
+    fn preprocess(&mut self, world_bound: &Bounds3) {
+        // debug!("scene world bound {:?}", scene.world_bound());
+        world_bound.bounding_sphere(&mut self.world_center, &mut self.world_radius);
+        // debug!("directional light world center: {:?}, radius: {:?}", self.world_center, self.world_radius);
     }
 
     fn sample_le(
