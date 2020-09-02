@@ -1,4 +1,4 @@
-use super::{material::BSDF, primitive::Primitive, shape::Shape, TransportMode};
+use super::{bsdf::BSDF, primitive::Primitive, shape::Shape, TransportMode};
 use crate::common::{
     math::{face_forward, offset_ray_origin},
     ray::Ray,
