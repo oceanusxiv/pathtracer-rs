@@ -125,7 +125,8 @@ impl WireFrameRenderPass {
         uniform_bind_group_layout: &wgpu::BindGroupLayout,
         world: &World,
     ) -> Self {
-        let (vs_module, fs_module) = shaders::flat_instance::compile_shaders(&mut compiler, &device);
+        let (vs_module, fs_module) =
+            shaders::flat_instance::compile_shaders(&mut compiler, &device);
         let instances_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                 bindings: &[Instance::create_bind_group_layout_entry()],
@@ -181,7 +182,10 @@ where
     fn draw_wire_frame(&mut self, wire_frame: &'b WireFrameInstancesHandle) {
         self.set_bind_group(1, &wire_frame.instances_bind_group, &[]);
         self.set_vertex_buffer(0, &wire_frame.wireframe.vertex_buffer, 0, 0);
-        self.draw(0..wire_frame.wireframe.num_elements as u32, wire_frame.visible_instances.clone());
+        self.draw(
+            0..wire_frame.wireframe.num_elements as u32,
+            wire_frame.visible_instances.clone(),
+        );
     }
 
     fn draw_all_wire_frame(&mut self, wire_frame: &'b WireFrameRenderPass) {
