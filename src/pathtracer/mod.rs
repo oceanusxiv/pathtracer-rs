@@ -116,25 +116,79 @@ pub struct DirectLightingIntegrator {
     sampler: sampling::Sampler,
 }
 
-pub fn specular_reflect(r: &Ray, isect: &SurfaceInteraction, scene: &RenderScene, depth: u32) {
-    let wo = isect.general.wo;
-    // let wi = glm::zero();
-    let pdf = 0.0;
-    let bxdf_type = BxDFType::BSDF_REFLECTION | BxDFType::BSDF_SPECULAR;
-
-    // let f = isect.bsdf.sam
-}
-
 impl DirectLightingIntegrator {
     pub fn new(sampler: sampling::Sampler) -> Self {
         DirectLightingIntegrator { sampler }
     }
 
-    pub fn li(
+    fn specular_reflect(
+        &self,
+        r: &Ray,
+        isect: &SurfaceInteraction,
+        scene: &RenderScene,
+        mut sampler: &mut sampling::Sampler,
+        depth: u32,
+    ) -> Spectrum {
+        let wo = isect.general.wo;
+        let mut wi = glm::zero();
+        let mut pdf = 0.0;
+        let bxdf_type = BxDFType::BSDF_REFLECTION | BxDFType::BSDF_SPECULAR;
+
+        let f = isect.bsdf.as_ref().unwrap().sample_f(
+            &wo,
+            &mut wi,
+            &sampler.get_2d(),
+            &mut pdf,
+            bxdf_type,
+            &mut None,
+        );
+
+        let ns = isect.shading.n;
+        if pdf > 0.0 && !f.is_black() && wi.dot(&ns).abs() != 0.0 {
+            let rd = isect.general.spawn_ray(&wi);
+            f * self.li(&rd, &scene, &mut sampler, depth + 1) * wi.dot(&ns).abs() / pdf
+        } else {
+            Spectrum::new(0.0)
+        }
+    }
+
+    fn specular_transmit(
+        &self,
+        r: &Ray,
+        isect: &SurfaceInteraction,
+        scene: &RenderScene,
+        mut sampler: &mut sampling::Sampler,
+        depth: u32,
+    ) -> Spectrum {
+        let wo = isect.general.wo;
+        let mut wi = glm::zero();
+        let mut pdf = 0.0;
+        let p = isect.general.p;
+        let ns = isect.shading.n;
+        let bsdf = isect.bsdf.as_ref().unwrap();
+        let f = bsdf.sample_f(
+            &wo,
+            &mut wi,
+            &sampler.get_2d(),
+            &mut pdf,
+            BxDFType::BSDF_TRANSMISSION | BxDFType::BSDF_SPECULAR,
+            &mut None,
+        );
+        let mut L = Spectrum::new(0.0);
+
+        if pdf > 0.0 && !f.is_black() && wi.dot(&ns).abs() != 0.0 {
+            let rd = isect.general.spawn_ray(&wi);
+            L = f * self.li(&rd, &scene, &mut sampler, depth + 1) * wi.dot(&ns).abs() / pdf
+        }
+
+        L
+    }
+
+    fn li(
         &self,
         r: &Ray,
         scene: &RenderScene,
-        sampler: &mut sampling::Sampler,
+        mut sampler: &mut sampling::Sampler,
         depth: u32,
     ) -> Spectrum {
         const MAX_DEPTH: u32 = 5;
@@ -189,6 +243,11 @@ impl DirectLightingIntegrator {
                     }
                 }
             }
+        }
+
+        if depth + 1 < MAX_DEPTH {
+            L += self.specular_reflect(&r, &isect, &scene, &mut sampler, depth);
+            L += self.specular_transmit(&r, &isect, &scene, &mut sampler, depth);
         }
 
         L
