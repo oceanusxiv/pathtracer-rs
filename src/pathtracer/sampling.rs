@@ -348,8 +348,16 @@ impl StratifiedSampler {
 
 pub type Sampler = StratifiedSampler; // for now, since dealing with sampler inheritance is annoying
 
-fn uniform_sample_hemisphere(u: &glm::Vec2) -> glm::Vec3 {
-    glm::vec3(0.0, 0.0, 0.0)
+pub fn uniform_sample_hemisphere(u: &na::Point2<f32>) -> na::Vector3<f32> {
+    let z = u[0];
+    let r = 0.0f32.max(1.0 - z * z).sqrt();
+    let phi = 2.0 * std::f32::consts::PI * u[1];
+    na::Vector3::new(r * phi.cos(), r * phi.sin(), z)
+}
+
+pub const fn uniform_hemisphere_pdf() -> f32 {
+    const inv_2_pi: f32 = 0.15915494309189533577;
+    inv_2_pi
 }
 
 pub fn concentric_sample_disk(u: &na::Point2<f32>) -> na::Point2<f32> {

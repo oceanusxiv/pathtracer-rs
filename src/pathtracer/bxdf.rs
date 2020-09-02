@@ -1,4 +1,6 @@
-use super::sampling::cosine_sample_hemisphere;
+use super::sampling::{
+    cosine_sample_hemisphere, uniform_hemisphere_pdf, uniform_sample_hemisphere,
+};
 use crate::common::spectrum::Spectrum;
 use ambassador::{delegatable_trait, Delegate};
 
@@ -49,13 +51,48 @@ pub trait BxDFInterface {
         *pdf = self.pdf(&wo, &wi);
         self.f(&wo, &wi)
     }
-    fn rho(&self, wo: &na::Vector3<f32>, n_samples: usize, samples: &na::Point2<f32>) -> Spectrum;
+    fn rho(
+        &self,
+        wo: &na::Vector3<f32>,
+        n_samples: usize,
+        samples: &[na::Point2<f32>],
+    ) -> Spectrum {
+        let mut r = Spectrum::new(0.0);
+
+        for i in 0..n_samples {
+            let mut wi = glm::zero();
+            let mut pdf = 0.0;
+            let f = self.sample_f(&wo, &mut wi, &samples[i], &mut pdf, &mut None);
+
+            if pdf > 0.0 {
+                r += f * abs_cos_theta(&wi) / pdf;
+            }
+        }
+
+        r / (n_samples as f32)
+    }
     fn rho_no_wo(
         &self,
         n_samples: usize,
-        samples_1: &na::Point2<f32>,
-        samples_2: &na::Point2<f32>,
-    ) -> Spectrum;
+        samples_1: &[na::Point2<f32>],
+        samples_2: &[na::Point2<f32>],
+    ) -> Spectrum {
+        let mut r = Spectrum::new(0.0);
+
+        for i in 0..n_samples {
+            let mut wi = glm::zero();
+            let wo = uniform_sample_hemisphere(&samples_1[i]);
+            let mut pdf_i = 0.0;
+            let pdf_o = uniform_hemisphere_pdf();
+            let f = self.sample_f(&wo, &mut wi, &samples_2[i], &mut pdf_i, &mut None);
+
+            if pdf_i > 0.0 {
+                r += f * abs_cos_theta(&wi) * abs_cos_theta(&wo) / (pdf_o * pdf_i);
+            }
+        }
+
+        r / (std::f32::consts::PI * n_samples as f32)
+    }
 
     fn matches_flags(&self, t: BxDFType) -> bool {
         (self.get_type() & t) == self.get_type()
@@ -78,15 +115,11 @@ pub enum BxDF {
 
 pub struct LambertianReflection {
     R: Spectrum,
-    pub bxdf_type: BxDFType,
 }
 
 impl LambertianReflection {
     pub fn new(R: Spectrum) -> Self {
-        LambertianReflection {
-            R,
-            bxdf_type: BxDFType::BSDF_REFLECTION | BxDFType::BSDF_DIFFUSE,
-        }
+        LambertianReflection { R }
     }
 }
 
@@ -96,18 +129,23 @@ impl BxDFInterface for LambertianReflection {
     }
 
     fn get_type(&self) -> BxDFType {
-        self.bxdf_type
+        BxDFType::BSDF_REFLECTION | BxDFType::BSDF_DIFFUSE
     }
 
-    fn rho(&self, wo: &na::Vector3<f32>, n_samples: usize, samples: &na::Point2<f32>) -> Spectrum {
+    fn rho(
+        &self,
+        wo: &na::Vector3<f32>,
+        n_samples: usize,
+        samples: &[na::Point2<f32>],
+    ) -> Spectrum {
         self.R
     }
 
     fn rho_no_wo(
         &self,
         n_samples: usize,
-        samples_1: &na::Point2<f32>,
-        samples_2: &na::Point2<f32>,
+        samples_1: &[na::Point2<f32>],
+        samples_2: &[na::Point2<f32>],
     ) -> Spectrum {
         self.R
     }
@@ -147,5 +185,37 @@ pub struct FresnelNoOp {}
 impl FresnelInterface for FresnelNoOp {
     fn evaluate(&self, cos_i: f32) -> Spectrum {
         Spectrum::new(1.0)
+    }
+}
+
+pub struct SpecularReflection {
+    R: Spectrum,
+    fresnel: Fresnel,
+}
+
+impl BxDFInterface for SpecularReflection {
+    fn f(&self, wo: &na::Vector3<f32>, wi: &na::Vector3<f32>) -> Spectrum {
+        Spectrum::new(0.0)
+    }
+
+    fn get_type(&self) -> BxDFType {
+        BxDFType::BSDF_REFLECTION | BxDFType::BSDF_SPECULAR
+    }
+
+    fn sample_f(
+        &self,
+        wo: &nalgebra::Vector3<f32>,
+        wi: &mut nalgebra::Vector3<f32>,
+        u: &nalgebra::Point2<f32>,
+        pdf: &mut f32,
+        sampled_type: &mut Option<BxDFType>,
+    ) -> Spectrum {
+        *wi = na::Vector3::new(-wo.x, -wo.y, wo.z);
+        *pdf = 1.0;
+        self.fresnel.evaluate(cos_theta(&wi)) * self.R / abs_cos_theta(&wi)
+    }
+
+    fn pdf(&self, wo: &nalgebra::Vector3<f32>, wi: &nalgebra::Vector3<f32>) -> f32 {
+        0.0
     }
 }
