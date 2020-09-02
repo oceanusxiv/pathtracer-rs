@@ -82,7 +82,7 @@ impl RenderScene {
             for shape in shape_from_mesh(&obj.mesh, &obj) {
                 primitives.push(Arc::new(primitive::GeometricPrimitive {
                     shape: shape,
-                    material: Arc::clone(&materials[obj.mesh.material.index]),
+                    material: Arc::clone(&materials[obj.material.index]),
                 }) as Arc<dyn SyncPrimitive>)
             }
         }

@@ -1,7 +1,4 @@
-use super::{
-    texture::SyncTexture,
-    SurfaceInteraction,
-};
+use super::{texture::SyncTexture, SurfaceInteraction};
 use crate::common::bounds::Bounds3;
 use crate::common::math::*;
 use crate::common::ray::Ray;

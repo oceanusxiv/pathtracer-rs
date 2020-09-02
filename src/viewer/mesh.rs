@@ -58,7 +58,6 @@ impl MeshInstancesHandle {
                 model: obj.obj_to_world.to_homogeneous(),
             })
             .collect_vec();
-
         let instance_buffer_size = instance_data.len() * std::mem::size_of::<glm::Mat4>();
         let instance_buffer = device.create_buffer_with_data(
             bytemuck::cast_slice(&instance_data[..]),

@@ -74,7 +74,6 @@ pub struct Mesh {
     pub s: Vec<na::Vector3<f32>>,
     pub uv: Vec<na::Point2<f32>>,
     pub colors: Vec<na::Vector3<f32>>,
-    pub material: Rc<Material>,
 }
 
 #[derive(Debug)]
@@ -110,6 +109,7 @@ pub struct Object {
     pub world_to_obj: na::Projective3<f32>,
     pub obj_to_world: na::Projective3<f32>,
     pub mesh: Rc<Mesh>,
+    pub material: Rc<Material>,
 }
 
 pub struct World {
@@ -117,7 +117,7 @@ pub struct World {
     pub meshes: Vec<Rc<Mesh>>,
     pub materials: Vec<Rc<Material>>,
 
-    mesh_prim_indice_map: HashMap<[usize; 2], usize>,
+    mesh_prim_indice_map: HashMap<usize, usize>,
 }
 
 impl World {
@@ -205,48 +205,51 @@ impl World {
     fn populate_meshes(&mut self, document: &gltf::Document, buffers: &[gltf::buffer::Data]) {
         for mesh in document.meshes() {
             for prim in mesh.primitives() {
-                self.mesh_prim_indice_map
-                    .insert([mesh.index(), prim.index()], self.meshes.len());
+                let prim_indices_accessor_idx = prim.indices().unwrap().index();
+                if !self
+                    .mesh_prim_indice_map
+                    .contains_key(&prim_indices_accessor_idx)
+                {
+                    self.mesh_prim_indice_map
+                        .insert(prim_indices_accessor_idx, self.meshes.len());
 
-                let reader = prim.reader(|buffer| Some(&buffers[buffer.index()]));
-                self.meshes.push(Rc::new(Mesh {
-                    index: self.meshes.len(),
-                    indices: reader.read_indices().unwrap().into_u32().collect(),
-                    pos: reader
-                        .read_positions()
-                        .unwrap()
-                        .map(|vertex| na::Point3::from_slice(&vertex))
-                        .collect(),
-                    normal: match reader.read_normals() {
-                        Some(normals) => normals.map(|normal| glm::make_vec3(&normal)).collect(),
-                        None => vec![],
-                    },
-                    s: match reader.read_tangents() {
-                        Some(tangents) => {
-                            tangents.map(|tangent| glm::make_vec3(&tangent)).collect()
-                        }
-                        None => vec![],
-                    },
-                    uv: match reader.read_tex_coords(0) {
-                        Some(read_texels) => read_texels
-                            .into_f32()
-                            .map(|texel| na::Point2::new(texel[0], texel[1]))
+                    let reader = prim.reader(|buffer| Some(&buffers[buffer.index()]));
+                    self.meshes.push(Rc::new(Mesh {
+                        index: self.meshes.len(),
+                        indices: reader.read_indices().unwrap().into_u32().collect(),
+                        pos: reader
+                            .read_positions()
+                            .unwrap()
+                            .map(|vertex| na::Point3::from_slice(&vertex))
                             .collect(),
-                        None => vec![],
-                    },
-                    colors: match reader.read_colors(0) {
-                        Some(colors) => colors
-                            .into_rgb_f32()
-                            .map(|color| glm::make_vec3(&color))
-                            .collect(),
-                        None => vec![],
-                    },
-                    material: if let Some(idx) = prim.material().index() {
-                        Rc::clone(&self.materials[idx + 1]) // default material on first idx
-                    } else {
-                        Rc::clone(&self.materials[0])
-                    },
-                }));
+                        normal: match reader.read_normals() {
+                            Some(normals) => {
+                                normals.map(|normal| glm::make_vec3(&normal)).collect()
+                            }
+                            None => vec![],
+                        },
+                        s: match reader.read_tangents() {
+                            Some(tangents) => {
+                                tangents.map(|tangent| glm::make_vec3(&tangent)).collect()
+                            }
+                            None => vec![],
+                        },
+                        uv: match reader.read_tex_coords(0) {
+                            Some(read_texels) => read_texels
+                                .into_f32()
+                                .map(|texel| na::Point2::new(texel[0], texel[1]))
+                                .collect(),
+                            None => vec![],
+                        },
+                        colors: match reader.read_colors(0) {
+                            Some(colors) => colors
+                                .into_rgb_f32()
+                                .map(|color| glm::make_vec3(&color))
+                                .collect(),
+                            None => vec![],
+                        },
+                    }));
+                }
             }
         }
     }
@@ -303,12 +306,18 @@ impl World {
         let current_transform = *parent_transform * from_gltf(current_node.transform());
         if let Some(mesh) = current_node.mesh() {
             for prim in mesh.primitives() {
+                let prim_indices_accessor_idx = prim.indices().unwrap().index();
                 self.objects.push(Object {
                     world_to_obj: current_transform.inverse(),
                     obj_to_world: current_transform,
                     mesh: Rc::clone(
-                        &self.meshes[self.mesh_prim_indice_map[&[mesh.index(), prim.index()]]],
+                        &self.meshes[self.mesh_prim_indice_map[&prim_indices_accessor_idx]],
                     ),
+                    material: if let Some(idx) = prim.material().index() {
+                        Rc::clone(&self.materials[idx + 1]) // default material on first idx
+                    } else {
+                        Rc::clone(&self.materials[0])
+                    },
                 });
             }
         }
