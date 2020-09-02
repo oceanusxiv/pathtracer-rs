@@ -28,6 +28,18 @@ use winit::{
     window::WindowBuilder,
 };
 
+fn sample_arg_legal(val: String) -> Result<(), String> {
+    if let Ok(val) = val.parse::<f64>() {
+        if val.sqrt() % 1.0 == 0.0 {
+            Ok(())
+        } else {
+            Err(String::from("arg is not perfect square"))
+        }
+    } else {
+        Err(String::from("could not parse arg samples"))
+    }
+}
+
 fn main() {
     env_logger::Builder::from_default_env().init();
 
@@ -37,15 +49,22 @@ fn main() {
         (about: "Rust path tracer")
         (@arg SCENE: +required "Sets the input scene to use")
         (@arg output: -o --output +takes_value +required "Sets the output directory to save renders at")
+        (@arg samples: -s --samples default_value("1") validator(sample_arg_legal) "Number of samples path tracer to take per pixel (must be perfect square)")
         (@arg verbose: -v --verbose "Print test information verbosely")
     )
     .get_matches();
 
     let scene_path = matches.value_of("SCENE").unwrap();
     let output_path = Path::new(matches.value_of("output").unwrap()).join("render.png");
+    let pixel_samples_sqrt = matches
+        .value_of("samples")
+        .unwrap()
+        .parse::<usize>()
+        .unwrap();
     let (world, mut camera) = common::World::from_gltf(scene_path);
     let render_scene = pathtracer::RenderScene::from_world(&world);
-    let sampler = pathtracer::sampling::Sampler::new(1, 1, true, 8);
+    let sampler =
+        pathtracer::sampling::Sampler::new(pixel_samples_sqrt, pixel_samples_sqrt, true, 8);
     let integrator = pathtracer::DirectLightingIntegrator::new(sampler);
 
     debug!("camera starting at: {:?}", camera.cam_to_world);
