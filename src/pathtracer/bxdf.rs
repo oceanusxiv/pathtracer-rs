@@ -1,5 +1,6 @@
 use super::sampling::cosine_sample_hemisphere;
 use crate::common::spectrum::Spectrum;
+use ambassador::{delegatable_trait, Delegate};
 
 fn cos_theta(w: &na::Vector3<f32>) -> f32 {
     w.z
@@ -28,7 +29,9 @@ bitflags! {
         Self::BSDF_TRANSMISSION.bits;
     }
 }
-pub trait BxDF {
+
+#[delegatable_trait]
+pub trait BxDFInterface {
     fn f(&self, wo: &na::Vector3<f32>, wi: &na::Vector3<f32>) -> Spectrum;
     fn sample_f(
         &self,
@@ -67,6 +70,12 @@ pub trait BxDF {
     }
 }
 
+#[derive(Delegate)]
+#[delegate(BxDFInterface)]
+pub enum BxDF {
+    Lambertian(LambertianReflection),
+}
+
 pub struct LambertianReflection {
     R: Spectrum,
     pub bxdf_type: BxDFType,
@@ -81,7 +90,7 @@ impl LambertianReflection {
     }
 }
 
-impl BxDF for LambertianReflection {
+impl BxDFInterface for LambertianReflection {
     fn f(&self, wo: &na::Vector3<f32>, wi: &na::Vector3<f32>) -> Spectrum {
         self.R * std::f32::consts::FRAC_1_PI
     }
@@ -101,5 +110,42 @@ impl BxDF for LambertianReflection {
         samples_2: &na::Point2<f32>,
     ) -> Spectrum {
         self.R
+    }
+}
+
+#[delegatable_trait]
+trait FresnelInterface {
+    fn evaluate(&self, cos_i: f32) -> Spectrum;
+}
+
+#[derive(Delegate)]
+#[delegate(FresnelInterface)]
+pub enum Fresnel {
+    Dielectric(FresnelDielectric),
+    Conductor(FresnelConductor),
+    NoOp(FresnelNoOp),
+}
+
+pub struct FresnelDielectric {}
+
+impl FresnelInterface for FresnelDielectric {
+    fn evaluate(&self, cos_i: f32) -> Spectrum {
+        todo!()
+    }
+}
+
+pub struct FresnelConductor {}
+
+impl FresnelInterface for FresnelConductor {
+    fn evaluate(&self, cos_i: f32) -> Spectrum {
+        todo!()
+    }
+}
+
+pub struct FresnelNoOp {}
+
+impl FresnelInterface for FresnelNoOp {
+    fn evaluate(&self, cos_i: f32) -> Spectrum {
+        Spectrum::new(1.0)
     }
 }

@@ -1,5 +1,5 @@
 use super::{
-    bxdf::{BxDF, BxDFType},
+    bxdf::{BxDF, BxDFInterface, BxDFType},
     interaction::SurfaceInteraction,
 };
 use crate::common::spectrum::Spectrum;
@@ -12,7 +12,7 @@ pub struct BSDF {
     ss: na::Vector3<f32>,
     ts: na::Vector3<f32>,
     n_bxdfs: usize,
-    bxdfs: [Option<Box<dyn BxDF>>; MAX_BXDFS],
+    bxdfs: [Option<BxDF>; MAX_BXDFS],
 }
 
 impl BSDF {
@@ -42,7 +42,7 @@ impl BSDF {
         num
     }
 
-    pub fn add(&mut self, b: Box<dyn BxDF>) {
+    pub fn add(&mut self, b: BxDF) {
         assert!(self.n_bxdfs < MAX_BXDFS);
         self.bxdfs[self.n_bxdfs] = Some(b);
         self.n_bxdfs += 1;

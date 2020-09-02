@@ -27,6 +27,7 @@ rayon = "1.4.0"
 bitflags = "1.2.1"
 rand = "0.7.3"
 hexf = "0.1.0"
+ambassador = "0.2.1"
 
 [dependencies.indicatif]
 version = "^0.15"
