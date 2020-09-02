@@ -1,5 +1,5 @@
 use super::shape::{Shape, SyncShape};
-use super::{material::SyncMaterial, Material, SurfaceInteraction, TransportMode};
+use super::{Material, MaterialInterface, SurfaceInteraction, TransportMode};
 use crate::common::bounds::Bounds3;
 use crate::common::ray::Ray;
 use std::{rc::Rc, sync::Arc};
@@ -7,7 +7,7 @@ pub trait Primitive {
     fn intersect<'a>(&'a self, r: &Ray, isect: &mut SurfaceInteraction<'a>) -> bool;
     fn intersect_p(&self, r: &Ray) -> bool;
     fn world_bound(&self) -> Bounds3;
-    fn get_material(&self) -> &dyn SyncMaterial;
+    fn get_material(&self) -> &Material;
     fn compute_scattering_functions(&self, si: &mut SurfaceInteraction, mode: TransportMode);
 }
 
@@ -16,7 +16,7 @@ impl<T> SyncPrimitive for T where T: Primitive + Send + Sync {}
 
 pub struct GeometricPrimitive {
     pub shape: Box<dyn SyncShape>,
-    pub material: Arc<dyn SyncMaterial>,
+    pub material: Arc<Material>,
 }
 
 impl Primitive for GeometricPrimitive {
@@ -40,7 +40,7 @@ impl Primitive for GeometricPrimitive {
         self.shape.world_bound()
     }
 
-    fn get_material(&self) -> &dyn SyncMaterial {
+    fn get_material(&self) -> &Material {
         &*self.material
     }
 
@@ -79,7 +79,7 @@ impl Primitive for Aggregate {
         unimplemented!()
     }
 
-    fn get_material(&self) -> &dyn SyncMaterial {
+    fn get_material(&self) -> &Material {
         unimplemented!()
     }
 

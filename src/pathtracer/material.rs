@@ -4,17 +4,22 @@ use super::{
     SurfaceInteraction, TransportMode,
 };
 use crate::common::spectrum::Spectrum;
+use ambassador::{delegatable_trait, Delegate};
 
-pub trait Material {
+#[delegatable_trait]
+pub trait MaterialInterface {
     fn compute_scattering_functions(&self, si: &mut SurfaceInteraction, mode: TransportMode);
 }
 
-pub trait SyncMaterial: Material + Send + Sync {}
-impl<T> SyncMaterial for T where T: Material + Send + Sync {}
+#[derive(Delegate)]
+#[delegate(MaterialInterface)]
+pub enum Material {
+    Matte(MatteMaterial),
+}
 
 pub struct MatteMaterial {}
 
-impl Material for MatteMaterial {
+impl MaterialInterface for MatteMaterial {
     fn compute_scattering_functions(&self, si: &mut SurfaceInteraction, mode: TransportMode) {
         let mut bsdf = BSDF::new(&si, 1.0);
         let r = Spectrum::new(1.0);

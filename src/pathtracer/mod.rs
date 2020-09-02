@@ -18,8 +18,8 @@ use bxdf::BxDFType;
 use image::RgbImage;
 use interaction::{Interaction, SurfaceInteraction};
 use itertools::Itertools;
-use light::{DirectionalLight, LightInterface, PointLight, Light};
-use material::{Material, MatteMaterial, SyncMaterial};
+use light::{DirectionalLight, Light, LightInterface, PointLight};
+use material::{Material, MaterialInterface, MatteMaterial};
 use primitive::SyncPrimitive;
 use rayon::prelude::*;
 use shape::{shape_from_mesh, Shape};
@@ -60,14 +60,14 @@ impl Camera {
 pub struct RenderScene {
     scene: Box<dyn SyncPrimitive>,
     pub lights: Vec<Light>,
-    materials: Vec<Arc<dyn SyncMaterial>>,
+    materials: Vec<Arc<Material>>,
     world_bound: Bounds3,
 }
 
 impl RenderScene {
     pub fn from_world(world: &World) -> Self {
         let mut primitives: Vec<Arc<dyn SyncPrimitive>> = Vec::new();
-        let materials = vec![Arc::new(MatteMaterial {}) as Arc<dyn SyncMaterial>];
+        let materials = vec![Arc::new(Material::Matte(MatteMaterial {}))];
         let mut lights = vec![Light::Directional(DirectionalLight::new(
             na::convert(na::Translation3::new(1.0, 3.5, 0.0)),
             Spectrum::new(1.0),

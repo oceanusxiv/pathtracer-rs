@@ -446,7 +446,7 @@ impl Primitive for BVH {
         }
     }
 
-    fn get_material(&self) -> &dyn super::material::SyncMaterial {
+    fn get_material(&self) -> &super::material::Material {
         unimplemented!()
     }
 
