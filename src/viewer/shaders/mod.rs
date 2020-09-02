@@ -1,4 +1,5 @@
 pub mod flat;
+pub mod flat_instance;
 pub mod phong;
 pub mod quad;
 

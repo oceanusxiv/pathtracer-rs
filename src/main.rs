@@ -104,6 +104,11 @@ fn main() {
                         } => viewer.state = viewer::ViewerState::RenderScene,
                         KeyboardInput {
                             state: ElementState::Pressed,
+                            virtual_keycode: Some(VirtualKeyCode::W),
+                            ..
+                        } => viewer.draw_wireframe = !viewer.draw_wireframe,
+                        KeyboardInput {
+                            state: ElementState::Pressed,
                             virtual_keycode: Some(VirtualKeyCode::S),
                             ..
                         } => {

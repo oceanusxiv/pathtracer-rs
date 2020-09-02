@@ -6,14 +6,15 @@ mod quad;
 mod shaders;
 mod texture;
 mod vertex;
+mod wireframe;
 
-use crate::common::bounds::Bounds3;
 use crate::common::{Camera, World};
 use bounds::{BoundsRenderPass, DrawBounds};
 use camera::OrbitalCameraController;
 use mesh::{DrawMesh, MeshRenderPass};
 use quad::{DrawQuad, QuadRenderPass};
 use winit::{event::*, window::Window};
+use wireframe::{DrawWireFrame, WireFrameRenderPass};
 
 lazy_static::lazy_static! {
     #[rustfmt::skip]
@@ -34,6 +35,31 @@ struct Uniforms {
 unsafe impl bytemuck::Zeroable for Uniforms {}
 
 unsafe impl bytemuck::Pod for Uniforms {}
+
+#[repr(C)]
+#[derive(Copy, Clone, Debug)]
+pub struct Instance {
+    model: glm::Mat4,
+}
+
+unsafe impl bytemuck::Zeroable for Instance {}
+
+unsafe impl bytemuck::Pod for Instance {}
+
+impl Instance {
+    pub fn create_bind_group_layout_entry() -> wgpu::BindGroupLayoutEntry {
+        wgpu::BindGroupLayoutEntry {
+            binding: 0,
+            visibility: wgpu::ShaderStage::VERTEX,
+            ty: wgpu::BindingType::StorageBuffer {
+                // We don't plan on changing the size of this buffer
+                dynamic: false,
+                // The shader is not allowed to modify it's contents
+                readonly: true,
+            },
+        }
+    }
+}
 
 impl Uniforms {
     fn new() -> Self {
@@ -71,6 +97,7 @@ pub struct Viewer {
     mesh_render_pass: MeshRenderPass,
     bounds_render_pass: BoundsRenderPass,
     quad_render_pass: QuadRenderPass,
+    wireframe_render_pass: WireFrameRenderPass,
     uniforms: Uniforms,
     uniform_buffer: wgpu::Buffer,
     uniform_bind_group: wgpu::BindGroup,
@@ -79,6 +106,7 @@ pub struct Viewer {
     camera_controller: OrbitalCameraController,
     mouse_pressed: bool,
     pub state: ViewerState,
+    pub draw_wireframe: bool,
 }
 
 impl Viewer {
@@ -158,6 +186,13 @@ impl Viewer {
             &vec![],
         );
 
+        let wireframe_render_pass = WireFrameRenderPass::from_world(
+            &device,
+            &mut compiler,
+            &uniform_bind_group_layout,
+            &world,
+        );
+
         let depth_texture =
             texture::Texture::create_depth_texture(&device, &sc_desc, "depth_texture");
 
@@ -181,6 +216,7 @@ impl Viewer {
             mesh_render_pass,
             bounds_render_pass,
             quad_render_pass,
+            wireframe_render_pass,
             uniforms,
             uniform_buffer,
             uniform_bind_group,
@@ -189,6 +225,7 @@ impl Viewer {
             camera_controller,
             mouse_pressed: false,
             state: ViewerState::RenderScene,
+            draw_wireframe: false,
         }
     }
 
@@ -345,6 +382,9 @@ impl Viewer {
             render_pass.set_bind_group(0, &self.uniform_bind_group, &[]);
             render_pass.draw_all_mesh(&self.mesh_render_pass);
             render_pass.draw_all_bounds(&self.bounds_render_pass);
+            if self.draw_wireframe {
+                render_pass.draw_all_wire_frame(&self.wireframe_render_pass);
+            }
         }
 
         self.queue.submit(&[encoder.finish()]);

@@ -1,5 +1,5 @@
 use super::vertex::VertexPosNorm;
-use super::{pipeline::create_render_pipeline, shaders};
+use super::{pipeline::create_render_pipeline, shaders, Instance};
 use crate::common::{Mesh, World};
 use itertools::{zip_eq, Itertools};
 
@@ -41,31 +41,6 @@ pub struct MeshInstancesHandle {
     pub instance_buffer_size: usize,
     pub instances_bind_group: wgpu::BindGroup,
     pub visible_instances: std::ops::Range<u32>,
-}
-
-#[repr(C)]
-#[derive(Copy, Clone, Debug)]
-pub struct Instance {
-    model: glm::Mat4,
-}
-
-unsafe impl bytemuck::Zeroable for Instance {}
-
-unsafe impl bytemuck::Pod for Instance {}
-
-impl Instance {
-    pub fn create_bind_group_layout_entry() -> wgpu::BindGroupLayoutEntry {
-        wgpu::BindGroupLayoutEntry {
-            binding: 0,
-            visibility: wgpu::ShaderStage::VERTEX,
-            ty: wgpu::BindingType::StorageBuffer {
-                // We don't plan on changing the size of this buffer
-                dynamic: false,
-                // The shader is not allowed to modify it's contents
-                readonly: true,
-            },
-        }
-    }
 }
 
 impl MeshInstancesHandle {

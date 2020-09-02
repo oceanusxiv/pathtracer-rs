@@ -315,6 +315,7 @@ fn from_gltf(transform: gltf::scene::Transform) -> na::Projective3<f32> {
     na::Projective3::from_matrix_unchecked(t * r * s)
 }
 
+#[cfg(test)]
 mod tests {
     use super::*;
 
