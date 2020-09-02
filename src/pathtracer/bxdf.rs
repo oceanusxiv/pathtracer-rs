@@ -41,7 +41,7 @@ pub trait BxDFInterface {
         wi: &mut na::Vector3<f32>,
         u: &na::Point2<f32>,
         pdf: &mut f32,
-        sampled_type: &mut Option<BxDFType>,
+        _sampled_type: &mut Option<BxDFType>,
     ) -> Spectrum {
         *wi = cosine_sample_hemisphere(&u);
         if wo.z < 0.0 {
@@ -125,7 +125,7 @@ impl LambertianReflection {
 }
 
 impl BxDFInterface for LambertianReflection {
-    fn f(&self, wo: &na::Vector3<f32>, wi: &na::Vector3<f32>) -> Spectrum {
+    fn f(&self, _wo: &na::Vector3<f32>, _wi: &na::Vector3<f32>) -> Spectrum {
         self.R * std::f32::consts::FRAC_1_PI
     }
 
@@ -135,18 +135,18 @@ impl BxDFInterface for LambertianReflection {
 
     fn rho(
         &self,
-        wo: &na::Vector3<f32>,
-        n_samples: usize,
-        samples: &[na::Point2<f32>],
+        _wo: &na::Vector3<f32>,
+        _n_samples: usize,
+        _samples: &[na::Point2<f32>],
     ) -> Spectrum {
         self.R
     }
 
     fn rho_no_wo(
         &self,
-        n_samples: usize,
-        samples_1: &[na::Point2<f32>],
-        samples_2: &[na::Point2<f32>],
+        _n_samples: usize,
+        _samples_1: &[na::Point2<f32>],
+        _samples_2: &[na::Point2<f32>],
     ) -> Spectrum {
         self.R
     }
@@ -201,7 +201,7 @@ impl SpecularReflection {
 }
 
 impl BxDFInterface for SpecularReflection {
-    fn f(&self, wo: &na::Vector3<f32>, wi: &na::Vector3<f32>) -> Spectrum {
+    fn f(&self, _wo: &na::Vector3<f32>, _wi: &na::Vector3<f32>) -> Spectrum {
         Spectrum::new(0.0)
     }
 
@@ -213,16 +213,16 @@ impl BxDFInterface for SpecularReflection {
         &self,
         wo: &nalgebra::Vector3<f32>,
         wi: &mut nalgebra::Vector3<f32>,
-        u: &nalgebra::Point2<f32>,
+        _u: &nalgebra::Point2<f32>,
         pdf: &mut f32,
-        sampled_type: &mut Option<BxDFType>,
+        _sampled_type: &mut Option<BxDFType>,
     ) -> Spectrum {
         *wi = na::Vector3::new(-wo.x, -wo.y, wo.z);
         *pdf = 1.0;
         self.fresnel.evaluate(cos_theta(&wi)) * self.R / abs_cos_theta(&wi)
     }
 
-    fn pdf(&self, wo: &nalgebra::Vector3<f32>, wi: &nalgebra::Vector3<f32>) -> f32 {
+    fn pdf(&self, _wo: &nalgebra::Vector3<f32>, _wi: &nalgebra::Vector3<f32>) -> f32 {
         0.0
     }
 }

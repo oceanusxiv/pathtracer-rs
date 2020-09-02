@@ -39,7 +39,7 @@ impl Material {
 pub struct MatteMaterial {}
 
 impl MaterialInterface for MatteMaterial {
-    fn compute_scattering_functions(&self, si: &mut SurfaceInteraction, mode: TransportMode) {
+    fn compute_scattering_functions(&self, si: &mut SurfaceInteraction, _mode: TransportMode) {
         let mut bsdf = BSDF::new(&si, 1.0);
         let r = Spectrum::new(1.0);
         bsdf.add(BxDF::Lambertian(LambertianReflection::new(r)));
@@ -51,7 +51,7 @@ impl MaterialInterface for MatteMaterial {
 pub struct MirrorMaterial {}
 
 impl MaterialInterface for MirrorMaterial {
-    fn compute_scattering_functions(&self, si: &mut SurfaceInteraction, mode: TransportMode) {
+    fn compute_scattering_functions(&self, si: &mut SurfaceInteraction, _mode: TransportMode) {
         let mut bsdf = BSDF::new(&si, 1.0);
         let r = Spectrum::new(1.0);
         bsdf.add(BxDF::SpecularReflection(SpecularReflection::new(

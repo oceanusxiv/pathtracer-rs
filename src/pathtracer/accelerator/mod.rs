@@ -1,6 +1,6 @@
 use super::primitive::Primitive;
 use super::{SurfaceInteraction, SyncPrimitive};
-use crate::common::bounds::{Bounds3, TBounds3};
+use crate::common::bounds::Bounds3;
 use crate::common::ray::Ray;
 use std::{sync::Arc, time::Instant};
 
@@ -153,7 +153,7 @@ impl BVH {
             }
 
             let dim = centroid_bounds.maximum_extent();
-            let mut mid = (start + end) / 2;
+            let mid;
             if centroid_bounds.p_max[dim] == centroid_bounds.p_min[dim] {
                 let first_prim_offset = ordered_prims.len();
                 for i in start..end {
@@ -452,8 +452,8 @@ impl Primitive for BVH {
 
     fn compute_scattering_functions(
         &self,
-        si: &mut SurfaceInteraction,
-        mode: super::TransportMode,
+        _si: &mut SurfaceInteraction,
+        _mode: super::TransportMode,
     ) {
         unimplemented!()
     }

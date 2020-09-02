@@ -196,15 +196,3 @@ where
         }
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_step_by() {
-        for i in (0..100).step_by(3) {
-            println!("{:?}", i);
-        }
-    }
-}

@@ -4,7 +4,7 @@ use image::RgbaImage;
 use itertools::Itertools;
 use std::{
     path::Path,
-    sync::{Arc, RwLock},
+    sync::RwLock,
 };
 
 #[derive(Clone, Debug)]

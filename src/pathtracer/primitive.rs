@@ -1,8 +1,8 @@
-use super::shape::{Shape, SyncShape};
+use super::shape::SyncShape;
 use super::{Material, MaterialInterface, SurfaceInteraction, TransportMode};
 use crate::common::bounds::Bounds3;
 use crate::common::ray::Ray;
-use std::{rc::Rc, sync::Arc};
+use std::sync::Arc;
 pub trait Primitive {
     fn intersect<'a>(&'a self, r: &Ray, isect: &mut SurfaceInteraction<'a>) -> bool;
     fn intersect_p(&self, r: &Ray) -> bool;
@@ -46,44 +46,5 @@ impl Primitive for GeometricPrimitive {
 
     fn compute_scattering_functions(&self, si: &mut SurfaceInteraction, mode: TransportMode) {
         self.material.compute_scattering_functions(si, mode);
-    }
-}
-
-pub struct Aggregate {
-    primitives: Vec<Rc<dyn Primitive>>,
-}
-
-impl Aggregate {
-    pub fn new(primitives: Vec<Rc<dyn Primitive>>) -> Self {
-        Aggregate { primitives }
-    }
-}
-
-impl Primitive for Aggregate {
-    fn intersect<'a>(&'a self, r: &Ray, mut isect: &mut SurfaceInteraction<'a>) -> bool {
-        let mut hit = false;
-        for prim in &self.primitives {
-            if prim.intersect(r, &mut isect) {
-                hit = true;
-            }
-        }
-
-        hit
-    }
-
-    fn intersect_p(&self, r: &Ray) -> bool {
-        todo!()
-    }
-
-    fn world_bound(&self) -> Bounds3 {
-        unimplemented!()
-    }
-
-    fn get_material(&self) -> &Material {
-        unimplemented!()
-    }
-
-    fn compute_scattering_functions(&self, si: &mut SurfaceInteraction, mode: TransportMode) {
-        unimplemented!()
     }
 }

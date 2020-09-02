@@ -24,7 +24,7 @@ impl<'a> VisibilityTester {
 
 #[delegatable_trait]
 pub trait LightInterface {
-    fn le(&self, r: &Ray) -> Spectrum {
+    fn le(&self, _r: &Ray) -> Spectrum {
         Spectrum::new(0.0)
     }
 
@@ -39,7 +39,7 @@ pub trait LightInterface {
 
     fn power(&self) -> Spectrum;
 
-    fn preprocess(&mut self, world_bound: &Bounds3) {}
+    fn preprocess(&mut self, _world_bound: &Bounds3) {}
 
     fn pdf_li(&self, reference: &Interaction, wi: &na::Vector3<f32>) -> f32;
 

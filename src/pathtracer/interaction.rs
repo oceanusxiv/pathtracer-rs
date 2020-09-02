@@ -4,7 +4,7 @@ use crate::common::{
     ray::Ray,
     spectrum::Spectrum,
 };
-use std::{cell::RefCell, sync::Arc};
+use std::cell::RefCell;
 
 #[derive(Clone, Copy, Debug)]
 pub struct Interaction {

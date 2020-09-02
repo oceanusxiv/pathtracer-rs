@@ -5,9 +5,8 @@ pub mod ray;
 pub mod spectrum;
 
 use film::Film;
-use image::RgbImage;
 use std::collections::HashMap;
-use std::{rc::Rc, sync::Arc};
+use std::rc::Rc;
 
 lazy_static::lazy_static! {
     pub static ref DEFAULT_RESOLUTION: glm::Vec2 = glm::vec2(640.0, 480.0);
@@ -264,11 +263,12 @@ impl World {
                 } else {
                     DEFAULT_Z_FAR
                 };
-                let aspect_ratio = if let Some(aspect) = projection.aspect_ratio() {
-                    aspect
-                } else {
-                    std::f32::consts::FRAC_PI_2
-                };
+                // TODO: maybe incorporate this in the future
+                // let aspect_ratio = if let Some(aspect) = projection.aspect_ratio() {
+                //     aspect
+                // } else {
+                //     std::f32::consts::FRAC_PI_2
+                // };
                 return Some(Camera::new(
                     &na::try_convert(current_transform).unwrap(),
                     &na::Perspective3::new(

@@ -182,8 +182,8 @@ fn stratified_sample_2d(
     let dy = 1.0 / (ny as f32);
 
     let mut i = 0;
-    for y in 0..ny {
-        for x in 0..nx {
+    for _ in 0..ny {
+        for _ in 0..nx {
             let jx = if jitter {
                 rng.gen_range(0.0, 1.0)
             } else {
@@ -356,8 +356,8 @@ pub fn uniform_sample_hemisphere(u: &na::Point2<f32>) -> na::Vector3<f32> {
 }
 
 pub const fn uniform_hemisphere_pdf() -> f32 {
-    const inv_2_pi: f32 = 0.15915494309189533577;
-    inv_2_pi
+    const INV_2_PI: f32 = 0.15915494309189533577;
+    INV_2_PI
 }
 
 pub fn concentric_sample_disk(u: &na::Point2<f32>) -> na::Point2<f32> {
@@ -366,8 +366,8 @@ pub fn concentric_sample_disk(u: &na::Point2<f32>) -> na::Point2<f32> {
     if u_offset.x == 0.0 && u_offset.y == 0.0 {
         na::Point2::new(0.0, 0.0)
     } else {
-        let mut theta = 0.0f32;
-        let mut r = 0.0f32;
+        let theta;
+        let r;
 
         if u_offset.x.abs() > u_offset.y.abs() {
             r = u_offset.x;

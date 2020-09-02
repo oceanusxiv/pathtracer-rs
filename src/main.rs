@@ -143,10 +143,10 @@ fn main() {
                         // new_inner_size is &mut so w have to dereference it twice
                         viewer.resize(**new_inner_size);
                     }
-                    WindowEvent::CursorEntered { device_id } => {
+                    WindowEvent::CursorEntered { device_id: _ } => {
                         cursor_in_window = true;
                     }
-                    WindowEvent::CursorLeft { device_id } => {
+                    WindowEvent::CursorLeft { device_id: _ } => {
                         cursor_in_window = false;
                     }
                     WindowEvent::ModifiersChanged(modifier) => match *modifier {

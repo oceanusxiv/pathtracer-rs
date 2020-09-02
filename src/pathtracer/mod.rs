@@ -15,20 +15,16 @@ use crate::common::ray::Ray;
 use crate::common::spectrum::Spectrum;
 use crate::common::{Camera, World};
 use bxdf::BxDFType;
-use image::RgbImage;
-use interaction::{Interaction, SurfaceInteraction};
+use interaction::SurfaceInteraction;
 use itertools::Itertools;
 use light::{DirectionalLight, Light, LightInterface, PointLight};
-use material::{Material, MaterialInterface, MatteMaterial, MirrorMaterial};
+use material::{Material, MaterialInterface};
 use primitive::SyncPrimitive;
 use rayon::prelude::*;
-use shape::{shape_from_mesh, Shape};
+use shape::shape_from_mesh;
 use std::cell::RefCell;
 use std::sync::Arc;
-use std::{
-    path::Path,
-    time::{Duration, Instant},
-};
+use std::time::Instant;
 
 pub enum TransportMode {
     Radiance,

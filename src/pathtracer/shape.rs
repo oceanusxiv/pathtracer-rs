@@ -1,5 +1,5 @@
 use super::{
-    texture::{SyncTexture, Texture},
+    texture::SyncTexture,
     SurfaceInteraction,
 };
 use crate::common::bounds::Bounds3;
