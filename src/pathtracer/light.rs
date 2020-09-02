@@ -1,5 +1,6 @@
 use super::{interaction::Interaction, RenderScene};
 use crate::common::{bounds::Bounds3, ray::Ray, spectrum::Spectrum};
+use ambassador::{delegatable_trait, Delegate};
 
 bitflags! {
     pub struct LightFlags: u32 {
@@ -21,7 +22,8 @@ impl<'a> VisibilityTester {
     }
 }
 
-pub trait Light {
+#[delegatable_trait]
+pub trait LightInterface {
     fn le(&self, r: &Ray) -> Spectrum {
         Spectrum::new(0.0)
     }
@@ -54,8 +56,12 @@ pub trait Light {
     fn pdf_le(&self, r: &Ray, n_light: &na::Vector3<f32>, pdf_pos: &mut f32, pdf_dir: &mut f32);
 }
 
-pub trait SyncLight: Light + Send + Sync {}
-impl<T> SyncLight for T where T: Light + Send + Sync {}
+#[derive(Delegate)]
+#[delegate(LightInterface)]
+pub enum Light {
+    Point(PointLight),
+    Directional(DirectionalLight),
+}
 
 pub struct PointLight {
     flags: LightFlags,
@@ -79,7 +85,7 @@ impl PointLight {
     }
 }
 
-impl Light for PointLight {
+impl LightInterface for PointLight {
     fn sample_li(
         &self,
         reference: &Interaction,
@@ -155,7 +161,7 @@ impl DirectionalLight {
     }
 }
 
-impl Light for DirectionalLight {
+impl LightInterface for DirectionalLight {
     fn sample_li(
         &self,
         reference: &Interaction,
