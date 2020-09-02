@@ -38,7 +38,7 @@ pub trait BxDF {
         wi: &mut na::Vector3<f32>,
         u: &na::Point2<f32>,
         pdf: &mut f32,
-        sampled_type: Option<BxDFType>,
+        sampled_type: &mut Option<BxDFType>,
     ) -> Spectrum {
         *wi = cosine_sample_hemisphere(&u);
         if wo.z < 0.0 {
@@ -163,13 +163,79 @@ impl BSDF {
     }
 
     pub fn sample_f(
+        &self,
         wo_world: &na::Vector3<f32>,
         wi_world: &mut na::Vector3<f32>,
         u: &na::Point2<f32>,
         pdf: &mut f32,
         bxdf_type: BxDFType,
-        sampled_type: BxDFType,
-    ) {
+        sampled_type: &mut Option<BxDFType>,
+    ) -> Spectrum {
+        let matching_comps = self.num_components(bxdf_type);
+        if matching_comps == 0 {
+            *pdf = 0.0;
+            return Spectrum::new(0.0);
+        }
+        let comp = ((u[0] * matching_comps as f32).floor() as usize).min(matching_comps - 1);
+        let mut bxdf = None;
+        let mut count = comp;
+        for i in 0..self.n_bxdfs {
+            if self.bxdfs[i].as_ref().unwrap().matches_flags(bxdf_type) && count == 0 {
+                bxdf = self.bxdfs[i].as_ref();
+                break;
+            }
+            count -= 1;
+        }
+        let bxdf = bxdf.unwrap();
+
+        let u_remapped = na::Point2::new((u[0] * matching_comps as f32) - comp as f32, u[1]);
+        let mut wi = glm::zero();
+        let wo = self.world_to_local(wo_world);
+        *pdf = 0.0;
+
+        if let Some(sampled_type) = sampled_type {
+            *sampled_type = bxdf.get_type();
+        }
+
+        let mut f = bxdf.sample_f(&wo, &mut wi, &u_remapped, pdf, sampled_type);
+
+        if *pdf == 0.0 {
+            return Spectrum::new(0.0);
+        }
+
+        *wi_world = self.local_to_world(&wi);
+
+        if !(bxdf.get_type().contains(BxDFType::BSDF_SPECULAR)) && matching_comps > 1 {
+            for i in 0..self.n_bxdfs {
+                let curr_bxdf = self.bxdfs[i].as_ref().unwrap();
+                if curr_bxdf as *const _ != bxdf as *const _ && curr_bxdf.matches_flags(bxdf_type) {
+                    *pdf += curr_bxdf.pdf(&wo, &wi);
+                }
+            }
+        }
+        if matching_comps > 1 {
+            *pdf /= matching_comps as f32;
+        }
+
+        if !(bxdf.get_type().contains(BxDFType::BSDF_SPECULAR)) && matching_comps > 1 {
+            let reflect = wi_world.dot(&self.ng) * wo_world.dot(&self.ng) > 0.0;
+            f = Spectrum::new(0.0);
+            for i in 0..self.n_bxdfs {
+                if let Some(ref curr_bxdf) = self.bxdfs[i] {
+                    if curr_bxdf.matches_flags(bxdf_type)
+                        && ((reflect && (curr_bxdf.get_type().contains(BxDFType::BSDF_REFLECTION)))
+                            || (!reflect
+                                && (curr_bxdf.get_type().contains(BxDFType::BSDF_TRANSMISSION))))
+                    {
+                        f += curr_bxdf.f(&wo, &wi);
+                    }
+                } else {
+                    panic!("bxdf does not exist in index {:?}", i);
+                }
+            }
+        }
+
+        f
     }
 
     pub fn f(&self, wo_w: &na::Vector3<f32>, wi_w: &na::Vector3<f32>, flags: BxDFType) -> Spectrum {
