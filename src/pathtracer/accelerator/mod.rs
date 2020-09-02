@@ -332,7 +332,7 @@ impl Primitive for BVH {
 
         let mut to_visit_offset = 0;
         let mut curr_node_idx = 0;
-        let mut nodes_to_visit = [0; 128];
+        let mut nodes_to_visit = [0; 256];
         loop {
             let node = &self.nodes[curr_node_idx];
 

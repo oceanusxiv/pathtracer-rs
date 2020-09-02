@@ -19,7 +19,7 @@ use image::RgbImage;
 use interaction::{Interaction, SurfaceInteraction};
 use itertools::Itertools;
 use light::{DirectionalLight, Light, LightInterface, PointLight};
-use material::{Material, MaterialInterface, MatteMaterial};
+use material::{Material, MaterialInterface, MatteMaterial, MirrorMaterial};
 use primitive::SyncPrimitive;
 use rayon::prelude::*;
 use shape::{shape_from_mesh, Shape};
@@ -67,7 +67,7 @@ pub struct RenderScene {
 impl RenderScene {
     pub fn from_world(world: &World) -> Self {
         let mut primitives: Vec<Arc<dyn SyncPrimitive>> = Vec::new();
-        let materials = vec![Arc::new(Material::Matte(MatteMaterial {}))];
+        let mut materials = Vec::new();
         let mut lights = vec![Light::Directional(DirectionalLight::new(
             na::convert(na::Translation3::new(1.0, 3.5, 0.0)),
             Spectrum::new(1.0),
@@ -78,11 +78,15 @@ impl RenderScene {
         //     Spectrum::new(10.0),
         // )) as Box<dyn SyncLight>];
 
+        for mat in &world.materials {
+            materials.push(Arc::new(Material::from_gltf(&**mat)));
+        }
+
         for obj in &world.objects {
             for shape in shape_from_mesh(&obj.mesh, &obj) {
                 primitives.push(Arc::new(primitive::GeometricPrimitive {
                     shape: shape,
-                    material: Arc::clone(&materials[0]),
+                    material: Arc::clone(&materials[obj.mesh.material.index]),
                 }) as Arc<dyn SyncPrimitive>)
             }
         }

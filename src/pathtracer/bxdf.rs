@@ -111,6 +111,7 @@ pub trait BxDFInterface {
 #[delegate(BxDFInterface)]
 pub enum BxDF {
     Lambertian(LambertianReflection),
+    SpecularReflection(SpecularReflection),
 }
 
 pub struct LambertianReflection {
@@ -191,6 +192,12 @@ impl FresnelInterface for FresnelNoOp {
 pub struct SpecularReflection {
     R: Spectrum,
     fresnel: Fresnel,
+}
+
+impl SpecularReflection {
+    pub fn new(R: Spectrum, fresnel: Fresnel) -> Self {
+        SpecularReflection { R, fresnel }
+    }
 }
 
 impl BxDFInterface for SpecularReflection {

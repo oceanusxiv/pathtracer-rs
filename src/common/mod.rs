@@ -78,20 +78,30 @@ pub struct Mesh {
     pub material: Rc<Material>,
 }
 
+#[derive(Debug)]
 pub struct PbrMetallicRoughness {
     pub color_texture: Option<image::RgbImage>,
     pub alpha_texture: Option<image::GrayImage>,
+    pub base_color_factor: [f32; 4],
+    pub metallic_factor: f32,
+    pub roughness_factor: f32,
 }
+#[derive(Debug)]
 pub struct Material {
+    pub index: usize,
     pub pbr_metallic_roughness: PbrMetallicRoughness,
 }
 
 impl Material {
     pub fn default() -> Self {
         Material {
+            index: 0,
             pbr_metallic_roughness: PbrMetallicRoughness {
                 color_texture: None,
                 alpha_texture: None,
+                base_color_factor: [1.0, 1.0, 1.0, 1.0],
+                metallic_factor: 1.0,
+                roughness_factor: 1.0,
             },
         }
     }
@@ -181,9 +191,13 @@ impl World {
             }
 
             self.materials.push(Rc::new(Material {
+                index: self.materials.len(),
                 pbr_metallic_roughness: PbrMetallicRoughness {
                     color_texture,
                     alpha_texture,
+                    base_color_factor: material.pbr_metallic_roughness().base_color_factor(),
+                    metallic_factor: material.pbr_metallic_roughness().metallic_factor(),
+                    roughness_factor: material.pbr_metallic_roughness().roughness_factor(),
                 },
             }))
         }
