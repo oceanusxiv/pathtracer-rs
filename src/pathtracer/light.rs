@@ -1,5 +1,9 @@
 use super::{interaction::Interaction, RenderScene};
-use crate::common::{bounds::Bounds3, ray::Ray, spectrum::Spectrum};
+use crate::common::{
+    bounds::Bounds3,
+    ray::{Ray, RayDifferential},
+    spectrum::Spectrum,
+};
 use ambassador::{delegatable_trait, Delegate};
 
 bitflags! {
@@ -24,7 +28,7 @@ impl<'a> VisibilityTester {
 
 #[delegatable_trait]
 pub trait LightInterface {
-    fn le(&self, _r: &Ray) -> Spectrum {
+    fn le(&self, _r: &RayDifferential) -> Spectrum {
         Spectrum::new(0.0)
     }
 

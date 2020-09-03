@@ -7,8 +7,32 @@ pub struct Ray {
     pub t_max: RefCell<f32>,
 }
 
-impl Ray {
-    pub fn point_at(&self, t: f32) -> na::Point3<f32> {
-        self.o + self.d * t
+#[derive(Debug)]
+pub struct RayDifferential {
+    pub ray: Ray,
+    pub has_differentials: bool,
+    pub rx_origin: na::Point3<f32>,
+    pub ry_origin: na::Point3<f32>,
+    pub rx_direction: na::Vector3<f32>,
+    pub ry_direction: na::Vector3<f32>,
+}
+
+impl RayDifferential {
+    pub fn new(ray: Ray) -> Self {
+        RayDifferential {
+            ray,
+            has_differentials: false,
+            rx_origin: na::Point3::origin(),
+            ry_origin: na::Point3::origin(),
+            rx_direction: glm::zero(),
+            ry_direction: glm::zero(),
+        }
+    }
+
+    pub fn scale_differentials(&mut self, s: f32) {
+        self.rx_origin = self.ray.o + (self.rx_origin - self.ray.o) * s;
+        self.ry_origin = self.ray.o + (self.ry_origin - self.ray.o) * s;
+        self.rx_direction = self.ray.d + (self.rx_direction - self.ray.d) * s;
+        self.ry_direction = self.ray.d + (self.ry_direction - self.ray.d) * s;
     }
 }

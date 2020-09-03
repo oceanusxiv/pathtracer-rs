@@ -1,7 +1,7 @@
 use super::{bsdf::BSDF, primitive::Primitive, shape::Shape, TransportMode};
 use crate::common::{
-    math::{face_forward, offset_ray_origin},
-    ray::Ray,
+    math::{face_forward, offset_ray_origin, solve_linear_system_2x2},
+    ray::{Ray, RayDifferential},
     spectrum::Spectrum,
 };
 use std::cell::RefCell;
@@ -194,7 +194,82 @@ impl<'a> SurfaceInteraction<'a> {
         self.shading.dndv = *dndvs;
     }
 
-    pub fn compute_scattering_functions(&mut self, r: &Ray, mode: TransportMode) {
+    pub fn compute_differentials(&mut self, ray: &RayDifferential) -> bool {
+        if ray.has_differentials {
+            let n = &self.general.n;
+            let p = &self.general.p;
+            // Estimate screen space change in $\pt{}$ and $(u,v)$
+
+            // Compute auxiliary intersection points with plane
+            let d = n.dot(&p.coords);
+            let tx = -(n.dot(&ray.rx_origin.coords) - d) / n.dot(&ray.rx_direction);
+            if tx.is_infinite() || tx.is_nan() {
+                return false;
+            }
+            let px = ray.rx_origin + tx * ray.rx_direction;
+            let ty = -(n.dot(&ray.ry_origin.coords) - d) / n.dot(&ray.ry_direction);
+            if ty.is_infinite() || ty.is_nan() {
+                return false;
+            }
+            let py = ray.ry_origin + ty * ray.ry_direction;
+            self.dpdx = px - p;
+            self.dpdy = py - p;
+
+            // Compute $(u,v)$ offsets at auxiliary points
+
+            // Choose two dimensions to use for ray offset computation
+            let mut dim = [0, 0];
+            if n.x.abs() > n.y.abs() && n.x.abs() > n.y.abs() {
+                dim[0] = 1;
+                dim[1] = 2;
+            } else if n.y.abs() > n.z.abs() {
+                dim[0] = 0;
+                dim[1] = 2;
+            } else {
+                dim[0] = 0;
+                dim[1] = 1;
+            }
+
+            let A = na::Matrix2::new(
+                self.dpdu[dim[0]],
+                self.dpdv[dim[0]],
+                self.dpdu[dim[1]],
+                self.dpdv[dim[1]],
+            );
+            let bx = na::Vector2::new(px[dim[0]] - p[dim[0]], px[dim[1]] - p[dim[1]]);
+            let by = na::Vector2::new(py[dim[0]] - p[dim[0]], py[dim[1]] - p[dim[1]]);
+
+            if let Some(result) = solve_linear_system_2x2(&A, &bx) {
+                self.dudx = result[0];
+                self.dvdx = result[1];
+            } else {
+                self.dudx = 0.0;
+                self.dvdx = 0.0;
+            }
+
+            if let Some(result) = solve_linear_system_2x2(&A, &by) {
+                self.dudy = result[0];
+                self.dvdy = result[1];
+            } else {
+                self.dudy = 0.0;
+                self.dvdy = 0.0;
+            }
+
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    pub fn compute_scattering_functions(&mut self, r: &RayDifferential, mode: TransportMode) {
+        if !self.compute_differentials(&r) {
+            self.dudx = 0.0;
+            self.dvdx = 0.0;
+            self.dudy = 0.0;
+            self.dvdy = 0.0;
+            self.dpdx = glm::zero();
+            self.dpdy = glm::zero();
+        }
         self.primitive
             .unwrap()
             .compute_scattering_functions(self, mode);

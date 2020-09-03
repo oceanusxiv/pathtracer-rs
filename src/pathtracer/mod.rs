@@ -11,7 +11,7 @@ mod texture;
 
 use crate::common::bounds::{Bounds2i, Bounds3};
 use crate::common::film::FilmTile;
-use crate::common::ray::Ray;
+use crate::common::ray::{Ray, RayDifferential};
 use crate::common::spectrum::Spectrum;
 use crate::common::{Camera, World};
 use bxdf::BxDFType;
@@ -38,17 +38,41 @@ pub struct CameraSample {
 
 impl Camera {
     pub fn generate_ray(&self, sample: &CameraSample) -> Ray {
-        let cam_dir = self.cam_to_screen.unproject_point(
+        let p_camera = self.cam_to_screen.unproject_point(
             &(self.raster_to_screen * na::Point3::new(sample.p_film.x, sample.p_film.y, 0.0)),
         );
 
         let cam_orig = na::Point3::<f32>::new(0.0, 0.0, 0.0);
         let world_orig = self.cam_to_world * cam_orig;
-        let world_dir = self.cam_to_world * cam_dir.coords;
+        let world_dir = self.cam_to_world * p_camera.coords;
         Ray {
             o: world_orig,
             d: world_dir.normalize(),
             t_max: RefCell::new(f32::INFINITY),
+        }
+    }
+
+    pub fn generate_ray_differential(&self, sample: &CameraSample) -> RayDifferential {
+        let p_camera = self.cam_to_screen.unproject_point(
+            &(self.raster_to_screen * na::Point3::new(sample.p_film.x, sample.p_film.y, 0.0)),
+        );
+
+        let cam_orig = na::Point3::<f32>::new(0.0, 0.0, 0.0);
+        let world_orig = self.cam_to_world * cam_orig;
+        let world_dir = self.cam_to_world * p_camera.coords;
+        let rx_world_dir = self.cam_to_world * (p_camera.coords + self.dx_camera);
+        let ry_world_dir = self.cam_to_world * (p_camera.coords + self.dy_camera);
+        RayDifferential {
+            ray: Ray {
+                o: world_orig,
+                d: world_dir.normalize(),
+                t_max: RefCell::new(f32::INFINITY),
+            },
+            has_differentials: true,
+            rx_origin: world_orig,
+            ry_origin: world_orig,
+            rx_direction: rx_world_dir.normalize(),
+            ry_direction: ry_world_dir.normalize(),
         }
     }
 }
@@ -126,7 +150,7 @@ impl DirectLightingIntegrator {
 
     fn specular_reflect(
         &self,
-        r: &Ray,
+        r: &RayDifferential,
         isect: &SurfaceInteraction,
         scene: &RenderScene,
         mut sampler: &mut sampling::Sampler,
@@ -148,7 +172,21 @@ impl DirectLightingIntegrator {
 
         let ns = isect.shading.n;
         if pdf > 0.0 && !f.is_black() && wi.dot(&ns).abs() != 0.0 {
-            let rd = isect.general.spawn_ray(&wi);
+            // Compute ray differential rd for specular reflection
+            let mut rd = RayDifferential::new(isect.general.spawn_ray(&wi));
+            if r.has_differentials {
+                rd.has_differentials = true;
+                rd.rx_origin = isect.general.p + isect.dpdx;
+                rd.ry_origin = isect.general.p + isect.dpdy;
+                let dndx = isect.shading.dndu * isect.dudx + isect.shading.dndv * isect.dvdx;
+                let dndy = isect.shading.dndu * isect.dudy + isect.shading.dndv * isect.dvdy;
+                let dwodx = -r.rx_direction - wo;
+                let dwody = -r.ry_direction - wo;
+                let dDNdx = dwodx.dot(&ns) + wo.dot(&dndx);
+                let dDNdy = dwody.dot(&ns) + wo.dot(&dndy);
+                rd.rx_direction = wi - dwodx + 2.0 * (wo.dot(&ns) * dndx + dDNdx * ns);
+                rd.ry_direction = wi - dwody + 2.0 * (wo.dot(&ns) * dndy + dDNdy * ns);
+            }
             f * self.li(&rd, &scene, &mut sampler, depth + 1) * wi.dot(&ns).abs() / pdf
         } else {
             Spectrum::new(0.0)
@@ -157,7 +195,7 @@ impl DirectLightingIntegrator {
 
     fn specular_transmit(
         &self,
-        r: &Ray,
+        r: &RayDifferential,
         isect: &SurfaceInteraction,
         scene: &RenderScene,
         mut sampler: &mut sampling::Sampler,
@@ -167,7 +205,7 @@ impl DirectLightingIntegrator {
         let mut wi = glm::zero();
         let mut pdf = 0.0;
         let p = isect.general.p;
-        let ns = isect.shading.n;
+        let mut ns = isect.shading.n;
         let bsdf = isect.bsdf.as_ref().unwrap();
         let f = bsdf.sample_f(
             &wo,
@@ -180,7 +218,35 @@ impl DirectLightingIntegrator {
         let mut L = Spectrum::new(0.0);
 
         if pdf > 0.0 && !f.is_black() && wi.dot(&ns).abs() != 0.0 {
-            let rd = isect.general.spawn_ray(&wi);
+            let mut rd = RayDifferential::new(isect.general.spawn_ray(&wi));
+            if rd.has_differentials {
+                // Compute ray differential rd for specular transmission
+                rd.has_differentials = true;
+                rd.rx_origin = isect.general.p + isect.dpdx;
+                rd.ry_origin = isect.general.p + isect.dpdy;
+                let mut dndx = isect.shading.dndu * isect.dudx + isect.shading.dndv * isect.dvdx;
+                let mut dndy = isect.shading.dndu * isect.dudy + isect.shading.dndv * isect.dvdy;
+
+                let mut eta = 1.0 / bsdf.eta;
+                if wo.dot(&ns) < 0.0 {
+                    eta = 1.0 / eta;
+                    ns = -ns;
+                    dndx = -dndx;
+                    dndy = -dndy;
+                }
+
+                let dwodx = -r.rx_direction - wo;
+                let dwody = -r.ry_direction - wo;
+                let dDNdx = dwodx.dot(&ns) + wo.dot(&dndx);
+                let dDNdy = dwody.dot(&ns) + wo.dot(&dndy);
+
+                let mu = eta * wo.dot(&ns) - wi.dot(&ns).abs();
+                let dmudx = (eta - (eta * eta * wo.dot(&ns)) / wi.dot(&ns).abs()) * dDNdx;
+                let dmudy = (eta - (eta * eta * wo.dot(&ns)) / wi.dot(&ns).abs()) * dDNdy;
+
+                rd.rx_direction = wi - eta * dwodx + (mu * dndx + dmudx * ns);
+                rd.ry_direction = wi - eta * dwody + (mu * dndy + dmudy * ns);
+            }
             L = f * self.li(&rd, &scene, &mut sampler, depth + 1) * wi.dot(&ns).abs() / pdf
         }
 
@@ -189,7 +255,7 @@ impl DirectLightingIntegrator {
 
     fn li(
         &self,
-        r: &Ray,
+        r: &RayDifferential,
         scene: &RenderScene,
         mut sampler: &mut sampling::Sampler,
         depth: u32,
@@ -198,7 +264,7 @@ impl DirectLightingIntegrator {
         let mut L = Spectrum::new(0.0);
         let mut isect = Default::default();
 
-        if !scene.intersect(&r, &mut isect) {
+        if !scene.intersect(&r.ray, &mut isect) {
             for light in &scene.lights {
                 L += light.le(&r);
             }
@@ -270,7 +336,8 @@ impl DirectLightingIntegrator {
         loop {
             let camera_sample = pixel_sampler.get_camera_sample(&pixel);
             trace!("generated camera sample: {:?}", camera_sample);
-            let ray = camera.generate_ray(&camera_sample);
+            let mut ray = camera.generate_ray_differential(&camera_sample);
+            ray.scale_differentials(1.0 / (pixel_sampler.samples_per_pixel() as f32).sqrt());
             trace!("generated ray: {:?}", ray);
             let mut L = Spectrum::new(0.0);
             L = self.li(&ray, &scene, &mut pixel_sampler, 0);
@@ -327,7 +394,10 @@ impl DirectLightingIntegrator {
                     loop {
                         let camera_sample = tile_sampler.get_camera_sample(&pixel);
 
-                        let ray = camera.generate_ray(&camera_sample);
+                        let mut ray = camera.generate_ray_differential(&camera_sample);
+                        ray.scale_differentials(
+                            1.0 / (tile_sampler.samples_per_pixel() as f32).sqrt(),
+                        );
 
                         let mut L = Spectrum::new(0.0);
                         L = self.li(&ray, &scene, &mut tile_sampler, 0);

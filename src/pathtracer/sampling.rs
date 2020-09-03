@@ -344,6 +344,10 @@ impl StratifiedSampler {
     pub fn get_2d(&mut self) -> na::Point2<f32> {
         self.pixel_sampler.get_2d()
     }
+
+    pub fn samples_per_pixel(&self) -> usize {
+        self.pixel_sampler.sampler.samples_per_pixel
+    }
 }
 
 pub type Sampler = StratifiedSampler; // for now, since dealing with sampler inheritance is annoying

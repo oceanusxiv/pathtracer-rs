@@ -21,6 +21,9 @@ pub struct Camera {
     pub screen_to_raster: na::Affine3<f32>,
     pub raster_to_screen: na::Affine3<f32>,
 
+    pub dx_camera: na::Vector3<f32>,
+    pub dy_camera: na::Vector3<f32>,
+
     pub film: Film,
 }
 
@@ -35,11 +38,20 @@ impl Camera {
             * glm::translation(&glm::vec3(1.5, -1.5, 0.0));
         let screen_to_raster = na::Affine3::from_matrix_unchecked(screen_to_raster);
         let resolution = glm::vec2(resolution.x as u32, resolution.y as u32);
+        let raster_to_screen = screen_to_raster.inverse();
+        let raster_to_camera = cam_to_screen.to_projective().inverse() * raster_to_screen;
+        let dx_camera = raster_to_camera * na::Point3::new(1.0, 0.0, 0.0)
+            - raster_to_camera * na::Point3::origin();
+        let dy_camera = raster_to_camera * na::Point3::new(0.0, 1.0, 0.0)
+            - raster_to_camera * na::Point3::origin();
+
         Camera {
             cam_to_world: *cam_to_world,
             cam_to_screen: *cam_to_screen,
             screen_to_raster,
-            raster_to_screen: screen_to_raster.inverse(),
+            raster_to_screen,
+            dx_camera,
+            dy_camera,
             film: Film::new(&resolution),
         }
     }
