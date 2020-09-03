@@ -132,3 +132,50 @@ pub fn gamma_correct(value: f32) -> f32 {
 
     1.055 * value.powf(1.0 / 2.4) - 0.055
 }
+
+pub fn solve_linear_system_2x2(
+    A: &na::Matrix2<f32>,
+    B: &na::Vector2<f32>,
+) -> Option<na::Vector2<f32>> {
+    let det = A.determinant();
+    if det.abs() < 1e-10f32 {
+        return None;
+    }
+    let x0 = (A[(1, 1)] * B[0] - A[(0, 1)] * B[1]) / det;
+    let x1 = (A[(0, 0)] * B[1] - A[(1, 0)] * B[0]) / det;
+
+    if x0.is_nan() || x1.is_nan() {
+        return None;
+    }
+
+    return Some(na::Vector2::new(x0, x1));
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_solve_linear_system_2x2() {
+        let A = na::Matrix2::new(0.0, 1.0, 1.0, 0.0);
+        let b = na::Vector2::new(2.0, 4.0);
+
+        let x = solve_linear_system_2x2(&A, &b);
+        assert!(x.is_some());
+        let x = x.unwrap();
+        assert_eq!(x, glm::vec2(4.0, 2.0));
+
+        let A = na::Matrix2::new(0.0, 0.0, 0.0, 0.0);
+        let b = na::Vector2::new(2.0, 4.0);
+
+        assert!(solve_linear_system_2x2(&A, &b).is_none());
+
+        let A = na::Matrix2::new(1.0, 1.0, -1.0, 1.0);
+        let b = na::Vector2::new(2.0, 2.0);
+
+        let x = solve_linear_system_2x2(&A, &b);
+        assert!(x.is_some());
+        let x = x.unwrap();
+        assert_eq!(x, glm::vec2(0.0, 2.0));
+    }
+}
