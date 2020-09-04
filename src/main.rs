@@ -11,8 +11,6 @@ extern crate hexf;
 
 #[macro_use]
 extern crate slog;
-extern crate slog_async;
-extern crate slog_term;
 
 extern crate nalgebra as na;
 extern crate nalgebra_glm as glm;
@@ -43,12 +41,18 @@ fn sample_arg_legal(val: String) -> Result<(), String> {
     }
 }
 
-fn main() {
-    let decorator = slog_term::PlainDecorator::new(std::io::stdout());
-    let drain = slog_term::CompactFormat::new(decorator).build().fuse();
+fn new_drain(level: slog::Level) -> slog::Fuse<slog::LevelFilter<slog::Fuse<slog_async::Async>>> {
+    let decorator = slog_term::TermDecorator::new().build();
+    let drain = slog_term::FullFormat::new(decorator).build().fuse();
     let drain = slog_async::Async::new(drain).build().fuse();
+    drain.filter_level(level).fuse()
+}
 
-    let log = slog::Logger::root(drain, o!());
+fn main() {
+    let info_drain = new_drain(slog::Level::Info);
+    let drain = slog_atomic::AtomicSwitch::new(info_drain);
+    let ctrl = drain.ctrl();
+    let log = slog::Logger::root(drain.fuse(), o!());
 
     let matches = clap_app!(pathtracer_rs =>
         (version: "1.0")
@@ -138,8 +142,16 @@ fn main() {
                             virtual_keycode: Some(VirtualKeyCode::S),
                             ..
                         } => {
-                            println!("saving image to {:?}", &output_path);
+                            info!(log,"saving image to {:?}", &output_path);
                             camera.film.save(&output_path);
+                        }
+                        KeyboardInput {
+                            state: ElementState::Pressed,
+                            virtual_keycode: Some(VirtualKeyCode::T),
+                            ..
+                        } => {
+                            info!(log, "setting log level to trace");
+                            ctrl.set(new_drain(slog::Level::Trace));
                         }
                         _ => {}
                     },

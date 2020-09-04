@@ -68,6 +68,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "arc-swap"
+version = "0.4.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4d25d88fd6b8041580a654f9d0c581a047baee2b3efee13275f2fc392fc75034"
+
+[[package]]
 name = "arrayref"
 version = "0.3.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1567,6 +1573,7 @@ dependencies = [
  "shaderc",
  "slog",
  "slog-async",
+ "slog-atomic",
  "slog-term",
  "wgpu",
  "winit",
@@ -2046,6 +2053,16 @@ dependencies = [
  "slog",
  "take_mut",
  "thread_local",
+]
+
+[[package]]
+name = "slog-atomic"
+version = "3.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "87803759296346553aabece939e9ff174e7fc7ce2406c1fbd235b0c0a322523a"
+dependencies = [
+ "arc-swap",
+ "slog",
 ]
 
 [[package]]
