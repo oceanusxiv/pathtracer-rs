@@ -1,7 +1,7 @@
 use super::{
     bsdf::BSDF,
     bxdf::{BxDF, Fresnel, FresnelNoOp, LambertianReflection, SpecularReflection},
-    texture::{ConstantTexture, ImageTexture, SyncTexture, Texture},
+    texture::{ConstantTexture, ImageTexture, SyncTexture, Texture, UVMap},
     SurfaceInteraction, TransportMode,
 };
 use crate::common::{self, spectrum::Spectrum};
@@ -29,6 +29,7 @@ impl Material {
                 &color_info.image,
                 color_factor,
                 color_info.sampler_info.wrap_mode,
+                UVMap::new(color_info.image.width() as f32, color_info.image.height() as f32, 0.0, 0.0),
             )) as Box<dyn SyncTexture<Spectrum>>;
         } else {
             color_texture = Box::new(ConstantTexture::<Spectrum>::new(color_factor))

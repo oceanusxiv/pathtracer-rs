@@ -24,7 +24,7 @@ impl<T: Copy> Texture<T> for ConstantTexture<T> {
     }
 }
 
-struct UVMap {
+pub struct UVMap {
     su: f32,
     sv: f32,
     du: f32,
@@ -32,12 +32,12 @@ struct UVMap {
 }
 
 impl UVMap {
-    pub fn new(su: f32, sv: f32) -> Self {
+    pub fn new(su: f32, sv: f32, du: f32, dv: f32) -> Self {
         Self {
             su,
             sv,
-            du: 0.0,
-            dv: 0.0,
+            du,
+            dv,
         }
     }
 
@@ -60,7 +60,7 @@ pub struct ImageTexture<T: na::Scalar + num::Zero> {
 }
 
 impl ImageTexture<f32> {
-    pub fn new(image: &image::GrayImage, scale: f32, wrap_mode: WrapMode) -> Self {
+    pub fn new(image: &image::GrayImage, scale: f32, wrap_mode: WrapMode, mapping: UVMap) -> Self {
         let matrix = na::DMatrix::<f32>::from_fn(
             image.height() as usize,
             image.width() as usize,
@@ -69,13 +69,13 @@ impl ImageTexture<f32> {
 
         Self {
             mip_map: MIPMap::new(matrix, false, wrap_mode),
-            mapping: UVMap::new(image.width() as f32, image.height() as f32),
+            mapping,
         }
     }
 }
 
 impl ImageTexture<Spectrum> {
-    pub fn new(image: &image::RgbImage, scale: Spectrum, wrap_mode: WrapMode) -> Self {
+    pub fn new(image: &image::RgbImage, scale: Spectrum, wrap_mode: WrapMode, mapping: UVMap) -> Self {
         let matrix = na::DMatrix::<Spectrum>::from_fn(
             image.height() as usize,
             image.width() as usize,
@@ -84,7 +84,7 @@ impl ImageTexture<Spectrum> {
 
         Self {
             mip_map: MIPMap::new(matrix, false, wrap_mode),
-            mapping: UVMap::new(image.width() as f32, image.height() as f32),
+            mapping,
         }
     }
 }
@@ -93,6 +93,7 @@ impl<T: na::Scalar + num::Zero> Texture<T> for ImageTexture<T> {
     fn evaluate(&self, it: &SurfaceInteraction) -> T {
         let mut dst_dx = glm::zero();
         let mut dst_dy = glm::zero();
+        trace!("current mesh uv: {:?}", it.uv);
         let st = self.mapping.map(&it, &mut dst_dx, &mut dst_dy);
         self.mip_map.lookup(&st, &dst_dx, &dst_dy)
     }
@@ -133,13 +134,13 @@ impl<T: na::Scalar + num::Zero> MIPMap<T> {
                     s,
                     t
                 );
-                ret = self.pyramid[0][(s.floor() as usize, t.floor() as usize)].clone();
+                ret = self.pyramid[0][(t.floor() as usize, s.floor() as usize)].clone();
             }
             WrapMode::Black => ret = num::zero(),
             WrapMode::Clamp => {
                 let s = st[0].clamp(0.0, self.resolution[0]);
                 let t = st[1].clamp(0.0, self.resolution[1]);
-                ret = self.pyramid[0][(s.floor() as usize, t.floor() as usize)].clone();
+                ret = self.pyramid[0][(t.floor() as usize, s.floor() as usize)].clone();
             }
         }
         trace!("sampled value: {:?}", ret);

@@ -1,5 +1,5 @@
 use super::{
-    texture::{ImageTexture, SyncTexture},
+    texture::{ImageTexture, SyncTexture, UVMap},
     SurfaceInteraction,
 };
 use crate::common::bounds::Bounds3;
@@ -521,6 +521,7 @@ pub fn shape_from_mesh(
             &alpha_mask_info.image,
             1.0,
             alpha_mask_info.sampler_info.wrap_mode,
+            UVMap::new(alpha_mask_info.image.width() as f32, alpha_mask_info.image.height() as f32, 0.0, 0.0)
         )) as Arc<dyn SyncTexture<f32>>);
     }
     let mut world_mesh = TriangleMesh {
