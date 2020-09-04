@@ -133,6 +133,14 @@ pub fn gamma_correct(value: f32) -> f32 {
     1.055 * value.powf(1.0 / 2.4) - 0.055
 }
 
+pub fn inverse_gamma_correct(value: f32) -> f32 {
+    if value <= 0.04045 {
+        value * 1.0 / 12.92;
+    }
+
+    ((value + 0.055) * 1.0 / 1.055).powf(2.4)
+}
+
 pub fn solve_linear_system_2x2(
     A: &na::Matrix2<f32>,
     B: &na::Vector2<f32>,

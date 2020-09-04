@@ -45,7 +45,7 @@ impl Camera {
         let dy_camera = raster_to_camera * na::Point3::new(0.0, 1.0, 0.0)
             - raster_to_camera * na::Point3::origin();
 
-        Camera {
+        Self {
             cam_to_world: *cam_to_world,
             cam_to_screen: *cam_to_screen,
             screen_to_raster,
@@ -88,15 +88,29 @@ pub struct Mesh {
     pub colors: Vec<na::Vector3<f32>>,
 }
 
-#[derive(Debug)]
+#[derive(Clone)]
+pub enum WrapMode {
+    Repeat,
+    Black,
+    Clamp,
+}
+
+#[derive(Clone)]
+pub struct SamplerInfo {
+    wrap_mode: WrapMode,
+}
+pub struct TextureInfo<T> {
+    image: T,
+    sampler_info: SamplerInfo,
+}
+
 pub struct PbrMetallicRoughness {
-    pub color_texture: Option<image::RgbImage>,
-    pub alpha_texture: Option<image::GrayImage>,
+    pub color_texture: Option<TextureInfo<image::RgbImage>>,
+    pub alpha_texture: Option<TextureInfo<image::GrayImage>>,
     pub base_color_factor: [f32; 4],
     pub metallic_factor: f32,
     pub roughness_factor: f32,
 }
-#[derive(Debug)]
 pub struct Material {
     pub index: usize,
     pub pbr_metallic_roughness: PbrMetallicRoughness,
@@ -168,18 +182,34 @@ impl World {
             let mut alpha_texture = None;
             if let Some(texture) = material.pbr_metallic_roughness().base_color_texture() {
                 let image = &images[texture.texture().source().index()];
-                match image.format {
-                    gltf::image::Format::R8 => {}
-                    gltf::image::Format::R8G8 => {}
-                    gltf::image::Format::R8G8B8 => {
-                        color_texture = image::RgbImage::from_raw(
+
+                let sampler_info = SamplerInfo {
+                    wrap_mode: match texture.texture().sampler().wrap_s() {
+                        gltf::texture::WrappingMode::ClampToEdge => WrapMode::Clamp,
+                        gltf::texture::WrappingMode::MirroredRepeat => WrapMode::Repeat,
+                        gltf::texture::WrappingMode::Repeat => WrapMode::Repeat,
+                    },
+                };
+
+                match material.alpha_mode() {
+                    gltf::material::AlphaMode::Opaque => {
+                        assert!(image.format == gltf::image::Format::R8G8B8);
+                        color_texture = if let Some(image) = image::RgbImage::from_raw(
                             image.width,
                             image.height,
                             image.pixels.clone(),
-                        );
+                        ) {
+                            Some(TextureInfo {
+                                image,
+                                sampler_info,
+                            })
+                        } else {
+                            None
+                        };
                     }
-                    gltf::image::Format::R8G8B8A8 => {
-                        color_texture = image::RgbImage::from_raw(
+                    gltf::material::AlphaMode::Mask => {
+                        assert!(image.format == gltf::image::Format::R8G8B8A8);
+                        color_texture = if let Some(image) = image::RgbImage::from_raw(
                             image.width,
                             image.height,
                             image
@@ -189,15 +219,28 @@ impl World {
                                 .filter(|&(i, _)| i % 4 != 3)
                                 .map(|(_, v)| *v)
                                 .collect(),
-                        );
-                        alpha_texture = image::GrayImage::from_raw(
+                        ) {
+                            Some(TextureInfo {
+                                image,
+                                sampler_info: sampler_info.clone(),
+                            })
+                        } else {
+                            None
+                        };
+                        alpha_texture = if let Some(image) = image::GrayImage::from_raw(
                             image.width,
                             image.height,
                             image.pixels.iter().skip(3).step_by(4).map(|v| *v).collect(),
-                        );
+                        ) {
+                            Some(TextureInfo {
+                                image,
+                                sampler_info,
+                            })
+                        } else {
+                            None
+                        };
                     }
-                    gltf::image::Format::B8G8R8 => {}
-                    gltf::image::Format::B8G8R8A8 => {}
+                    gltf::material::AlphaMode::Blend => {}
                 }
             }
 

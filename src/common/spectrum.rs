@@ -1,4 +1,4 @@
-use super::math::gamma_correct;
+use super::math::{gamma_correct, inverse_gamma_correct};
 use std::ops::{Add, AddAssign, Div, Mul};
 
 #[derive(Clone, Debug, Copy)]
@@ -10,7 +10,15 @@ pub struct RGBSpectrum {
 
 impl RGBSpectrum {
     pub fn new(c: f32) -> Self {
-        RGBSpectrum { r: c, g: c, b: c }
+        Self { r: c, g: c, b: c }
+    }
+
+    pub fn from_image_rgb(color: &image::Rgb<u8>) -> Self {
+        Self {
+            r: inverse_gamma_correct(color[0] as f32 / 255.0),
+            g: inverse_gamma_correct(color[1] as f32 / 255.0),
+            b: inverse_gamma_correct(color[2] as f32 / 255.0),
+        }
     }
 
     pub fn to_image_rgb(&self) -> image::Rgb<u8> {
@@ -94,6 +102,12 @@ impl Div<f32> for RGBSpectrum {
             g: self.g / rhs,
             b: self.b / rhs,
         }
+    }
+}
+
+impl PartialEq for RGBSpectrum {
+    fn eq(&self, other: &Self) -> bool {
+        self.r == other.r && self.g == other.g && self.b == other.b
     }
 }
 
