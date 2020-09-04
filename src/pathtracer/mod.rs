@@ -282,10 +282,10 @@ impl DirectLightingIntegrator {
         }
         trace!("intersected geometry at: {:?}", isect.general.p);
 
+        isect.compute_scattering_functions(r, TransportMode::Radiance);
+
         let n = isect.shading.n;
         let wo = isect.general.wo;
-
-        isect.compute_scattering_functions(r, TransportMode::Radiance);
 
         L += isect.le(&wo);
 

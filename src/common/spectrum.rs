@@ -13,19 +13,35 @@ impl RGBSpectrum {
         Self { r: c, g: c, b: c }
     }
 
-    pub fn from_image_rgb(color: &image::Rgb<u8>) -> Self {
-        Self {
-            r: inverse_gamma_correct(color[0] as f32 / 255.0),
-            g: inverse_gamma_correct(color[1] as f32 / 255.0),
-            b: inverse_gamma_correct(color[2] as f32 / 255.0),
+    pub fn from_image_rgb(color: &image::Rgb<u8>, gamma: bool) -> Self {
+        if gamma {
+            Self {
+                r: inverse_gamma_correct(color[0] as f32 / 255.0),
+                g: inverse_gamma_correct(color[1] as f32 / 255.0),
+                b: inverse_gamma_correct(color[2] as f32 / 255.0),
+            }
+        } else {
+            Self {
+                r: color[0] as f32 / 255.0,
+                g: color[1] as f32 / 255.0,
+                b: color[2] as f32 / 255.0,
+            }
         }
     }
 
-    pub fn from_slice(slice: &[f32; 4]) -> Self {
-        Self {
-            r: inverse_gamma_correct(slice[0]),
-            g: inverse_gamma_correct(slice[1]),
-            b: inverse_gamma_correct(slice[2]),
+    pub fn from_slice(slice: &[f32; 4], gamma: bool) -> Self {
+        if gamma {
+            Self {
+                r: inverse_gamma_correct(slice[0]),
+                g: inverse_gamma_correct(slice[1]),
+                b: inverse_gamma_correct(slice[2]),
+            }
+        } else {
+            Self {
+                r: slice[0],
+                g: slice[1],
+                b: slice[2],
+            }
         }
     }
 

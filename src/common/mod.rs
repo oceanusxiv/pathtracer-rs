@@ -104,9 +104,15 @@ pub struct TextureInfo<T> {
     pub sampler_info: SamplerInfo,
 }
 
+pub struct NormalMapInfo {
+    pub texture: TextureInfo<image::RgbImage>,
+    pub scale: f32,
+}
+
 pub struct PbrMetallicRoughness {
     pub color_texture: Option<TextureInfo<image::RgbImage>>,
     pub alpha_texture: Option<TextureInfo<image::GrayImage>>,
+    pub normal_map: Option<NormalMapInfo>,
     pub base_color_factor: [f32; 4],
     pub metallic_factor: f32,
     pub roughness_factor: f32,
@@ -123,6 +129,7 @@ impl Material {
             pbr_metallic_roughness: PbrMetallicRoughness {
                 color_texture: None,
                 alpha_texture: None,
+                normal_map: None,
                 base_color_factor: [1.0, 1.0, 1.0, 1.0],
                 metallic_factor: 1.0,
                 roughness_factor: 1.0,
@@ -180,6 +187,7 @@ impl World {
         for material in document.materials() {
             let mut color_texture = None;
             let mut alpha_texture = None;
+            let mut normal_map = None;
             if let Some(texture) = material.pbr_metallic_roughness().base_color_texture() {
                 let image = &images[texture.texture().source().index()];
                 let sampler = &texture.texture().sampler();
@@ -245,11 +253,38 @@ impl World {
                 }
             }
 
+            if let Some(normal_map_info) = material.normal_texture() {
+                let image = &images[normal_map_info.texture().index()];
+                let sampler = &normal_map_info.texture().sampler();
+                assert_eq!(sampler.wrap_s(), sampler.wrap_t());
+                let sampler_info = SamplerInfo {
+                    wrap_mode: match sampler.wrap_s() {
+                        gltf::texture::WrappingMode::ClampToEdge => WrapMode::Clamp,
+                        gltf::texture::WrappingMode::MirroredRepeat => WrapMode::Repeat,
+                        gltf::texture::WrappingMode::Repeat => WrapMode::Repeat,
+                    },
+                };
+                normal_map = if let Some(image) =
+                    image::RgbImage::from_raw(image.width, image.height, image.pixels.clone())
+                {
+                    Some(NormalMapInfo {
+                        texture: TextureInfo {
+                            image,
+                            sampler_info,
+                        },
+                        scale: normal_map_info.scale(),
+                    })
+                } else {
+                    None
+                };
+            }
+
             self.materials.push(Rc::new(Material {
                 index: self.materials.len(),
                 pbr_metallic_roughness: PbrMetallicRoughness {
                     color_texture,
                     alpha_texture,
+                    normal_map,
                     base_color_factor: material.pbr_metallic_roughness().base_color_factor(),
                     metallic_factor: material.pbr_metallic_roughness().metallic_factor(),
                     roughness_factor: material.pbr_metallic_roughness().roughness_factor(),

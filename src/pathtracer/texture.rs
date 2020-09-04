@@ -33,12 +33,7 @@ pub struct UVMap {
 
 impl UVMap {
     pub fn new(su: f32, sv: f32, du: f32, dv: f32) -> Self {
-        Self {
-            su,
-            sv,
-            du,
-            dv,
-        }
+        Self { su, sv, du, dv }
     }
 
     pub fn map(
@@ -61,7 +56,7 @@ pub struct ImageTexture<T: na::Scalar + num::Zero> {
 
 impl ImageTexture<f32> {
     pub fn new(image: &image::GrayImage, scale: f32, wrap_mode: WrapMode, mapping: UVMap) -> Self {
-        let matrix = na::DMatrix::<f32>::from_fn(
+        let matrix = na::DMatrix::from_fn(
             image.height() as usize,
             image.width() as usize,
             |row, col| scale * (image.get_pixel(col as u32, row as u32)[0] as f32 / 255.0),
@@ -75,11 +70,19 @@ impl ImageTexture<f32> {
 }
 
 impl ImageTexture<Spectrum> {
-    pub fn new(image: &image::RgbImage, scale: Spectrum, wrap_mode: WrapMode, mapping: UVMap) -> Self {
-        let matrix = na::DMatrix::<Spectrum>::from_fn(
+    pub fn new(
+        image: &image::RgbImage,
+        scale: Spectrum,
+        wrap_mode: WrapMode,
+        mapping: UVMap,
+        gamma: bool,
+    ) -> Self {
+        let matrix = na::DMatrix::from_fn(
             image.height() as usize,
             image.width() as usize,
-            |row, col| scale * Spectrum::from_image_rgb(&image.get_pixel(col as u32, row as u32)),
+            |row, col| {
+                scale * Spectrum::from_image_rgb(&image.get_pixel(col as u32, row as u32), gamma)
+            },
         );
 
         Self {
@@ -88,6 +91,31 @@ impl ImageTexture<Spectrum> {
         }
     }
 }
+
+impl ImageTexture<na::Vector3<f32>> {
+    pub fn new(image: &image::RgbImage, scale: f32, wrap_mode: WrapMode, mapping: UVMap) -> Self {
+        let matrix = na::DMatrix::from_fn(
+            image.height() as usize,
+            image.width() as usize,
+            |row, col| {
+                let pixel = &image.get_pixel(col as u32, row as u32);
+                scale
+                    * na::Vector3::new(
+                        pixel[0] as f32 / 127.5 - 1.0,
+                        pixel[1] as f32 / 127.5 - 1.0,
+                        pixel[2] as f32 / 127.5 - 1.0,
+                    )
+            },
+        );
+
+        Self {
+            mip_map: MIPMap::new(matrix, false, wrap_mode),
+            mapping,
+        }
+    }
+}
+
+pub type NormalMap = ImageTexture<na::Vector3<f32>>;
 
 impl<T: na::Scalar + num::Zero> Texture<T> for ImageTexture<T> {
     fn evaluate(&self, it: &SurfaceInteraction) -> T {
@@ -134,7 +162,11 @@ impl<T: na::Scalar + num::Zero> MIPMap<T> {
                     s,
                     t
                 );
-                ret = self.pyramid[0][(t.floor() as usize, s.floor() as usize)].clone();
+                ret = self.pyramid[0][(
+                    t.floor().clamp(0.0, self.resolution.y - 1.0) as usize,
+                    s.floor().clamp(0.0, self.resolution.x - 1.0) as usize,
+                )]
+                    .clone();
             }
             WrapMode::Black => ret = num::zero(),
             WrapMode::Clamp => {
