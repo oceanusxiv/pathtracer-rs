@@ -150,7 +150,7 @@ impl<'a> SurfaceInteraction<'a> {
             dndu: *dndu,
             dndv: *dndv,
         };
-        SurfaceInteraction {
+        Self {
             general: Interaction {
                 p: *p,
                 time,

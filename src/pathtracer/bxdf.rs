@@ -120,7 +120,7 @@ pub struct LambertianReflection {
 
 impl LambertianReflection {
     pub fn new(R: Spectrum) -> Self {
-        LambertianReflection { R }
+        Self { R }
     }
 }
 
@@ -196,7 +196,7 @@ pub struct SpecularReflection {
 
 impl SpecularReflection {
     pub fn new(R: Spectrum, fresnel: Fresnel) -> Self {
-        SpecularReflection { R, fresnel }
+        Self { R, fresnel }
     }
 }
 

@@ -44,7 +44,7 @@ pub fn max_p<T: na::RealField>(p1: &na::Point3<T>, p2: &na::Point3<T>) -> na::Po
 
 impl<T: na::RealField> TBounds3<T> {
     pub fn new(p1: na::Point3<T>, p2: na::Point3<T>) -> Self {
-        TBounds3 {
+        Self {
             p_min: min_p(&p1, &p2),
             p_max: max_p(&p1, &p2),
         }

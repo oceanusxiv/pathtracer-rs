@@ -78,7 +78,7 @@ pub struct PointLight {
 
 impl PointLight {
     pub fn new(light_to_world: na::Projective3<f32>, I: Spectrum) -> Self {
-        PointLight {
+        Self {
             flags: LightFlags::DELTA_POSITION,
             num_samples: 1,
             light_to_world,
@@ -153,7 +153,7 @@ impl DirectionalLight {
         L: Spectrum,
         w_light: na::Vector3<f32>,
     ) -> Self {
-        DirectionalLight {
+        Self {
             flags: LightFlags::DELTA_POSITION,
             light_to_world,
             world_to_light: light_to_world.inverse(),

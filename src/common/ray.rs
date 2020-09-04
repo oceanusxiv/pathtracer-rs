@@ -19,7 +19,7 @@ pub struct RayDifferential {
 
 impl RayDifferential {
     pub fn new(ray: Ray) -> Self {
-        RayDifferential {
+        Self {
             ray,
             has_differentials: false,
             rx_origin: na::Point3::origin(),

@@ -145,7 +145,7 @@ pub struct DirectLightingIntegrator {
 
 impl DirectLightingIntegrator {
     pub fn new(sampler: sampling::Sampler) -> Self {
-        DirectLightingIntegrator { sampler }
+        Self { sampler }
     }
 
     fn specular_reflect(

@@ -12,7 +12,7 @@ pub struct FilmTilePixel {
 
 impl FilmTilePixel {
     pub fn new() -> Self {
-        FilmTilePixel {
+        Self {
             contrib_sum: Spectrum::new(0.0),
             filter_wight_sum: 0.0,
         }
@@ -26,7 +26,7 @@ pub struct FilmTile {
 
 impl FilmTile {
     pub fn new(pixel_bounds: Bounds2i) -> Self {
-        FilmTile {
+        Self {
             tile: vec![FilmTilePixel::new(); pixel_bounds.area() as usize],
             pixel_bounds,
         }
@@ -73,7 +73,7 @@ pub struct Film {
 
 impl Film {
     pub fn new(resolution: &glm::UVec2) -> Self {
-        Film {
+        Self {
             image: RwLock::new(RgbaImage::new(resolution.x, resolution.y)),
         }
     }

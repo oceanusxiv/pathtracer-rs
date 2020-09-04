@@ -20,7 +20,7 @@ struct CoreSampler {
 
 impl CoreSampler {
     fn new(samples_per_pixel: usize) -> Self {
-        CoreSampler {
+        Self {
             samples_per_pixel,
             current_pixel: na::Point2::new(0, 0),
             current_pixel_sample_index: 0,
@@ -107,7 +107,7 @@ impl PixelSampler {
         let samples_2d: Vec<Vec<na::Point2<f32>>> =
             vec![vec![na::Point2::new(0.0, 0.0); samples_per_pixel]; n_sampled_dimensions];
 
-        PixelSampler {
+        Self {
             sampler: CoreSampler::new(samples_per_pixel),
             samples_1d,
             samples_2d,
@@ -250,7 +250,7 @@ impl StratifiedSampler {
         jitter_samples: bool,
         n_sampled_dimensions: usize,
     ) -> Self {
-        StratifiedSampler {
+        Self {
             pixel_sampler: PixelSampler::new(
                 x_pixel_samples * y_pixel_samples,
                 n_sampled_dimensions,

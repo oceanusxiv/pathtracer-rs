@@ -12,7 +12,7 @@ struct BVHPrimitiveInfo {
 
 impl BVHPrimitiveInfo {
     fn new(prim_num: usize, bounds: Bounds3) -> Self {
-        BVHPrimitiveInfo {
+        Self {
             prim_num,
             centroid: bounds.p_min + 0.5 * (bounds.p_max - bounds.p_min),
             bounds,
@@ -58,7 +58,7 @@ struct BucketInfo {
 
 impl BucketInfo {
     fn new() -> Self {
-        BucketInfo {
+        Self {
             count: 0,
             bounds: Bounds3::empty(),
         }
@@ -114,7 +114,7 @@ impl BVH {
         let duration = start.elapsed();
         debug!("bvh tree took {:?} to construct", duration);
         let nodes = unsafe { nodes.assume_init() };
-        BVH {
+        Self {
             primitives: ordered_prims,
             nodes,
         }

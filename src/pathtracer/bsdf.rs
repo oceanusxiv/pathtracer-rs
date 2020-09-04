@@ -19,7 +19,7 @@ impl BSDF {
     pub fn new(si: &SurfaceInteraction, eta: f32) -> Self {
         let ns = si.shading.n;
         let ss = si.shading.dpdu.normalize();
-        BSDF {
+        Self {
             eta,
             ns,
             ng: si.general.n,
