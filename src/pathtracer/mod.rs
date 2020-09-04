@@ -15,6 +15,7 @@ use crate::common::ray::{Ray, RayDifferential};
 use crate::common::spectrum::Spectrum;
 use crate::common::{Camera, World};
 use bxdf::BxDFType;
+use indicatif::ParallelProgressIterator;
 use interaction::SurfaceInteraction;
 use itertools::Itertools;
 use light::{DirectionalLight, Light, LightInterface, PointLight};
@@ -88,22 +89,31 @@ impl RenderScene {
     pub fn from_world(world: &World) -> Self {
         let mut primitives: Vec<Arc<dyn SyncPrimitive>> = Vec::new();
         let mut materials = Vec::new();
-        let mut lights = vec![Light::Directional(DirectionalLight::new(
-            na::convert(na::Translation3::new(1.0, 3.5, 0.0)),
-            Spectrum::new(1.0),
-            na::Vector3::new(1.0, 1.0, 1.0),
-        ))];
-        // let mut lights = vec![Box::new(PointLight::new(
-        //     na::convert(na::Translation3::new(1.0, 3.5, 0.0)),
-        //     Spectrum::new(10.0),
-        // )) as Box<dyn SyncLight>];
+        let mut lights = vec![
+            Light::Directional(DirectionalLight::new(
+                na::convert(na::Translation3::new(1.0, 3.5, 0.0)),
+                Spectrum::new(10.0),
+                na::Vector3::new(1.0, 1.0, 1.0),
+            )),
+            Light::Point(PointLight::new(
+                na::convert(na::Translation3::new(1.0, 3.5, 0.0)),
+                Spectrum::new(30.0),
+            )),
+        ];
 
         for mat in &world.materials {
             materials.push(Arc::new(Material::from_gltf(&**mat)));
         }
 
         for obj in &world.objects {
-            for shape in shape_from_mesh(&obj.mesh, &obj) {
+            for shape in shape_from_mesh(
+                &obj.mesh,
+                &obj,
+                world.materials[obj.material.index]
+                    .pbr_metallic_roughness
+                    .alpha_texture
+                    .as_ref(),
+            ) {
                 primitives.push(Arc::new(primitive::GeometricPrimitive {
                     shape: shape,
                     material: Arc::clone(&materials[obj.material.index]),
@@ -369,6 +379,7 @@ impl DirectLightingIntegrator {
             .cartesian_product(0..num_tiles.y)
             .collect_vec()
             .par_iter()
+            .progress_count((num_tiles.x * num_tiles.y) as u64)
             .map(|(x, y)| {
                 let tile = na::Point2::new(*x, *y);
                 let seed = (tile.y * num_tiles.x + tile.x) as u64;

@@ -88,7 +88,7 @@ pub struct Mesh {
     pub colors: Vec<na::Vector3<f32>>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Copy)]
 pub enum WrapMode {
     Repeat,
     Black,
@@ -97,11 +97,11 @@ pub enum WrapMode {
 
 #[derive(Clone)]
 pub struct SamplerInfo {
-    wrap_mode: WrapMode,
+    pub wrap_mode: WrapMode,
 }
 pub struct TextureInfo<T> {
-    image: T,
-    sampler_info: SamplerInfo,
+    pub image: T,
+    pub sampler_info: SamplerInfo,
 }
 
 pub struct PbrMetallicRoughness {
@@ -182,9 +182,10 @@ impl World {
             let mut alpha_texture = None;
             if let Some(texture) = material.pbr_metallic_roughness().base_color_texture() {
                 let image = &images[texture.texture().source().index()];
-
+                let sampler = &texture.texture().sampler();
+                assert_eq!(sampler.wrap_s(), sampler.wrap_t());
                 let sampler_info = SamplerInfo {
-                    wrap_mode: match texture.texture().sampler().wrap_s() {
+                    wrap_mode: match sampler.wrap_s() {
                         gltf::texture::WrappingMode::ClampToEdge => WrapMode::Clamp,
                         gltf::texture::WrappingMode::MirroredRepeat => WrapMode::Repeat,
                         gltf::texture::WrappingMode::Repeat => WrapMode::Repeat,
@@ -260,13 +261,13 @@ impl World {
     fn populate_meshes(&mut self, document: &gltf::Document, buffers: &[gltf::buffer::Data]) {
         for mesh in document.meshes() {
             for prim in mesh.primitives() {
-                let prim_indices_accessor_idx = prim.indices().unwrap().index();
+                let prim_pos_accessor_idx = prim.get(&gltf::Semantic::Positions).unwrap().index();
                 if !self
                     .mesh_prim_indice_map
-                    .contains_key(&prim_indices_accessor_idx)
+                    .contains_key(&prim_pos_accessor_idx)
                 {
                     self.mesh_prim_indice_map
-                        .insert(prim_indices_accessor_idx, self.meshes.len());
+                        .insert(prim_pos_accessor_idx, self.meshes.len());
 
                     let reader = prim.reader(|buffer| Some(&buffers[buffer.index()]));
                     self.meshes.push(Rc::new(Mesh {
@@ -361,12 +362,12 @@ impl World {
         let current_transform = *parent_transform * from_gltf(current_node.transform());
         if let Some(mesh) = current_node.mesh() {
             for prim in mesh.primitives() {
-                let prim_indices_accessor_idx = prim.indices().unwrap().index();
+                let prim_pos_accessor_idx = prim.get(&gltf::Semantic::Positions).unwrap().index();
                 self.objects.push(Object {
                     world_to_obj: current_transform.inverse(),
                     obj_to_world: current_transform,
                     mesh: Rc::clone(
-                        &self.meshes[self.mesh_prim_indice_map[&prim_indices_accessor_idx]],
+                        &self.meshes[self.mesh_prim_indice_map[&prim_pos_accessor_idx]],
                     ),
                     material: if let Some(idx) = prim.material().index() {
                         Rc::clone(&self.materials[idx + 1]) // default material on first idx

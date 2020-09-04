@@ -21,6 +21,14 @@ impl RGBSpectrum {
         }
     }
 
+    pub fn from_slice(slice: &[f32; 4]) -> Self {
+        Self {
+            r: inverse_gamma_correct(slice[0]),
+            g: inverse_gamma_correct(slice[1]),
+            b: inverse_gamma_correct(slice[2]),
+        }
+    }
+
     pub fn to_image_rgb(&self) -> image::Rgb<u8> {
         image::Rgb([
             (gamma_correct(self.r) * 255.0 + 0.5).clamp(0.0, 255.0) as u8,
@@ -108,6 +116,16 @@ impl Div<f32> for RGBSpectrum {
 impl PartialEq for RGBSpectrum {
     fn eq(&self, other: &Self) -> bool {
         self.r == other.r && self.g == other.g && self.b == other.b
+    }
+}
+
+impl num::Zero for RGBSpectrum {
+    fn zero() -> Self {
+        Self::new(0.0)
+    }
+
+    fn is_zero(&self) -> bool {
+        self.r == 0.0 && self.g == 0.0 && self.b == 0.0
     }
 }
 

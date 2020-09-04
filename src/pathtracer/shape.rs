@@ -1,8 +1,11 @@
-use super::{texture::SyncTexture, SurfaceInteraction};
+use super::{
+    texture::{ImageTexture, SyncTexture},
+    SurfaceInteraction,
+};
 use crate::common::bounds::Bounds3;
 use crate::common::math::*;
 use crate::common::ray::Ray;
-use crate::common::{Mesh, Object};
+use crate::common::{Mesh, Object, TextureInfo};
 use std::sync::Arc;
 
 pub trait Shape {
@@ -199,6 +202,23 @@ impl Shape for Triangle {
         let uv_hit = b0 * uv[0].coords + b1 * uv[1].coords + b2 * uv[2].coords;
 
         // Test intersection against alpha texture, if present
+        if let Some(alpha_mask) = self.mesh.alpha_mask.as_ref() {
+            let isect_local = SurfaceInteraction::new(
+                &na::Point3::from(p_hit),
+                &glm::zero(),
+                &na::Point2::from(uv_hit),
+                &-r.d,
+                &dpdu,
+                &dpdv,
+                &glm::zero(),
+                &glm::zero(),
+                0.0,
+                self,
+            );
+            if alpha_mask.evaluate(&isect_local) == 0.0 {
+                return false;
+            }
+        }
 
         // Fill in SurfaceInteraction from triangle hit
         (*isect) = SurfaceInteraction::new(
@@ -416,6 +436,59 @@ impl Shape for Triangle {
             return false;
         }
 
+        // Test shadow ray intersection against alpha texture, if present
+        if let Some(alpha_mask) = self.mesh.alpha_mask.as_ref() {
+            // Compute triangle partial derivatives
+            let mut dpdu = na::Vector3::new(0.0, 0.0, 0.0);
+            let mut dpdv = na::Vector3::new(0.0, 0.0, 0.0);
+            let uv = self.get_uvs();
+
+            // Compute deltas for triangle partial derivatives
+            let duv02 = uv[0] - uv[2];
+            let duv12 = uv[1] - uv[2];
+            let dp02 = p0 - p2;
+            let dp12 = p1 - p2;
+            let determinant = duv02[0] * duv12[1] - duv02[1] * duv12[0];
+            let degenerate_uv = determinant.abs() < 1e-8;
+
+            if !degenerate_uv {
+                let invdet = 1.0 / determinant;
+                dpdu = (duv12[1] * dp02 - duv02[1] * dp12) * invdet;
+                dpdv = (-duv12[0] * dp02 + duv02[0] * dp12) * invdet;
+            }
+            if degenerate_uv || dpdu.cross(&dpdv).norm_squared() == 0.0 {
+                // Handle zero determinant for triangle partial derivative matrix
+                let ng = (p2 - p0).cross(&(p1 - p0));
+                if ng.norm_squared() == 0.0 {
+                    // The triangle is actually degenerate; the intersection is
+                    // bogus.
+                    return false;
+                }
+
+                coordinate_system(&ng.normalize(), &mut dpdu, &mut dpdv);
+            }
+
+            // Interpolate (u,v) parametric coordinates and hit point
+            let p_hit = b0 * p0.coords + b1 * p1.coords + b2 * p2.coords;
+            let uv_hit = b0 * uv[0].coords + b1 * uv[1].coords + b2 * uv[2].coords;
+
+            let isect_local = SurfaceInteraction::new(
+                &na::Point3::from(p_hit),
+                &glm::zero(),
+                &na::Point2::from(uv_hit),
+                &-r.d,
+                &dpdu,
+                &dpdv,
+                &glm::zero(),
+                &glm::zero(),
+                0.0,
+                self,
+            );
+            if alpha_mask.evaluate(&isect_local) == 0.0 {
+                return false;
+            }
+        }
+
         return true;
     }
 
@@ -437,7 +510,19 @@ pub struct TriangleMesh {
     pub alpha_mask: Option<Arc<dyn SyncTexture<f32>>>,
 }
 
-pub fn shape_from_mesh(mesh: &Mesh, object: &Object) -> Vec<Box<dyn SyncShape>> {
+pub fn shape_from_mesh(
+    mesh: &Mesh,
+    object: &Object,
+    alpha_mask: Option<&TextureInfo<image::GrayImage>>,
+) -> Vec<Box<dyn SyncShape>> {
+    let mut alpha_mask_texture = None;
+    if let Some(alpha_mask_info) = alpha_mask {
+        alpha_mask_texture = Some(Arc::new(ImageTexture::<f32>::new(
+            &alpha_mask_info.image,
+            1.0,
+            alpha_mask_info.sampler_info.wrap_mode,
+        )) as Arc<dyn SyncTexture<f32>>);
+    }
     let mut world_mesh = TriangleMesh {
         indices: mesh.indices.clone(),
         pos: mesh.pos.clone(),
@@ -445,7 +530,7 @@ pub fn shape_from_mesh(mesh: &Mesh, object: &Object) -> Vec<Box<dyn SyncShape>> 
         s: mesh.s.clone(),
         uv: mesh.uv.clone(),
         colors: mesh.colors.clone(),
-        alpha_mask: None,
+        alpha_mask: alpha_mask_texture,
     };
 
     for pos in &mut world_mesh.pos {

@@ -12,29 +12,55 @@ pub struct ConstantTexture<T: Copy> {
     value: T,
 }
 
+impl<T: Copy> ConstantTexture<T> {
+    pub fn new(value: T) -> Self {
+        Self { value }
+    }
+}
+
 impl<T: Copy> Texture<T> for ConstantTexture<T> {
     fn evaluate(&self, it: &SurfaceInteraction) -> T {
         self.value
     }
 }
 
-fn uv_map(
-    it: &SurfaceInteraction,
-    dst_dx: &mut na::Vector2<f32>,
-    dst_dy: &mut na::Vector2<f32>,
-) -> na::Point2<f32> {
-    *dst_dx = na::Vector2::new(it.dudx, it.dvdx);
-    *dst_dy = na::Vector2::new(it.dudy, it.dvdy);
-
-    it.uv
+struct UVMap {
+    su: f32,
+    sv: f32,
+    du: f32,
+    dv: f32,
 }
 
-pub struct ImageTexture<T: na::Scalar> {
+impl UVMap {
+    pub fn new(su: f32, sv: f32) -> Self {
+        Self {
+            su,
+            sv,
+            du: 0.0,
+            dv: 0.0,
+        }
+    }
+
+    pub fn map(
+        &self,
+        it: &SurfaceInteraction,
+        dst_dx: &mut na::Vector2<f32>,
+        dst_dy: &mut na::Vector2<f32>,
+    ) -> na::Point2<f32> {
+        *dst_dx = na::Vector2::new(self.su * it.dudx, self.sv * it.dvdx);
+        *dst_dy = na::Vector2::new(self.su * it.dudy, self.sv * it.dvdy);
+
+        na::Point2::new(self.su * it.uv[0] + self.du, self.sv * it.uv[1] + self.dv)
+    }
+}
+
+pub struct ImageTexture<T: na::Scalar + num::Zero> {
     mip_map: MIPMap<T>,
+    mapping: UVMap,
 }
 
 impl ImageTexture<f32> {
-    pub fn new(image: image::GrayImage, scale: f32) -> Self {
+    pub fn new(image: &image::GrayImage, scale: f32, wrap_mode: WrapMode) -> Self {
         let matrix = na::DMatrix::<f32>::from_fn(
             image.height() as usize,
             image.width() as usize,
@@ -42,42 +68,48 @@ impl ImageTexture<f32> {
         );
 
         Self {
-            mip_map: MIPMap::new(matrix, false, WrapMode::Clamp),
+            mip_map: MIPMap::new(matrix, false, wrap_mode),
+            mapping: UVMap::new(image.width() as f32, image.height() as f32),
         }
     }
 }
 
 impl ImageTexture<Spectrum> {
-    pub fn new(image: image::RgbImage, scale: Spectrum) -> Self {
+    pub fn new(image: &image::RgbImage, scale: Spectrum, wrap_mode: WrapMode) -> Self {
         let matrix = na::DMatrix::<Spectrum>::from_fn(
             image.height() as usize,
             image.width() as usize,
-            |row, col| Spectrum::from_image_rgb(&image.get_pixel(col as u32, row as u32)),
+            |row, col| scale * Spectrum::from_image_rgb(&image.get_pixel(col as u32, row as u32)),
         );
 
         Self {
-            mip_map: MIPMap::new(matrix, false, WrapMode::Clamp),
+            mip_map: MIPMap::new(matrix, false, wrap_mode),
+            mapping: UVMap::new(image.width() as f32, image.height() as f32),
         }
     }
 }
 
-impl<T: na::Scalar> Texture<T> for ImageTexture<T> {
+impl<T: na::Scalar + num::Zero> Texture<T> for ImageTexture<T> {
     fn evaluate(&self, it: &SurfaceInteraction) -> T {
         let mut dst_dx = glm::zero();
         let mut dst_dy = glm::zero();
-        let st = uv_map(&it, &mut dst_dx, &mut dst_dy);
+        let st = self.mapping.map(&it, &mut dst_dx, &mut dst_dy);
         self.mip_map.lookup(&st, &dst_dx, &dst_dy)
     }
 }
 
-struct MIPMap<T: na::Scalar> {
+struct MIPMap<T: na::Scalar + num::Zero> {
     pyramid: Vec<na::DMatrix<T>>,
+    wrap_mode: WrapMode,
+    resolution: na::Point2<f32>,
 }
 
-impl<T: na::Scalar> MIPMap<T> {
+impl<T: na::Scalar + num::Zero> MIPMap<T> {
     fn new(image: na::DMatrix<T>, do_trilinear: bool, wrap_mode: WrapMode) -> Self {
         Self {
+            resolution: na::Point2::new(image.ncols() as f32, image.nrows() as f32),
             pyramid: vec![image],
+            wrap_mode,
         }
     }
 
@@ -87,6 +119,31 @@ impl<T: na::Scalar> MIPMap<T> {
         dst_dx: &na::Vector2<f32>,
         dst_dy: &na::Vector2<f32>,
     ) -> T {
-        self.pyramid[0][(st.x.floor() as usize, st.y.floor() as usize)].clone()
+        let ret;
+        match self.wrap_mode {
+            WrapMode::Repeat => {
+                let mut s = st[0] % self.resolution[0];
+                s = if s < 0.0 { s + self.resolution[0] } else { s };
+                let mut t = st[1] % self.resolution[1];
+                t = if t < 0.0 { t + self.resolution[1] } else { t };
+                trace!(
+                    "[Repeat] original: {:?}, {:?}, processed: {:?}, {:?}",
+                    st[0],
+                    st[1],
+                    s,
+                    t
+                );
+                ret = self.pyramid[0][(s.floor() as usize, t.floor() as usize)].clone();
+            }
+            WrapMode::Black => ret = num::zero(),
+            WrapMode::Clamp => {
+                let s = st[0].clamp(0.0, self.resolution[0]);
+                let t = st[1].clamp(0.0, self.resolution[1]);
+                ret = self.pyramid[0][(s.floor() as usize, t.floor() as usize)].clone();
+            }
+        }
+        trace!("sampled value: {:?}", ret);
+
+        ret
     }
 }
