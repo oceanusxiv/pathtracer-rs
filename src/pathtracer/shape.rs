@@ -242,7 +242,7 @@ impl Shape for Triangle {
             // Initialize _Triangle_ shading geometry
 
             // Compute shading normal _ns_ for triangle
-            let mut ns = isect.general.n;
+            let mut ns;
             if !self.mesh.normal.is_empty() {
                 let n0 = self.mesh.normal[self.indices[0] as usize];
                 let n1 = self.mesh.normal[self.indices[1] as usize];
@@ -253,10 +253,12 @@ impl Shape for Triangle {
                 } else {
                     ns = isect.general.n;
                 }
+            } else {
+                ns = isect.general.n
             }
 
             // Compute shading tangent _ss_ for triangle
-            let mut ss = isect.dpdu.normalize();
+            let mut ss;
             if !self.mesh.s.is_empty() {
                 let s0 = self.mesh.s[self.indices[0] as usize];
                 let s1 = self.mesh.s[self.indices[1] as usize];
@@ -268,6 +270,8 @@ impl Shape for Triangle {
                 } else {
                     ss = isect.dpdu.normalize();
                 }
+            } else {
+                ss = isect.dpdu.normalize()
             }
 
             // Compute shading bitangent _ts_ for triangle and adjust _ss_

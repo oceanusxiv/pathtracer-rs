@@ -6,6 +6,7 @@ use super::{
 };
 use crate::common::{self, spectrum::Spectrum};
 use ambassador::{delegatable_trait, Delegate};
+use common::math::coordinate_system;
 
 #[delegatable_trait]
 pub trait MaterialInterface {
@@ -72,13 +73,39 @@ impl Material {
 }
 
 pub fn normal_mapping(d: &Box<dyn SyncTexture<na::Vector3<f32>>>, si: &mut SurfaceInteraction) {
-    trace!("normal was: {:?}", si.shading.n);
+    trace!(
+        "tangent space was: {:?} | {:?}, {:?} | {:?}, {:?} | {:?}",
+        si.shading.dpdu,
+        si.shading.dpdu.norm(),
+        si.shading.dpdv,
+        si.shading.dpdv.norm(),
+        si.shading.n,
+        si.shading.n.norm(),
+    );
+    let tbn = na::Matrix3::from_columns(&[si.shading.dpdu, si.shading.dpdv, si.shading.n]);
     let texture_n = d.evaluate(&si).normalize();
-    let n_diff = texture_n - na::Vector3::new(0.0, 0.0, 1.0);
-    si.shading.n = (si.shading.n + n_diff).normalize();
-    si.shading.dpdu = (si.shading.dpdu + n_diff).normalize();
-    si.shading.dpdv = (si.shading.dpdv + n_diff).normalize();
-    trace!("normal is now: {:?}", si.shading.n);
+    let ns = (tbn * texture_n).normalize();
+    let mut ss = si.shading.dpdu;
+    let mut ts = ss.cross(&ns);
+    if ts.norm_squared() > 0.0 {
+        ts = ts.normalize();
+        ss = ts.cross(&ns);
+    } else {
+        coordinate_system(&ns, &mut ss, &mut ts);
+    }
+
+    si.shading.n = ns;
+    si.shading.dpdu = ss;
+    si.shading.dpdv = ts;
+    trace!(
+        "tangent space is now: {:?} | {:?}, {:?} | {:?}, {:?} | {:?}",
+        si.shading.dpdu,
+        si.shading.dpdu.norm(),
+        si.shading.dpdv,
+        si.shading.dpdv.norm(),
+        si.shading.n,
+        si.shading.n.norm(),
+    );
 }
 
 pub struct MatteMaterial {
@@ -103,6 +130,7 @@ impl MaterialInterface for MatteMaterial {
 
         let mut bsdf = BSDF::new(&si, 1.0);
         let r = self.Kd.evaluate(&si);
+        let r = Spectrum::new(1.0);
         bsdf.add(BxDF::Lambertian(LambertianReflection::new(r)));
 
         si.bsdf = Some(bsdf);
