@@ -82,11 +82,14 @@ struct LinearBVHNode {
 pub struct BVH {
     primitives: Vec<Arc<dyn SyncPrimitive>>,
     nodes: Box<[LinearBVHNode]>,
+    log: slog::Logger,
 }
 
 impl BVH {
-    pub fn new(primitives: Vec<Arc<dyn SyncPrimitive>>, max_prims_in_node: &usize) -> Self {
+    pub fn new(log: &slog::Logger, primitives: Vec<Arc<dyn SyncPrimitive>>, max_prims_in_node: &usize) -> Self {
         let start = Instant::now();
+
+        let log = log.new(o!());
 
         let mut primitive_info = Vec::<BVHPrimitiveInfo>::with_capacity(primitives.len());
 
@@ -112,9 +115,10 @@ impl BVH {
         BVH::flatten_bvh_tree(&root, &mut nodes, &mut offset);
 
         let duration = start.elapsed();
-        debug!("bvh tree took {:?} to construct", duration);
+        debug!(log, "bvh tree took {:?} to construct", duration);
         let nodes = unsafe { nodes.assume_init() };
         Self {
+            log,
             primitives: ordered_prims,
             nodes,
         }

@@ -105,12 +105,15 @@ pub struct Viewer {
     size: winit::dpi::PhysicalSize<u32>,
     camera_controller: OrbitalCameraController,
     mouse_pressed: bool,
+    log: slog::Logger, 
     pub state: ViewerState,
     pub draw_wireframe: bool,
 }
 
 impl Viewer {
-    pub async fn new(window: &Window, world: &World, camera: &Camera) -> Self {
+    pub async fn new(log: &slog::Logger, window: &Window, world: &World, camera: &Camera) -> Self {
+        let log = log.new(o!());
+
         let camera_controller = OrbitalCameraController::new(glm::vec3(0.0, 0.0, 0.0), 50.0, 0.01);
 
         let size = window.inner_size();
@@ -127,7 +130,7 @@ impl Viewer {
         .await
         .unwrap();
 
-        debug!("{:?}", adapter.get_info());
+        debug!(log, "{:?}", adapter.get_info());
 
         let (device, queue) = adapter
             .request_device(&wgpu::DeviceDescriptor {
@@ -224,6 +227,7 @@ impl Viewer {
             size,
             camera_controller,
             mouse_pressed: false,
+            log,
             state: ViewerState::RenderScene,
             draw_wireframe: false,
         }

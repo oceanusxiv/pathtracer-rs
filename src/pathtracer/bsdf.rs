@@ -13,10 +13,12 @@ pub struct BSDF {
     ts: na::Vector3<f32>,
     n_bxdfs: usize,
     bxdfs: [Option<BxDF>; MAX_BXDFS],
+    log: slog::Logger,
 }
 
 impl BSDF {
-    pub fn new(si: &SurfaceInteraction, eta: f32) -> Self {
+    pub fn new(log: &slog::Logger, si: &SurfaceInteraction, eta: f32) -> Self {
+        let log = log.new(o!());
         let ns = si.shading.n;
         let ss = si.shading.dpdu.normalize();
         Self {
@@ -27,6 +29,7 @@ impl BSDF {
             ts: ns.cross(&ss),
             n_bxdfs: 0,
             bxdfs: Default::default(),
+            log,
         }
     }
 
@@ -143,20 +146,20 @@ impl BSDF {
             return Spectrum::new(0.0);
         }
         let reflect = wi_w.dot(&self.ng) * wo_w.dot(&self.ng) > 0.0;
-        if log_enabled!(log::Level::Trace) {
-            trace!("local wi: {:?}, local wo: {:?}", wi, wo);
-            trace!("ng: {:?}, ns: {:?}", self.ng, self.ns);
-            trace!(
-                "wi_w dot ng: {:?}, wo_w dot ng: {:?}",
+
+            trace!(self.log, "local wi: {:?}, local wo: {:?}", wi, wo);
+            trace!(self.log, "ng: {:?}, ns: {:?}", self.ng, self.ns);
+            trace!(self.log, "f"; "w ng dots" => slog::FnValue(|_ : &slog::Record| 
+                format!("wi_w dot ng: {:?}, wo_w dot ng: {:?}",
                 wi_w.dot(&self.ng),
-                wo_w.dot(&self.ng)
-            );
-            trace!(
-                "wi_w dot ns: {:?}, wo_w dot ns: {:?}",
+                wo_w.dot(&self.ng))
+            ));
+
+            trace!(self.log, "f"; "w ns dots" => slog::FnValue(|_ : &slog::Record| 
+                format!("wi_w dot ns: {:?}, wo_w dot ns: {:?}",
                 wi_w.dot(&self.ns),
-                wo_w.dot(&self.ns)
-            );
-        }
+                wo_w.dot(&self.ns))
+            ));
         let mut f = Spectrum::new(0.0);
 
         for i in 0..self.n_bxdfs {

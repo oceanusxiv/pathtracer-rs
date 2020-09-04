@@ -515,6 +515,7 @@ pub struct TriangleMesh {
 }
 
 pub fn shape_from_mesh(
+    log: &slog::Logger,
     mesh: &Mesh,
     object: &Object,
     alpha_mask: Option<&TextureInfo<image::GrayImage>>,
@@ -522,6 +523,7 @@ pub fn shape_from_mesh(
     let mut alpha_mask_texture = None;
     if let Some(alpha_mask_info) = alpha_mask {
         alpha_mask_texture = Some(Arc::new(ImageTexture::<f32>::new(
+            log,
             &alpha_mask_info.image,
             1.0,
             alpha_mask_info.sampler_info.wrap_mode,

@@ -10,7 +10,9 @@ extern crate bitflags;
 extern crate hexf;
 
 #[macro_use]
-extern crate log;
+extern crate slog;
+extern crate slog_async;
+extern crate slog_term;
 
 extern crate nalgebra as na;
 extern crate nalgebra_glm as glm;
@@ -27,6 +29,7 @@ use winit::{
     event_loop::{ControlFlow, EventLoop},
     window::WindowBuilder,
 };
+use slog::Drain;
 
 fn sample_arg_legal(val: String) -> Result<(), String> {
     if let Ok(val) = val.parse::<f64>() {
@@ -41,7 +44,11 @@ fn sample_arg_legal(val: String) -> Result<(), String> {
 }
 
 fn main() {
-    env_logger::Builder::from_default_env().init();
+    let decorator = slog_term::PlainDecorator::new(std::io::stdout());
+    let drain = slog_term::CompactFormat::new(decorator).build().fuse();
+    let drain = slog_async::Async::new(drain).build().fuse();
+
+    let log = slog::Logger::root(drain, o!());
 
     let matches = clap_app!(pathtracer_rs =>
         (version: "1.0")
@@ -62,12 +69,12 @@ fn main() {
         .parse::<usize>()
         .unwrap();
     let (world, mut camera) = common::World::from_gltf(scene_path);
-    let render_scene = pathtracer::RenderScene::from_world(&world);
+    let render_scene = pathtracer::RenderScene::from_world(&log, &world);
     let sampler =
         pathtracer::sampling::Sampler::new(pixel_samples_sqrt, pixel_samples_sqrt, true, 8);
-    let integrator = pathtracer::DirectLightingIntegrator::new(sampler);
+    let integrator = pathtracer::DirectLightingIntegrator::new(&log, sampler);
 
-    debug!("camera starting at: {:?}", camera.cam_to_world);
+    debug!(log, "camera starting at: {:?}", camera.cam_to_world);
 
     let event_loop = EventLoop::new();
     let window = WindowBuilder::new()
@@ -77,7 +84,7 @@ fn main() {
         )))
         .build(&event_loop)
         .unwrap();
-    let mut viewer = futures::executor::block_on(viewer::Viewer::new(&window, &world, &camera));
+    let mut viewer = futures::executor::block_on(viewer::Viewer::new(&log, &window, &world, &camera));
 
     let mut last_render_time = std::time::Instant::now();
     let mut cursor_in_window = true;

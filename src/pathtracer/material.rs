@@ -21,13 +21,14 @@ pub enum Material {
 }
 
 impl Material {
-    pub fn from_gltf(gltf_material: &common::Material) -> Self {
+    pub fn from_gltf(log: &slog::Logger, gltf_material: &common::Material) -> Self {
         let pbr = &gltf_material.pbr_metallic_roughness;
         let color_factor = Spectrum::from_slice(&pbr.base_color_factor, true);
         let color_texture;
         let normal_map;
         if let Some(color_info) = pbr.color_texture.as_ref() {
             color_texture = Box::new(ImageTexture::<Spectrum>::new(
+                log,
                 &color_info.image,
                 color_factor,
                 color_info.sampler_info.wrap_mode,
@@ -46,6 +47,7 @@ impl Material {
 
         if let Some(normal_map_info) = pbr.normal_map.as_ref() {
             normal_map = Some(Box::new(NormalMap::new(
+                log,
                 &normal_map_info.texture.image,
                 normal_map_info.scale,
                 normal_map_info.texture.sampler_info.wrap_mode,
@@ -61,19 +63,20 @@ impl Material {
         }
 
         if pbr.metallic_factor == 1.0 && pbr.roughness_factor == 0.0 {
-            return Material::Mirror(MirrorMaterial {});
+            return Material::Mirror(MirrorMaterial::new(log));
         }
 
         if pbr.metallic_factor == 0.0 && pbr.roughness_factor == 0.0 {
-            return Material::Matte(MatteMaterial::new(color_texture, normal_map));
+            return Material::Matte(MatteMaterial::new(log, color_texture, normal_map));
         }
 
-        Material::Matte(MatteMaterial::new(color_texture, normal_map))
+        Material::Matte(MatteMaterial::new(log, color_texture, normal_map))
     }
 }
 
-pub fn normal_mapping(d: &Box<dyn SyncTexture<na::Vector3<f32>>>, si: &mut SurfaceInteraction) {
+pub fn normal_mapping(log: &slog::Logger, d: &Box<dyn SyncTexture<na::Vector3<f32>>>, si: &mut SurfaceInteraction) {
     trace!(
+        log,
         "tangent space was: {:?} | {:?}, {:?} | {:?}, {:?} | {:?}",
         si.shading.dpdu,
         si.shading.dpdu.norm(),
@@ -98,6 +101,7 @@ pub fn normal_mapping(d: &Box<dyn SyncTexture<na::Vector3<f32>>>, si: &mut Surfa
     si.shading.dpdu = ss;
     si.shading.dpdv = ts;
     trace!(
+        log,
         "tangent space is now: {:?} | {:?}, {:?} | {:?}, {:?} | {:?}",
         si.shading.dpdu,
         si.shading.dpdu.norm(),
@@ -111,24 +115,27 @@ pub fn normal_mapping(d: &Box<dyn SyncTexture<na::Vector3<f32>>>, si: &mut Surfa
 pub struct MatteMaterial {
     Kd: Box<dyn SyncTexture<Spectrum>>,
     normal_map: Option<Box<dyn SyncTexture<na::Vector3<f32>>>>,
+    log: slog::Logger,
 }
 
 impl MatteMaterial {
     pub fn new(
+        log: &slog::Logger,
         Kd: Box<dyn SyncTexture<Spectrum>>,
         normal_map: Option<Box<dyn SyncTexture<na::Vector3<f32>>>>,
     ) -> Self {
-        Self { Kd, normal_map }
+        let log = log.new(o!());
+        Self { Kd, normal_map, log }
     }
 }
 
 impl MaterialInterface for MatteMaterial {
     fn compute_scattering_functions(&self, mut si: &mut SurfaceInteraction, _mode: TransportMode) {
         if let Some(normal_map) = self.normal_map.as_ref() {
-            normal_mapping(normal_map, &mut si);
+            normal_mapping(&self.log, normal_map, &mut si);
         }
 
-        let mut bsdf = BSDF::new(&si, 1.0);
+        let mut bsdf = BSDF::new(&self.log, &si, 1.0);
         let r = self.Kd.evaluate(&si);
         let r = Spectrum::new(1.0);
         bsdf.add(BxDF::Lambertian(LambertianReflection::new(r)));
@@ -137,11 +144,22 @@ impl MaterialInterface for MatteMaterial {
     }
 }
 
-pub struct MirrorMaterial {}
+pub struct MirrorMaterial {
+    log: slog::Logger,
+}
+
+impl MirrorMaterial {
+    pub fn new(log: &slog::Logger) -> Self {
+        let log = log.new(o!());
+        Self {
+            log,
+        }
+    }
+}
 
 impl MaterialInterface for MirrorMaterial {
     fn compute_scattering_functions(&self, si: &mut SurfaceInteraction, _mode: TransportMode) {
-        let mut bsdf = BSDF::new(&si, 1.0);
+        let mut bsdf = BSDF::new(&self.log, &si, 1.0);
         let r = Spectrum::new(1.0);
         bsdf.add(BxDF::SpecularReflection(SpecularReflection::new(
             r,

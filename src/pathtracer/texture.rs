@@ -52,25 +52,30 @@ impl UVMap {
 pub struct ImageTexture<T: na::Scalar + num::Zero> {
     mip_map: MIPMap<T>,
     mapping: UVMap,
+    log: slog::Logger,
 }
 
 impl ImageTexture<f32> {
-    pub fn new(image: &image::GrayImage, scale: f32, wrap_mode: WrapMode, mapping: UVMap) -> Self {
+    pub fn new(log: &slog::Logger, image: &image::GrayImage, scale: f32, wrap_mode: WrapMode, mapping: UVMap) -> Self {
         let matrix = na::DMatrix::from_fn(
             image.height() as usize,
             image.width() as usize,
             |row, col| scale * (image.get_pixel(col as u32, row as u32)[0] as f32 / 255.0),
         );
 
+        let log = log.new(o!());
+
         Self {
-            mip_map: MIPMap::new(matrix, false, wrap_mode),
+            mip_map: MIPMap::new(&log, matrix, false, wrap_mode),
             mapping,
+            log,
         }
     }
 }
 
 impl ImageTexture<Spectrum> {
     pub fn new(
+        log: &slog::Logger,
         image: &image::RgbImage,
         scale: Spectrum,
         wrap_mode: WrapMode,
@@ -85,15 +90,18 @@ impl ImageTexture<Spectrum> {
             },
         );
 
+        let log = log.new(o!());
+
         Self {
-            mip_map: MIPMap::new(matrix, false, wrap_mode),
+            mip_map: MIPMap::new(&log, matrix, false, wrap_mode),
             mapping,
+            log,
         }
     }
 }
 
 impl ImageTexture<na::Vector3<f32>> {
-    pub fn new(image: &image::RgbImage, scale: f32, wrap_mode: WrapMode, mapping: UVMap) -> Self {
+    pub fn new(log: &slog::Logger, image: &image::RgbImage, scale: f32, wrap_mode: WrapMode, mapping: UVMap) -> Self {
         let matrix = na::DMatrix::from_fn(
             image.height() as usize,
             image.width() as usize,
@@ -108,9 +116,12 @@ impl ImageTexture<na::Vector3<f32>> {
             },
         );
 
+        let log = log.new(o!());
+
         Self {
-            mip_map: MIPMap::new(matrix, false, wrap_mode),
+            mip_map: MIPMap::new(&log, matrix, false, wrap_mode),
             mapping,
+            log,
         }
     }
 }
@@ -121,7 +132,7 @@ impl<T: na::Scalar + num::Zero> Texture<T> for ImageTexture<T> {
     fn evaluate(&self, it: &SurfaceInteraction) -> T {
         let mut dst_dx = glm::zero();
         let mut dst_dy = glm::zero();
-        trace!("current mesh uv: {:?}", it.uv);
+        trace!(self.log, "current mesh uv: {:?}", it.uv);
         let st = self.mapping.map(&it, &mut dst_dx, &mut dst_dy);
         self.mip_map.lookup(&st, &dst_dx, &dst_dy)
     }
@@ -131,14 +142,17 @@ struct MIPMap<T: na::Scalar + num::Zero> {
     pyramid: Vec<na::DMatrix<T>>,
     wrap_mode: WrapMode,
     resolution: na::Point2<f32>,
+    log: slog::Logger,
 }
 
 impl<T: na::Scalar + num::Zero> MIPMap<T> {
-    fn new(image: na::DMatrix<T>, do_trilinear: bool, wrap_mode: WrapMode) -> Self {
+    fn new(log: &slog::Logger, image: na::DMatrix<T>, do_trilinear: bool, wrap_mode: WrapMode) -> Self {
+        let log = log.new(o!());
         Self {
             resolution: na::Point2::new(image.ncols() as f32, image.nrows() as f32),
             pyramid: vec![image],
             wrap_mode,
+            log,
         }
     }
 
@@ -155,7 +169,7 @@ impl<T: na::Scalar + num::Zero> MIPMap<T> {
                 s = if s < 0.0 { s + self.resolution[0] } else { s };
                 let mut t = st[1] % self.resolution[1];
                 t = if t < 0.0 { t + self.resolution[1] } else { t };
-                trace!(
+                trace!(self.log, 
                     "[Repeat] original: {:?}, {:?}, processed: {:?}, {:?}",
                     st[0],
                     st[1],
@@ -175,7 +189,7 @@ impl<T: na::Scalar + num::Zero> MIPMap<T> {
                 ret = self.pyramid[0][(t.floor() as usize, s.floor() as usize)].clone();
             }
         }
-        trace!("sampled value: {:?}", ret);
+        trace!(self.log, "sampled value: {:?}", ret);
 
         ret
     }
