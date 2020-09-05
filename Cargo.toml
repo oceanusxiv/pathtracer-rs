@@ -50,3 +50,4 @@ features = ["extern_crate_alloc"]
 
 [dependencies.gltf]
 version = "^0.13"
+features = ["KHR_lights_punctual"]

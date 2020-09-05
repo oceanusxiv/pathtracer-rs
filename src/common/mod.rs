@@ -183,6 +183,10 @@ impl World {
         (world, camera)
     }
 
+    fn populate_lights(&mut self, document: &gltf::Document) {
+        
+    }
+
     fn populate_materials(&mut self, document: &gltf::Document, images: &[gltf::image::Data]) {
         for material in document.materials() {
             let mut color_texture = None;
