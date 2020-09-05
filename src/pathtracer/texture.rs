@@ -101,16 +101,15 @@ impl ImageTexture<Spectrum> {
 }
 
 impl ImageTexture<na::Vector3<f32>> {
-    pub fn new(log: &slog::Logger, image: &image::RgbImage, scale: f32, wrap_mode: WrapMode, mapping: UVMap) -> Self {
+    pub fn new(log: &slog::Logger, image: &image::RgbImage, scale: na::Vector2<f32>, wrap_mode: WrapMode, mapping: UVMap) -> Self {
         let matrix = na::DMatrix::from_fn(
             image.height() as usize,
             image.width() as usize,
             |row, col| {
                 let pixel = &image.get_pixel(col as u32, row as u32);
-                scale
-                    * na::Vector3::new(
-                        pixel[0] as f32 / 127.5 - 1.0,
-                        pixel[1] as f32 / 127.5 - 1.0,
+                    na::Vector3::new(
+                        scale[0] * (pixel[0] as f32 / 127.5 - 1.0),
+                        scale[1] * (pixel[1] as f32 / 127.5 - 1.0),
                         pixel[2] as f32 / 127.5 - 1.0,
                     )
             },

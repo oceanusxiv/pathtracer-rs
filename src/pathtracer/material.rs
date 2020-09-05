@@ -49,7 +49,7 @@ impl Material {
             normal_map = Some(Box::new(NormalMap::new(
                 log,
                 &normal_map_info.texture.image,
-                normal_map_info.scale,
+                na::Vector2::new(normal_map_info.scale, normal_map_info.scale),
                 normal_map_info.texture.sampler_info.wrap_mode,
                 UVMap::new(
                     normal_map_info.texture.image.width() as f32,

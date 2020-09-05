@@ -53,6 +53,7 @@ fn main() {
     let drain = slog_atomic::AtomicSwitch::new(info_drain);
     let ctrl = drain.ctrl();
     let log = slog::Logger::root(drain.fuse(), o!());
+    let mut trace_mode = false;
 
     let matches = clap_app!(pathtracer_rs =>
         (version: "1.0")
@@ -150,8 +151,15 @@ fn main() {
                             virtual_keycode: Some(VirtualKeyCode::T),
                             ..
                         } => {
-                            info!(log, "setting log level to trace");
-                            ctrl.set(new_drain(slog::Level::Trace));
+                            if trace_mode {
+                                info!(log, "setting log level to info");
+                                ctrl.set(new_drain(slog::Level::Info));
+                            } else {
+                                info!(log, "setting log level to trace");
+                                ctrl.set(new_drain(slog::Level::Trace));
+                            }
+                            trace_mode = !trace_mode;
+
                         }
                         _ => {}
                     },
