@@ -4,7 +4,7 @@ version = "0.1.0"
 authors = ["Eric Fang <eric1221bday@gmail.com>"]
 edition = "2018"
 
-[[bin]]
+[[example]]
 name = "small_scene"
 
 [profile.release]
