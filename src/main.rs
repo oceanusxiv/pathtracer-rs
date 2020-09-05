@@ -53,7 +53,7 @@ fn main() {
 
     let scene_path = matches.value_of("SCENE").unwrap();
     let output_path = Path::new(matches.value_of("output").unwrap()).join("render.png");
-    let pixel_samples_sqrt = matches
+    let mut pixel_samples_sqrt = matches
         .value_of("samples")
         .unwrap()
         .parse::<usize>()
@@ -62,7 +62,7 @@ fn main() {
     let render_scene = pathtracer::RenderScene::from_world(&log, &world);
     let sampler =
         pathtracer::sampling::Sampler::new(pixel_samples_sqrt, pixel_samples_sqrt, true, 8);
-    let integrator = pathtracer::DirectLightingIntegrator::new(&log, sampler);
+    let mut integrator = pathtracer::DirectLightingIntegrator::new(&log, sampler);
 
     debug!(log, "camera starting at: {:?}", camera.cam_to_world);
 
@@ -145,6 +145,24 @@ fn main() {
                                 ctrl.set(new_drain(slog::Level::Trace));
                             }
                             trace_mode = !trace_mode;
+                        }
+                        KeyboardInput {
+                            state: ElementState::Pressed,
+                            virtual_keycode: Some(VirtualKeyCode::Up),
+                            ..
+                        } => {
+                            pixel_samples_sqrt += 1;
+                            info!(log, "pixel sample count now {:?}", pixel_samples_sqrt * pixel_samples_sqrt);
+                            integrator.set_sampler(pathtracer::sampling::Sampler::new(pixel_samples_sqrt, pixel_samples_sqrt, true, 8));
+                        }
+                        KeyboardInput {
+                            state: ElementState::Pressed,
+                            virtual_keycode: Some(VirtualKeyCode::Down),
+                            ..
+                        } => {
+                            pixel_samples_sqrt = 1.max(pixel_samples_sqrt - 1);
+                            info!(log, "pixel sample count now {:?}", pixel_samples_sqrt * pixel_samples_sqrt);
+                            integrator.set_sampler(pathtracer::sampling::Sampler::new(pixel_samples_sqrt, pixel_samples_sqrt, true, 8));
                         }
                         _ => {}
                     },

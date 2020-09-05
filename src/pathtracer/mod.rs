@@ -96,7 +96,7 @@ impl RenderScene {
                 Light::Directional(DirectionalLight::new(
                     na::convert(na::Translation3::new(1.0, 3.5, 0.0)),
                     Spectrum::new(10.0),
-                    na::Vector3::new(1.0, 1.0, 1.0),
+                    na::Vector3::new(0.0, 1.0, 0.5),
                 )),
                 Light::Point(PointLight::new(
                     na::convert(na::Translation3::new(1.0, 3.5, 0.0)),
@@ -154,6 +154,10 @@ impl RenderScene {
     }
 }
 
+pub enum LightStrategy {
+    UniformSampleAll, UniformSampleOne,
+}
+
 pub struct DirectLightingIntegrator {
     sampler: sampling::Sampler,
     log: slog::Logger,
@@ -163,6 +167,14 @@ impl DirectLightingIntegrator {
     pub fn new(log: &slog::Logger, sampler: sampling::Sampler) -> Self {
         let log = log.new(o!("integrator" => "direct lighting integrator"));
         Self { sampler, log }
+    }
+
+    pub fn set_sampler(&mut self, sampler: sampling::Sampler) {
+        self.sampler = sampler;
+    }
+
+    pub fn preprocess() {
+
     }
 
     fn specular_reflect(
