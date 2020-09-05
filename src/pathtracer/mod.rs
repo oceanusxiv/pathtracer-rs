@@ -303,7 +303,8 @@ impl DirectLightingIntegrator {
                 &mut pdf,
                 &mut visibility,
             );
-            trace!(self.log, 
+            trace!(
+                self.log,
                 "light {:p} gives li: {:?} for intersection point: {:?}",
                 light,
                 li,
@@ -342,7 +343,11 @@ impl DirectLightingIntegrator {
         scene: &RenderScene,
     ) {
         trace!(self.log, "render single pixel: {:?}", pixel);
-        trace!(self.log, "camera at location: {:?}", camera.cam_to_world.translation);
+        trace!(
+            self.log,
+            "camera at location: {:?}",
+            camera.cam_to_world.translation
+        );
         let mut pixel_sampler = self.sampler.clone_with_seed(0);
         pixel_sampler.start_pixel(&pixel);
 
@@ -361,11 +366,16 @@ impl DirectLightingIntegrator {
             }
         }
 
-        trace!(self.log, "actual image color: {:?}", camera.film.get_pixel(&pixel));
+        trace!(
+            self.log,
+            "actual image color: {:?}",
+            camera.film.get_pixel(&pixel)
+        );
     }
 
     pub fn render(&self, camera: &mut Camera, scene: &RenderScene) {
-        debug!(self.log, 
+        debug!(
+            self.log,
             "start rendering image of size: {:?}",
             camera.film.get_sample_bounds().diagonal(),
         );

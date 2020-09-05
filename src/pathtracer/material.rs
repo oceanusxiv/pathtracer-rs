@@ -74,8 +74,12 @@ impl Material {
     }
 }
 
-// FIMXE: definitely something wrong with the TBN calculations, normals not correct
-pub fn normal_mapping(log: &slog::Logger, d: &Box<dyn SyncTexture<na::Vector3<f32>>>, si: &mut SurfaceInteraction) {
+// FIXME: definitely something wrong with the TBN calculations, normals not correct
+pub fn normal_mapping(
+    log: &slog::Logger,
+    d: &Box<dyn SyncTexture<na::Vector3<f32>>>,
+    si: &mut SurfaceInteraction,
+) {
     trace!(
         log,
         "tangent space was: {:?} | {:?}, {:?} | {:?}, {:?} | {:?}",
@@ -126,7 +130,11 @@ impl MatteMaterial {
         normal_map: Option<Box<dyn SyncTexture<na::Vector3<f32>>>>,
     ) -> Self {
         let log = log.new(o!());
-        Self { Kd, normal_map, log }
+        Self {
+            Kd,
+            normal_map,
+            log,
+        }
     }
 }
 
@@ -151,9 +159,7 @@ pub struct MirrorMaterial {
 impl MirrorMaterial {
     pub fn new(log: &slog::Logger) -> Self {
         let log = log.new(o!());
-        Self {
-            log,
-        }
+        Self { log }
     }
 }
 

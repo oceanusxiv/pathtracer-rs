@@ -105,7 +105,7 @@ pub struct Viewer {
     size: winit::dpi::PhysicalSize<u32>,
     camera_controller: OrbitalCameraController,
     mouse_pressed: bool,
-    log: slog::Logger, 
+    log: slog::Logger,
     pub state: ViewerState,
     pub draw_wireframe: bool,
 }

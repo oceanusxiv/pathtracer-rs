@@ -56,7 +56,13 @@ pub struct ImageTexture<T: na::Scalar + num::Zero> {
 }
 
 impl ImageTexture<f32> {
-    pub fn new(log: &slog::Logger, image: &image::GrayImage, scale: f32, wrap_mode: WrapMode, mapping: UVMap) -> Self {
+    pub fn new(
+        log: &slog::Logger,
+        image: &image::GrayImage,
+        scale: f32,
+        wrap_mode: WrapMode,
+        mapping: UVMap,
+    ) -> Self {
         let matrix = na::DMatrix::from_fn(
             image.height() as usize,
             image.width() as usize,
@@ -101,17 +107,23 @@ impl ImageTexture<Spectrum> {
 }
 
 impl ImageTexture<na::Vector3<f32>> {
-    pub fn new(log: &slog::Logger, image: &image::RgbImage, scale: na::Vector2<f32>, wrap_mode: WrapMode, mapping: UVMap) -> Self {
+    pub fn new(
+        log: &slog::Logger,
+        image: &image::RgbImage,
+        scale: na::Vector2<f32>,
+        wrap_mode: WrapMode,
+        mapping: UVMap,
+    ) -> Self {
         let matrix = na::DMatrix::from_fn(
             image.height() as usize,
             image.width() as usize,
             |row, col| {
                 let pixel = &image.get_pixel(col as u32, row as u32);
-                    na::Vector3::new(
-                        scale[0] * (pixel[0] as f32 / 127.5 - 1.0),
-                        scale[1] * (pixel[1] as f32 / 127.5 - 1.0),
-                        pixel[2] as f32 / 127.5 - 1.0,
-                    )
+                na::Vector3::new(
+                    scale[0] * (pixel[0] as f32 / 127.5 - 1.0),
+                    scale[1] * (pixel[1] as f32 / 127.5 - 1.0),
+                    pixel[2] as f32 / 127.5 - 1.0,
+                )
             },
         );
 
@@ -145,7 +157,12 @@ struct MIPMap<T: na::Scalar + num::Zero> {
 }
 
 impl<T: na::Scalar + num::Zero> MIPMap<T> {
-    fn new(log: &slog::Logger, image: na::DMatrix<T>, do_trilinear: bool, wrap_mode: WrapMode) -> Self {
+    fn new(
+        log: &slog::Logger,
+        image: na::DMatrix<T>,
+        do_trilinear: bool,
+        wrap_mode: WrapMode,
+    ) -> Self {
         let log = log.new(o!());
         Self {
             resolution: na::Point2::new(image.ncols() as f32, image.nrows() as f32),
@@ -168,7 +185,8 @@ impl<T: na::Scalar + num::Zero> MIPMap<T> {
                 s = if s < 0.0 { s + self.resolution[0] } else { s };
                 let mut t = st[1] % self.resolution[1];
                 t = if t < 0.0 { t + self.resolution[1] } else { t };
-                trace!(self.log, 
+                trace!(
+                    self.log,
                     "[Repeat] original: {:?}, {:?}, processed: {:?}, {:?}",
                     st[0],
                     st[1],

@@ -147,19 +147,19 @@ impl BSDF {
         }
         let reflect = wi_w.dot(&self.ng) * wo_w.dot(&self.ng) > 0.0;
 
-            trace!(self.log, "local wi: {:?}, local wo: {:?}", wi, wo);
-            trace!(self.log, "ng: {:?}, ns: {:?}", self.ng, self.ns);
-            trace!(self.log, "f"; "w ng dots" => slog::FnValue(|_ : &slog::Record| 
-                format!("wi_w dot ng: {:?}, wo_w dot ng: {:?}",
-                wi_w.dot(&self.ng),
-                wo_w.dot(&self.ng))
-            ));
+        trace!(self.log, "local wi: {:?}, local wo: {:?}", wi, wo);
+        trace!(self.log, "ng: {:?}, ns: {:?}", self.ng, self.ns);
+        trace!(self.log, "f"; "w ng dots" => slog::FnValue(|_ : &slog::Record|
+            format!("wi_w dot ng: {:?}, wo_w dot ng: {:?}",
+            wi_w.dot(&self.ng),
+            wo_w.dot(&self.ng))
+        ));
 
-            trace!(self.log, "f"; "w ns dots" => slog::FnValue(|_ : &slog::Record| 
-                format!("wi_w dot ns: {:?}, wo_w dot ns: {:?}",
-                wi_w.dot(&self.ns),
-                wo_w.dot(&self.ns))
-            ));
+        trace!(self.log, "f"; "w ns dots" => slog::FnValue(|_ : &slog::Record|
+            format!("wi_w dot ns: {:?}, wo_w dot ns: {:?}",
+            wi_w.dot(&self.ns),
+            wo_w.dot(&self.ns))
+        ));
         let mut f = Spectrum::new(0.0);
 
         for i in 0..self.n_bxdfs {

@@ -86,7 +86,11 @@ pub struct BVH {
 }
 
 impl BVH {
-    pub fn new(log: &slog::Logger, primitives: Vec<Arc<dyn SyncPrimitive>>, max_prims_in_node: &usize) -> Self {
+    pub fn new(
+        log: &slog::Logger,
+        primitives: Vec<Arc<dyn SyncPrimitive>>,
+        max_prims_in_node: &usize,
+    ) -> Self {
         let start = Instant::now();
 
         let log = log.new(o!());
