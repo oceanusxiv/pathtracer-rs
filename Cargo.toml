@@ -4,6 +4,12 @@ version = "0.1.0"
 authors = ["Eric Fang <eric1221bday@gmail.com>"]
 edition = "2018"
 
+[[bin]]
+name = "small_scene"
+
+[profile.release]
+debug=true
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
@@ -32,7 +38,7 @@ ambassador = "0.2.1"
 
 [dependencies.slog]
 version = "2.5.2"
-features = ["release_max_level_trace"]
+# features = ["release_max_level_trace"]
 
 [dependencies.indicatif]
 version = "^0.15"
