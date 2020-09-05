@@ -4,6 +4,7 @@ pub mod math;
 pub mod ray;
 pub mod spectrum;
 
+use crate::pathtracer::light;
 use film::Film;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -149,6 +150,7 @@ pub struct World {
     pub objects: Vec<Object>,
     pub meshes: Vec<Rc<Mesh>>,
     pub materials: Vec<Rc<Material>>,
+    pub lights: Vec<light::Light>,
 
     mesh_prim_indice_map: HashMap<usize, usize>,
 }
@@ -159,6 +161,7 @@ impl World {
             objects: vec![],
             meshes: vec![],
             materials: vec![Rc::new(Material::default())], // must always have a default material
+            lights: vec![],
             mesh_prim_indice_map: HashMap::new(),
         }
     }
@@ -181,10 +184,6 @@ impl World {
         }
 
         (world, camera)
-    }
-
-    fn populate_lights(&mut self, document: &gltf::Document) {
-        
     }
 
     fn populate_materials(&mut self, document: &gltf::Document, images: &[gltf::image::Data]) {
@@ -414,6 +413,31 @@ impl World {
                         Rc::clone(&self.materials[0])
                     },
                 });
+            }
+        }
+
+        if let Some(light) = current_node.light() {
+            let color = spectrum::Spectrum {
+                r: light.intensity() * light.color()[0],
+                g: light.intensity() * light.color()[0],
+                b: light.intensity() * light.color()[0],
+            };
+            match light.kind() {
+                gltf::khr_lights_punctual::Kind::Directional => {
+                    self.lights
+                        .push(light::Light::Directional(light::DirectionalLight::new(
+                            current_transform,
+                            color,
+                            na::Vector3::new(0.0, 0.0, -1.0),
+                        )))
+                }
+                gltf::khr_lights_punctual::Kind::Point => self.lights.push(light::Light::Point(
+                    light::PointLight::new(current_transform, color),
+                )),
+                gltf::khr_lights_punctual::Kind::Spot {
+                    inner_cone_angle,
+                    outer_cone_angle,
+                } => {}
             }
         }
 

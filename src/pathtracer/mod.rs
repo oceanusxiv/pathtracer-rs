@@ -2,7 +2,7 @@ mod accelerator;
 mod bsdf;
 mod bxdf;
 mod interaction;
-mod light;
+pub mod light;
 mod material;
 mod primitive;
 pub mod sampling;
@@ -89,17 +89,21 @@ impl RenderScene {
     pub fn from_world(log: &slog::Logger, world: &World) -> Self {
         let mut primitives: Vec<Arc<dyn SyncPrimitive>> = Vec::new();
         let mut materials = Vec::new();
-        let mut lights = vec![
-            Light::Directional(DirectionalLight::new(
-                na::convert(na::Translation3::new(1.0, 3.5, 0.0)),
-                Spectrum::new(10.0),
-                na::Vector3::new(1.0, 1.0, 1.0),
-            )),
-            Light::Point(PointLight::new(
-                na::convert(na::Translation3::new(1.0, 3.5, 0.0)),
-                Spectrum::new(30.0),
-            )),
-        ];
+        let mut lights = world.lights;
+
+        if lights.is_empty() {
+            lights = vec![
+                Light::Directional(DirectionalLight::new(
+                    na::convert(na::Translation3::new(1.0, 3.5, 0.0)),
+                    Spectrum::new(10.0),
+                    na::Vector3::new(1.0, 1.0, 1.0),
+                )),
+                Light::Point(PointLight::new(
+                    na::convert(na::Translation3::new(1.0, 3.5, 0.0)),
+                    Spectrum::new(30.0),
+                )),
+            ];
+        }
 
         for mat in &world.materials {
             materials.push(Arc::new(Material::from_gltf(log, &**mat)));
