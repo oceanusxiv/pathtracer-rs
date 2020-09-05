@@ -60,14 +60,14 @@ pub trait LightInterface {
     fn pdf_le(&self, r: &Ray, n_light: &na::Vector3<f32>, pdf_pos: &mut f32, pdf_dir: &mut f32);
 }
 
-#[derive(Delegate, Copy)]
+#[derive(Delegate, Copy, Clone)]
 #[delegate(LightInterface)]
 pub enum Light {
     Point(PointLight),
     Directional(DirectionalLight),
 }
 
-#[derive(Copy)]
+#[derive(Copy, Clone)]
 pub struct PointLight {
     flags: LightFlags,
     num_samples: u32,
@@ -138,7 +138,7 @@ impl LightInterface for PointLight {
     }
 }
 
-#[derive(Copy)]
+#[derive(Copy, Clone)]
 pub struct DirectionalLight {
     flags: LightFlags,
     light_to_world: na::Projective3<f32>,

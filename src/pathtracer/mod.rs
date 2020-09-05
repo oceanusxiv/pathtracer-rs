@@ -89,7 +89,7 @@ impl RenderScene {
     pub fn from_world(log: &slog::Logger, world: &World) -> Self {
         let mut primitives: Vec<Arc<dyn SyncPrimitive>> = Vec::new();
         let mut materials = Vec::new();
-        let mut lights = world.lights;
+        let mut lights = world.lights.clone();
 
         if lights.is_empty() {
             lights = vec![
