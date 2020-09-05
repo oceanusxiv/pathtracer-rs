@@ -1,26 +1,9 @@
-#![feature(new_uninit)]
-#![feature(slice_partition_at_index)]
-#![feature(iter_partition_in_place)]
-#![feature(clamp)]
-
-#[macro_use]
-extern crate bitflags;
-
-#[macro_use]
-extern crate hexf;
-
 #[macro_use]
 extern crate slog;
 
 extern crate nalgebra as na;
-extern crate nalgebra_glm as glm;
-
-mod common;
-mod pathtracer;
-mod viewer;
 
 use clap::clap_app;
-use slog::Drain;
 use std::path::Path;
 use winit::{
     dpi::{LogicalSize, Size},
@@ -28,6 +11,8 @@ use winit::{
     event_loop::{ControlFlow, EventLoop},
     window::WindowBuilder,
 };
+use slog::Drain;
+use pathtracer_rs::*;
 
 fn sample_arg_legal(val: String) -> Result<(), String> {
     if let Ok(val) = val.parse::<f64>() {
@@ -89,8 +74,7 @@ fn main() {
         )))
         .build(&event_loop)
         .unwrap();
-    let mut viewer =
-        futures::executor::block_on(viewer::Viewer::new(&log, &window, &world, &camera));
+    let mut viewer = futures::executor::block_on(viewer::Viewer::new(&log, &window, &world, &camera));
 
     let mut last_render_time = std::time::Instant::now();
     let mut cursor_in_window = true;
@@ -144,7 +128,7 @@ fn main() {
                             virtual_keycode: Some(VirtualKeyCode::S),
                             ..
                         } => {
-                            info!(log, "saving image to {:?}", &output_path);
+                            info!(log,"saving image to {:?}", &output_path);
                             camera.film.save(&output_path);
                         }
                         KeyboardInput {
@@ -160,6 +144,7 @@ fn main() {
                                 ctrl.set(new_drain(slog::Level::Trace));
                             }
                             trace_mode = !trace_mode;
+
                         }
                         _ => {}
                     },
