@@ -74,6 +74,7 @@ impl Material {
     }
 }
 
+// FIMXE: definitely something wrong with the TBN calculations, normals not correct
 pub fn normal_mapping(log: &slog::Logger, d: &Box<dyn SyncTexture<na::Vector3<f32>>>, si: &mut SurfaceInteraction) {
     trace!(
         log,
@@ -137,7 +138,6 @@ impl MaterialInterface for MatteMaterial {
 
         let mut bsdf = BSDF::new(&self.log, &si, 1.0);
         let r = self.Kd.evaluate(&si);
-        let r = Spectrum::new(1.0);
         bsdf.add(BxDF::Lambertian(LambertianReflection::new(r)));
 
         si.bsdf = Some(bsdf);
