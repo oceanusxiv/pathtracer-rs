@@ -1,6 +1,6 @@
 use super::shape::SyncShape;
 use super::{
-    light::DiffuseAreaLight, Material, MaterialInterface, SurfaceInteraction, TransportMode,
+    light::DiffuseAreaLight, Light, Material, MaterialInterface, SurfaceInteraction, TransportMode,
 };
 use crate::common::bounds::Bounds3;
 use crate::common::ray::Ray;
@@ -18,14 +18,14 @@ pub trait SyncPrimitive: Primitive + Send + Sync {}
 impl<T> SyncPrimitive for T where T: Primitive + Send + Sync {}
 
 pub struct GeometricPrimitive {
-    shape: Box<dyn SyncShape>,
+    shape: Arc<dyn SyncShape>,
     material: Arc<Material>,
     area_light: Option<Arc<DiffuseAreaLight>>,
 }
 
 impl GeometricPrimitive {
     pub fn new(
-        shape: Box<dyn SyncShape>,
+        shape: Arc<dyn SyncShape>,
         material: Arc<Material>,
         area_light: Option<Arc<DiffuseAreaLight>>,
     ) -> Self {
@@ -67,6 +67,6 @@ impl Primitive for GeometricPrimitive {
     }
 
     fn get_area_light(&self) -> Option<&DiffuseAreaLight> {
-        Some(self.area_light.as_ref().unwrap())
+        self.area_light.as_deref()
     }
 }

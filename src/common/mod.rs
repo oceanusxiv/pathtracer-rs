@@ -121,6 +121,7 @@ pub struct PbrMetallicRoughness {
 pub struct Material {
     pub index: usize,
     pub pbr_metallic_roughness: PbrMetallicRoughness,
+    pub emissive_factor: [f32; 3],
 }
 
 impl Material {
@@ -135,6 +136,7 @@ impl Material {
                 metallic_factor: 1.0,
                 roughness_factor: 1.0,
             },
+            emissive_factor: [0.0, 0.0, 0.0],
         }
     }
 }
@@ -299,6 +301,7 @@ impl World {
                     metallic_factor: material.pbr_metallic_roughness().metallic_factor(),
                     roughness_factor: material.pbr_metallic_roughness().roughness_factor(),
                 },
+                emissive_factor: material.emissive_factor(),
             }))
         }
     }

@@ -5,7 +5,7 @@ use crate::common::{
     spectrum::Spectrum,
     LightInfo,
 };
-use ambassador::{delegatable_trait, Delegate};
+use std::sync::Arc;
 
 bitflags! {
     pub struct LightFlags: u32 {
@@ -27,8 +27,7 @@ impl<'a> VisibilityTester {
     }
 }
 
-#[delegatable_trait]
-pub trait LightInterface {
+pub trait Light {
     fn le(&self, _r: &RayDifferential) -> Spectrum {
         Spectrum::new(0.0)
     }
@@ -43,8 +42,6 @@ pub trait LightInterface {
     ) -> Spectrum;
 
     fn power(&self) -> Spectrum;
-
-    fn preprocess(&mut self, _world_bound: &Bounds3) {}
 
     fn pdf_li(&self, reference: &Interaction, wi: &na::Vector3<f32>) -> f32;
 
@@ -61,41 +58,37 @@ pub trait LightInterface {
     fn pdf_le(&self, r: &Ray, n_light: &na::Vector3<f32>, pdf_pos: &mut f32, pdf_dir: &mut f32);
 }
 
-#[derive(Delegate, Copy, Clone)]
-#[delegate(LightInterface)]
-pub enum Light {
-    Point(PointLight),
-    Directional(DirectionalLight),
-}
+pub trait SyncLight: Light + Send + Sync {}
+impl<T> SyncLight for T where T: Light + Send + Sync {}
 
-impl Light {
-    pub fn from_gltf(light_info: &LightInfo) -> Self {
+impl dyn Light {
+    pub fn from_gltf(light_info: &LightInfo, world_bound: &Bounds3) -> Arc<dyn SyncLight> {
         let color = Spectrum {
             r: light_info.intensity * light_info.color[0],
             g: light_info.intensity * light_info.color[0],
             b: light_info.intensity * light_info.color[0],
         };
         match light_info.light_type {
-            gltf::khr_lights_punctual::Kind::Directional => {
-                Light::Directional(DirectionalLight::new(
-                    light_info.light_to_world,
-                    color,
-                    na::Vector3::new(0.0, 0.0, -1.0),
-                ))
-            }
+            gltf::khr_lights_punctual::Kind::Directional => Arc::new(DirectionalLight::new(
+                light_info.light_to_world,
+                color,
+                na::Vector3::new(0.0, 0.0, -1.0),
+                world_bound,
+            )),
+
             gltf::khr_lights_punctual::Kind::Point => {
-                Light::Point(PointLight::new(light_info.light_to_world, color))
+                Arc::new(PointLight::new(light_info.light_to_world, color))
             }
+
             // TODO: implement spotlight
             gltf::khr_lights_punctual::Kind::Spot {
                 inner_cone_angle,
                 outer_cone_angle,
-            } => Light::Point(PointLight::new(light_info.light_to_world, color)),
+            } => Arc::new(PointLight::new(light_info.light_to_world, color)),
         }
     }
 }
 
-#[derive(Copy, Clone)]
 pub struct PointLight {
     flags: LightFlags,
     num_samples: u32,
@@ -118,7 +111,7 @@ impl PointLight {
     }
 }
 
-impl LightInterface for PointLight {
+impl Light for PointLight {
     fn sample_li(
         &self,
         reference: &Interaction,
@@ -166,7 +159,6 @@ impl LightInterface for PointLight {
     }
 }
 
-#[derive(Copy, Clone)]
 pub struct DirectionalLight {
     flags: LightFlags,
     light_to_world: na::Projective3<f32>,
@@ -182,20 +174,24 @@ impl DirectionalLight {
         light_to_world: na::Projective3<f32>,
         L: Spectrum,
         w_light: na::Vector3<f32>,
+        world_bound: &Bounds3,
     ) -> Self {
+        let mut world_center = na::Point3::origin();
+        let mut world_radius = 0.0;
+        world_bound.bounding_sphere(&mut world_center, &mut world_radius);
         Self {
             flags: LightFlags::DELTA_POSITION,
             light_to_world,
             world_to_light: light_to_world.inverse(),
             L,
             w_light: (light_to_world * w_light).normalize(),
-            world_center: na::Point3::origin(),
-            world_radius: 0.0,
+            world_center,
+            world_radius,
         }
     }
 }
 
-impl LightInterface for DirectionalLight {
+impl Light for DirectionalLight {
     fn sample_li(
         &self,
         reference: &Interaction,
@@ -227,12 +223,6 @@ impl LightInterface for DirectionalLight {
         todo!()
     }
 
-    fn preprocess(&mut self, world_bound: &Bounds3) {
-        // debug!("scene world bound {:?}", scene.world_bound());
-        world_bound.bounding_sphere(&mut self.world_center, &mut self.world_radius);
-        // debug!("directional light world center: {:?}, radius: {:?}", self.world_center, self.world_radius);
-    }
-
     fn sample_le(
         &self,
         u1: &na::Point2<f32>,
@@ -253,10 +243,16 @@ impl LightInterface for DirectionalLight {
 pub struct DiffuseAreaLight {}
 
 impl DiffuseAreaLight {
-    pub fn L(&self, inter: &Interaction, w: &na::Vector3<f32>) {}
+    pub fn new() -> Self {
+        Self {}
+    }
+
+    pub fn L(&self, inter: &Interaction, w: &na::Vector3<f32>) -> Spectrum {
+        Spectrum::new(0.0)
+    }
 }
 
-impl LightInterface for DiffuseAreaLight {
+impl Light for DiffuseAreaLight {
     fn sample_li(
         &self,
         reference: &Interaction,

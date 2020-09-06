@@ -18,7 +18,7 @@ use bxdf::BxDFType;
 use indicatif::ParallelProgressIterator;
 use interaction::SurfaceInteraction;
 use itertools::Itertools;
-use light::{DirectionalLight, Light, LightInterface, PointLight};
+use light::{DiffuseAreaLight, DirectionalLight, Light, PointLight, SyncLight};
 use material::{Material, MaterialInterface};
 use primitive::SyncPrimitive;
 use rayon::prelude::*;
@@ -80,7 +80,7 @@ impl Camera {
 
 pub struct RenderScene {
     scene: Box<dyn SyncPrimitive>,
-    pub lights: Vec<Arc<Light>>,
+    pub lights: Vec<Arc<dyn SyncLight>>,
     materials: Vec<Arc<Material>>,
     world_bound: Bounds3,
 }
@@ -89,7 +89,7 @@ impl RenderScene {
     pub fn from_world(log: &slog::Logger, world: &World) -> Self {
         let mut primitives: Vec<Arc<dyn SyncPrimitive>> = Vec::new();
         let mut materials = Vec::new();
-        let mut lights = Vec::new();
+        let mut lights: Vec<Arc<dyn SyncLight>> = Vec::new();
 
         for mat in &world.materials {
             materials.push(Arc::new(Material::from_gltf(log, &**mat)));
@@ -105,10 +105,22 @@ impl RenderScene {
                     .alpha_texture
                     .as_ref(),
             ) {
+                let emissive_factor = obj.material.emissive_factor;
+                let some_area_light;
+                // only create area light if object material is emissive
+                if emissive_factor[0] > 0.0 && emissive_factor[1] > 0.0 && emissive_factor[2] > 0.0
+                {
+                    let area_light = Arc::new(DiffuseAreaLight::new());
+                    lights.push(Arc::clone(&area_light) as Arc<dyn SyncLight>);
+                    some_area_light = Some(Arc::clone(&area_light));
+                } else {
+                    some_area_light = None;
+                }
+
                 primitives.push(Arc::new(primitive::GeometricPrimitive::new(
                     shape,
                     Arc::clone(&materials[obj.material.index]),
-                    None,
+                    some_area_light,
                 )) as Arc<dyn SyncPrimitive>)
             }
         }
@@ -117,26 +129,22 @@ impl RenderScene {
         let world_bound = bvh.world_bound();
 
         for light_info in &world.lights {
-            let mut light = Light::from_gltf(light_info);
-            light.preprocess(&world_bound);
-            lights.push(Arc::new(light));
+            lights.push(Light::from_gltf(light_info, &world_bound));
         }
 
         if lights.is_empty() {
-            let mut default_direction_light = Light::Directional(DirectionalLight::new(
+            let default_direction_light = Arc::new(DirectionalLight::new(
                 na::convert(na::Translation3::new(1.0, 3.5, 0.0)),
                 Spectrum::new(10.0),
                 na::Vector3::new(0.0, 1.0, 0.5),
+                &world_bound,
             ));
-            default_direction_light.preprocess(&world_bound);
-            let default_point_light = Light::Point(PointLight::new(
+            lights.push(default_direction_light as Arc<dyn SyncLight>);
+            let default_point_light = Arc::new(PointLight::new(
                 na::convert(na::Translation3::new(1.0, 3.5, 0.0)),
                 Spectrum::new(30.0),
             ));
-            lights = vec![
-                Arc::new(default_direction_light),
-                Arc::new(default_point_light),
-            ];
+            lights.push(default_point_light as Arc<dyn SyncLight>);
         }
 
         RenderScene {

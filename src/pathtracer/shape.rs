@@ -519,7 +519,7 @@ pub fn shape_from_mesh(
     mesh: &Mesh,
     object: &Object,
     alpha_mask: Option<&TextureInfo<image::GrayImage>>,
-) -> Vec<Box<dyn SyncShape>> {
+) -> Vec<Arc<dyn SyncShape>> {
     let mut alpha_mask_texture = None;
     if let Some(alpha_mask_info) = alpha_mask {
         alpha_mask_texture = Some(Arc::new(ImageTexture::<f32>::new(
@@ -561,12 +561,12 @@ pub fn shape_from_mesh(
 
     let world_mesh = Arc::new(world_mesh);
     for chunk in world_mesh.indices.chunks_exact(3) {
-        shapes.push(Box::new(Triangle {
+        shapes.push(Arc::new(Triangle {
             mesh: Arc::clone(&world_mesh),
             indices: [chunk[0], chunk[1], chunk[2]],
             reverse_orientation: false,
             transform_swaps_handedness: false,
-        }) as Box<dyn SyncShape>)
+        }) as Arc<dyn SyncShape>)
     }
 
     shapes

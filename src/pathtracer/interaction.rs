@@ -276,6 +276,10 @@ impl<'a> SurfaceInteraction<'a> {
     }
 
     pub fn le(&self, w: &na::Vector3<f32>) -> Spectrum {
-        Spectrum::new(0.0)
+        if let Some(area) = self.primitive.unwrap().get_area_light() {
+            area.L(&self.general, &w)
+        } else {
+            Spectrum::new(0.0)
+        }
     }
 }
