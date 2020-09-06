@@ -62,7 +62,7 @@ fn main() {
     let render_scene = pathtracer::RenderScene::from_world(&log, &world);
     let sampler =
         pathtracer::sampling::Sampler::new(pixel_samples_sqrt, pixel_samples_sqrt, true, 8);
-    let mut integrator = pathtracer::DirectLightingIntegrator::new(&log, sampler);
+    let mut integrator = pathtracer::integrator::DirectLightingIntegrator::new(&log, sampler);
 
     debug!(log, "camera starting at: {:?}", camera.cam_to_world);
 
