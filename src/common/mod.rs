@@ -58,26 +58,6 @@ impl Camera {
     }
 }
 
-impl Default for Camera {
-    fn default() -> Self {
-        Camera::new(
-            &na::Isometry3::look_at_rh(
-                &na::Point3::new(0.2, 0.05, 0.2),
-                &na::Point3::origin(),
-                &na::Vector3::new(0.0, 1.0, 0.0),
-            )
-            .inverse(),
-            &na::Perspective3::new(
-                DEFAULT_RESOLUTION.x / DEFAULT_RESOLUTION.y,
-                std::f32::consts::FRAC_PI_2,
-                DEFAULT_Z_NEAR,
-                DEFAULT_Z_FAR,
-            ),
-            &DEFAULT_RESOLUTION,
-        )
-    }
-}
-
 #[derive(Clone)]
 pub struct Mesh {
     pub index: usize,
@@ -175,10 +155,25 @@ impl World {
         }
     }
 
-    pub fn from_gltf(path: &str) -> (World, Camera) {
+    pub fn from_gltf(path: &str, resolution: &glm::Vec2) -> (World, Camera) {
         let (document, buffers, images) = gltf::import(path).unwrap();
 
-        let mut camera = Default::default();
+        let mut camera = Camera::new(
+            &na::Isometry3::look_at_rh(
+                &na::Point3::new(0.2, 0.05, 0.2),
+                &na::Point3::origin(),
+                &na::Vector3::new(0.0, 1.0, 0.0),
+            )
+            .inverse(),
+            &na::Perspective3::new(
+                resolution.x / resolution.y,
+                std::f32::consts::FRAC_PI_2 * (resolution.y / resolution.x),
+                DEFAULT_Z_NEAR,
+                DEFAULT_Z_FAR,
+            ),
+            &resolution,
+        );
+
         let mut world = World::empty();
         world.populate_materials(&document, &images);
         world.populate_meshes(&document, &buffers);
@@ -186,7 +181,9 @@ impl World {
             for node in scene.nodes() {
                 world.populate_scene(&na::Projective3::identity(), &node);
 
-                if let Some(curr_cam) = World::get_camera(&na::Transform3::identity(), &node) {
+                if let Some(curr_cam) =
+                    World::get_camera(&na::Transform3::identity(), &node, &resolution)
+                {
                     camera = curr_cam;
                 }
             }
@@ -361,6 +358,7 @@ impl World {
     fn get_camera(
         parent_transform: &na::Transform3<f32>,
         current_node: &gltf::Node,
+        resolution: &glm::Vec2,
     ) -> Option<Camera> {
         let current_transform = *parent_transform * from_gltf(current_node.transform());
         if let Some(camera) = current_node.camera() {
@@ -379,23 +377,23 @@ impl World {
                 return Some(Camera::new(
                     &na::try_convert(current_transform).unwrap(),
                     &na::Perspective3::new(
-                        DEFAULT_RESOLUTION.x / DEFAULT_RESOLUTION.y,
+                        resolution.x / resolution.y,
                         projection.yfov(),
                         projection.znear(),
                         zfar,
                     ),
-                    &DEFAULT_RESOLUTION,
+                    &resolution,
                 ));
             } else {
                 for child in current_node.children() {
-                    return World::get_camera(&current_transform, &child);
+                    return World::get_camera(&current_transform, &child, &resolution);
                 }
 
                 None
             }
         } else {
             for child in current_node.children() {
-                return World::get_camera(&current_transform, &child);
+                return World::get_camera(&current_transform, &child, &resolution);
             }
 
             None

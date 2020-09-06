@@ -1,8 +1,12 @@
 #[macro_use]
 extern crate slog;
 
+#[macro_use]
+extern crate anyhow;
+
 extern crate nalgebra as na;
 
+use anyhow::Result;
 use clap::clap_app;
 use pathtracer_rs::*;
 use slog::Drain;
@@ -33,6 +37,18 @@ fn new_drain(level: slog::Level) -> slog::Fuse<slog::LevelFilter<slog::Fuse<slog
     drain.filter_level(level).fuse()
 }
 
+fn parse_resolution(res_str: &str) -> Result<na::Vector2<f32>> {
+    let xy = res_str.split("x").collect::<Vec<_>>();
+    if xy.len() != 2 {
+        Err(anyhow!("invalid resolution string"))
+    } else {
+        let x = xy[0].parse::<f32>()?;
+        let y = xy[1].parse::<f32>()?;
+
+        Ok(na::Vector2::new(x, y))
+    }
+}
+
 fn main() {
     let info_drain = new_drain(slog::Level::Info);
     let drain = slog_atomic::AtomicSwitch::new(info_drain);
@@ -47,6 +63,7 @@ fn main() {
         (@arg SCENE: +required "Sets the input scene to use")
         (@arg output: -o --output +takes_value +required "Sets the output directory to save renders at")
         (@arg samples: -s --samples default_value("1") validator(sample_arg_legal) "Number of samples path tracer to take per pixel (must be perfect square)")
+        (@arg resolution: -r --resolution +takes_value "Resolution of the window")
         (@arg verbose: -v --verbose "Print test information verbosely")
     )
     .get_matches();
@@ -56,9 +73,21 @@ fn main() {
     let mut pixel_samples_sqrt = matches
         .value_of("samples")
         .unwrap()
-        .parse::<usize>()
-        .unwrap();
-    let (world, mut camera) = common::World::from_gltf(scene_path);
+        .parse::<f64>()
+        .unwrap()
+        .sqrt() as usize;
+    let resolution = if let Some(res_str) = matches.value_of("resolution") {
+        parse_resolution(&res_str).unwrap_or_else(|_| {
+            warn!(
+                log,
+                "failed parsing resolution string, falling back to default resolution"
+            );
+            *common::DEFAULT_RESOLUTION
+        })
+    } else {
+        *common::DEFAULT_RESOLUTION
+    };
+    let (world, mut camera) = common::World::from_gltf(scene_path, &resolution);
     let render_scene = pathtracer::RenderScene::from_world(&log, &world);
     let sampler =
         pathtracer::sampling::Sampler::new(pixel_samples_sqrt, pixel_samples_sqrt, true, 8);
@@ -69,8 +98,8 @@ fn main() {
     let event_loop = EventLoop::new();
     let window = WindowBuilder::new()
         .with_inner_size(Size::Logical(LogicalSize::new(
-            common::DEFAULT_RESOLUTION.x as f64,
-            common::DEFAULT_RESOLUTION.y as f64,
+            resolution.x as f64,
+            resolution.y as f64,
         )))
         .build(&event_loop)
         .unwrap();

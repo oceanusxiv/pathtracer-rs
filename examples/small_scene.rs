@@ -19,7 +19,7 @@ fn main() {
     }
     info!(log, "openning scene: {:?}", scene_path);
     let pixel_samples_sqrt = 2;
-    let (world, mut camera) = common::World::from_gltf(scene_path);
+    let (world, mut camera) = common::World::from_gltf(scene_path, &common::DEFAULT_RESOLUTION);
     let render_scene = pathtracer::RenderScene::from_world(&log, &world);
     let sampler =
         pathtracer::sampling::Sampler::new(pixel_samples_sqrt, pixel_samples_sqrt, true, 8);
