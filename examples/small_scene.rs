@@ -9,8 +9,15 @@ fn main() {
     let drain = slog_term::FullFormat::new(decorator).build().fuse();
     let drain = slog_async::Async::new(drain).build().fuse();
     let log = slog::Logger::root(drain.fuse(), o!());
-
-    let scene_path = "C://Users/eric1/Downloads/Sponza/Sponza.gltf";
+    let scene_path;
+    if cfg!(target_os = "windows") {
+        scene_path = "C://Users/eric1/Downloads/Sponza/Sponza.gltf";
+    } else if cfg!(target_os = "macos") {
+        scene_path = "/Users/eric/Downloads/Sponza/Sponza.gltf";
+    } else {
+        scene_path = "/home/eric/Downloads/Sponza/Sponza.gltf";
+    }
+    info!(log, "openning scene: {:?}", scene_path);
     let pixel_samples_sqrt = 2;
     let (world, mut camera) = common::World::from_gltf(scene_path);
     let render_scene = pathtracer::RenderScene::from_world(&log, &world);
