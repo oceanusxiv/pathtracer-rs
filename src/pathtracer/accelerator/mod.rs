@@ -465,4 +465,8 @@ impl Primitive for BVH {
     ) {
         unimplemented!()
     }
+
+    fn get_area_light(&self) -> Option<&super::light::DiffuseAreaLight> {
+        unimplemented!()
+    }
 }

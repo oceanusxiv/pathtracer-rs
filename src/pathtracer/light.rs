@@ -3,6 +3,7 @@ use crate::common::{
     bounds::Bounds3,
     ray::{Ray, RayDifferential},
     spectrum::Spectrum,
+    LightInfo,
 };
 use ambassador::{delegatable_trait, Delegate};
 
@@ -65,6 +66,33 @@ pub trait LightInterface {
 pub enum Light {
     Point(PointLight),
     Directional(DirectionalLight),
+}
+
+impl Light {
+    pub fn from_gltf(light_info: &LightInfo) -> Self {
+        let color = Spectrum {
+            r: light_info.intensity * light_info.color[0],
+            g: light_info.intensity * light_info.color[0],
+            b: light_info.intensity * light_info.color[0],
+        };
+        match light_info.light_type {
+            gltf::khr_lights_punctual::Kind::Directional => {
+                Light::Directional(DirectionalLight::new(
+                    light_info.light_to_world,
+                    color,
+                    na::Vector3::new(0.0, 0.0, -1.0),
+                ))
+            }
+            gltf::khr_lights_punctual::Kind::Point => {
+                Light::Point(PointLight::new(light_info.light_to_world, color))
+            }
+            // TODO: implement spotlight
+            gltf::khr_lights_punctual::Kind::Spot {
+                inner_cone_angle,
+                outer_cone_angle,
+            } => Light::Point(PointLight::new(light_info.light_to_world, color)),
+        }
+    }
 }
 
 #[derive(Copy, Clone)]
@@ -221,3 +249,54 @@ impl LightInterface for DirectionalLight {
         todo!()
     }
 }
+
+pub struct DiffuseAreaLight {}
+
+impl DiffuseAreaLight {
+    pub fn L(&self, inter: &Interaction, w: &na::Vector3<f32>) {}
+}
+
+impl LightInterface for DiffuseAreaLight {
+    fn sample_li(
+        &self,
+        reference: &Interaction,
+        u: &nalgebra::Point2<f32>,
+        wi: &mut nalgebra::Vector3<f32>,
+        pdf: &mut f32,
+        vis: &mut Option<VisibilityTester>,
+    ) -> Spectrum {
+        todo!()
+    }
+
+    fn power(&self) -> Spectrum {
+        todo!()
+    }
+
+    fn pdf_li(&self, reference: &Interaction, wi: &nalgebra::Vector3<f32>) -> f32 {
+        todo!()
+    }
+
+    fn sample_le(
+        &self,
+        u1: &nalgebra::Point2<f32>,
+        u2: &nalgebra::Point2<f32>,
+        r: &mut Ray,
+        n_light: &nalgebra::Vector3<f32>,
+        pdf_pos: &mut f32,
+        pdf_dir: &mut f32,
+    ) {
+        todo!()
+    }
+
+    fn pdf_le(
+        &self,
+        r: &Ray,
+        n_light: &nalgebra::Vector3<f32>,
+        pdf_pos: &mut f32,
+        pdf_dir: &mut f32,
+    ) {
+        todo!()
+    }
+}
+
+pub struct InfiniteAreaLight {}

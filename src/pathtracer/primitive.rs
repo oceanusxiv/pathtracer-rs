@@ -1,5 +1,7 @@
 use super::shape::SyncShape;
-use super::{Material, MaterialInterface, SurfaceInteraction, TransportMode};
+use super::{
+    light::DiffuseAreaLight, Material, MaterialInterface, SurfaceInteraction, TransportMode,
+};
 use crate::common::bounds::Bounds3;
 use crate::common::ray::Ray;
 use std::sync::Arc;
@@ -9,14 +11,30 @@ pub trait Primitive {
     fn world_bound(&self) -> Bounds3;
     fn get_material(&self) -> &Material;
     fn compute_scattering_functions(&self, si: &mut SurfaceInteraction, mode: TransportMode);
+    fn get_area_light(&self) -> Option<&DiffuseAreaLight>;
 }
 
 pub trait SyncPrimitive: Primitive + Send + Sync {}
 impl<T> SyncPrimitive for T where T: Primitive + Send + Sync {}
 
 pub struct GeometricPrimitive {
-    pub shape: Box<dyn SyncShape>,
-    pub material: Arc<Material>,
+    shape: Box<dyn SyncShape>,
+    material: Arc<Material>,
+    area_light: Option<Arc<DiffuseAreaLight>>,
+}
+
+impl GeometricPrimitive {
+    pub fn new(
+        shape: Box<dyn SyncShape>,
+        material: Arc<Material>,
+        area_light: Option<Arc<DiffuseAreaLight>>,
+    ) -> Self {
+        Self {
+            shape,
+            material,
+            area_light,
+        }
+    }
 }
 
 impl Primitive for GeometricPrimitive {
@@ -41,10 +59,14 @@ impl Primitive for GeometricPrimitive {
     }
 
     fn get_material(&self) -> &Material {
-        &*self.material
+        self.material.as_ref()
     }
 
     fn compute_scattering_functions(&self, si: &mut SurfaceInteraction, mode: TransportMode) {
         self.material.compute_scattering_functions(si, mode);
+    }
+
+    fn get_area_light(&self) -> Option<&DiffuseAreaLight> {
+        Some(self.area_light.as_ref().unwrap())
     }
 }

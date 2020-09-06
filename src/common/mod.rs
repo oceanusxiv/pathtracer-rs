@@ -146,11 +146,18 @@ pub struct Object {
     pub material: Rc<Material>,
 }
 
+pub struct LightInfo {
+    pub light_type: gltf::khr_lights_punctual::Kind,
+    pub color: [f32; 3],
+    pub intensity: f32,
+    pub light_to_world: na::Projective3<f32>,
+}
+
 pub struct World {
     pub objects: Vec<Object>,
     pub meshes: Vec<Rc<Mesh>>,
     pub materials: Vec<Rc<Material>>,
-    pub lights: Vec<light::Light>,
+    pub lights: Vec<LightInfo>,
 
     mesh_prim_indice_map: HashMap<usize, usize>,
 }
@@ -417,28 +424,12 @@ impl World {
         }
 
         if let Some(light) = current_node.light() {
-            let color = spectrum::Spectrum {
-                r: light.intensity() * light.color()[0],
-                g: light.intensity() * light.color()[0],
-                b: light.intensity() * light.color()[0],
-            };
-            match light.kind() {
-                gltf::khr_lights_punctual::Kind::Directional => {
-                    self.lights
-                        .push(light::Light::Directional(light::DirectionalLight::new(
-                            current_transform,
-                            color,
-                            na::Vector3::new(0.0, 0.0, -1.0),
-                        )))
-                }
-                gltf::khr_lights_punctual::Kind::Point => self.lights.push(light::Light::Point(
-                    light::PointLight::new(current_transform, color),
-                )),
-                gltf::khr_lights_punctual::Kind::Spot {
-                    inner_cone_angle,
-                    outer_cone_angle,
-                } => {}
-            }
+            self.lights.push(LightInfo {
+                light_type: light.kind(),
+                color: light.color(),
+                intensity: light.intensity(),
+                light_to_world: current_transform,
+            })
         }
 
         for child in current_node.children() {

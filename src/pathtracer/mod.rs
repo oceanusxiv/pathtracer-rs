@@ -80,7 +80,7 @@ impl Camera {
 
 pub struct RenderScene {
     scene: Box<dyn SyncPrimitive>,
-    pub lights: Vec<Light>,
+    pub lights: Vec<Arc<Light>>,
     materials: Vec<Arc<Material>>,
     world_bound: Bounds3,
 }
@@ -89,21 +89,7 @@ impl RenderScene {
     pub fn from_world(log: &slog::Logger, world: &World) -> Self {
         let mut primitives: Vec<Arc<dyn SyncPrimitive>> = Vec::new();
         let mut materials = Vec::new();
-        let mut lights = world.lights.clone();
-
-        if lights.is_empty() {
-            lights = vec![
-                Light::Directional(DirectionalLight::new(
-                    na::convert(na::Translation3::new(1.0, 3.5, 0.0)),
-                    Spectrum::new(10.0),
-                    na::Vector3::new(0.0, 1.0, 0.5),
-                )),
-                Light::Point(PointLight::new(
-                    na::convert(na::Translation3::new(1.0, 3.5, 0.0)),
-                    Spectrum::new(30.0),
-                )),
-            ];
-        }
+        let mut lights = Vec::new();
 
         for mat in &world.materials {
             materials.push(Arc::new(Material::from_gltf(log, &**mat)));
@@ -119,18 +105,38 @@ impl RenderScene {
                     .alpha_texture
                     .as_ref(),
             ) {
-                primitives.push(Arc::new(primitive::GeometricPrimitive {
-                    shape: shape,
-                    material: Arc::clone(&materials[obj.material.index]),
-                }) as Arc<dyn SyncPrimitive>)
+                primitives.push(Arc::new(primitive::GeometricPrimitive::new(
+                    shape,
+                    Arc::clone(&materials[obj.material.index]),
+                    None,
+                )) as Arc<dyn SyncPrimitive>)
             }
         }
 
         let bvh = Box::new(accelerator::BVH::new(log, primitives, &4)) as Box<dyn SyncPrimitive>;
         let world_bound = bvh.world_bound();
 
-        for light in &mut lights {
+        for light_info in &world.lights {
+            let mut light = Light::from_gltf(light_info);
             light.preprocess(&world_bound);
+            lights.push(Arc::new(light));
+        }
+
+        if lights.is_empty() {
+            let mut default_direction_light = Light::Directional(DirectionalLight::new(
+                na::convert(na::Translation3::new(1.0, 3.5, 0.0)),
+                Spectrum::new(10.0),
+                na::Vector3::new(0.0, 1.0, 0.5),
+            ));
+            default_direction_light.preprocess(&world_bound);
+            let default_point_light = Light::Point(PointLight::new(
+                na::convert(na::Translation3::new(1.0, 3.5, 0.0)),
+                Spectrum::new(30.0),
+            ));
+            lights = vec![
+                Arc::new(default_direction_light),
+                Arc::new(default_point_light),
+            ];
         }
 
         RenderScene {
@@ -155,7 +161,8 @@ impl RenderScene {
 }
 
 pub enum LightStrategy {
-    UniformSampleAll, UniformSampleOne,
+    UniformSampleAll,
+    UniformSampleOne,
 }
 
 pub struct DirectLightingIntegrator {
@@ -173,9 +180,7 @@ impl DirectLightingIntegrator {
         self.sampler = sampler;
     }
 
-    pub fn preprocess() {
-
-    }
+    pub fn preprocess() {}
 
     fn specular_reflect(
         &self,

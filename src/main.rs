@@ -152,8 +152,17 @@ fn main() {
                             ..
                         } => {
                             pixel_samples_sqrt += 1;
-                            info!(log, "pixel sample count now {:?}", pixel_samples_sqrt * pixel_samples_sqrt);
-                            integrator.set_sampler(pathtracer::sampling::Sampler::new(pixel_samples_sqrt, pixel_samples_sqrt, true, 8));
+                            info!(
+                                log,
+                                "pixel sample count now {:?}",
+                                pixel_samples_sqrt * pixel_samples_sqrt
+                            );
+                            integrator.set_sampler(pathtracer::sampling::Sampler::new(
+                                pixel_samples_sqrt,
+                                pixel_samples_sqrt,
+                                true,
+                                8,
+                            ));
                         }
                         KeyboardInput {
                             state: ElementState::Pressed,
@@ -161,8 +170,17 @@ fn main() {
                             ..
                         } => {
                             pixel_samples_sqrt = 1.max(pixel_samples_sqrt - 1);
-                            info!(log, "pixel sample count now {:?}", pixel_samples_sqrt * pixel_samples_sqrt);
-                            integrator.set_sampler(pathtracer::sampling::Sampler::new(pixel_samples_sqrt, pixel_samples_sqrt, true, 8));
+                            info!(
+                                log,
+                                "pixel sample count now {:?}",
+                                pixel_samples_sqrt * pixel_samples_sqrt
+                            );
+                            integrator.set_sampler(pathtracer::sampling::Sampler::new(
+                                pixel_samples_sqrt,
+                                pixel_samples_sqrt,
+                                true,
+                                8,
+                            ));
                         }
                         _ => {}
                     },
