@@ -1,5 +1,5 @@
 use super::math::{gamma_correct, inverse_gamma_correct};
-use std::ops::{Add, AddAssign, Div, Mul};
+use std::ops::{Add, AddAssign, Div, Mul, MulAssign, Sub};
 
 #[derive(Clone, Debug, Copy)]
 pub struct RGBSpectrum {
@@ -85,6 +85,18 @@ impl Add for RGBSpectrum {
     }
 }
 
+impl Sub for RGBSpectrum {
+    type Output = Self;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        Self {
+            r: self.r - rhs.r,
+            g: self.g - rhs.g,
+            b: self.b - rhs.b,
+        }
+    }
+}
+
 impl Mul for RGBSpectrum {
     type Output = Self;
 
@@ -94,6 +106,12 @@ impl Mul for RGBSpectrum {
             g: self.g * rhs.g,
             b: self.b * rhs.b,
         }
+    }
+}
+
+impl MulAssign<f32> for Spectrum {
+    fn mul_assign(&mut self, rhs: f32) {
+        *self = *self * rhs
     }
 }
 

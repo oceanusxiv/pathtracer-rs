@@ -81,11 +81,13 @@ impl BSDF {
         let mut bxdf = None;
         let mut count = comp;
         for i in 0..self.n_bxdfs {
-            if self.bxdfs[i].as_ref().unwrap().matches_flags(bxdf_type) && count == 0 {
-                bxdf = self.bxdfs[i].as_ref();
-                break;
+            if self.bxdfs[i].as_ref().unwrap().matches_flags(bxdf_type) {
+                if count == 0 {
+                    bxdf = self.bxdfs[i].as_ref();
+                    break;
+                }
+                count -= 1;
             }
-            count -= 1;
         }
         let bxdf = bxdf.unwrap();
 

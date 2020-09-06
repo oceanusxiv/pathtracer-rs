@@ -19,13 +19,18 @@ pub enum LightStrategy {
 
 pub struct DirectLightingIntegrator {
     sampler: Sampler,
+    max_depth: u32,
     log: slog::Logger,
 }
 
 impl DirectLightingIntegrator {
-    pub fn new(log: &slog::Logger, sampler: Sampler) -> Self {
+    pub fn new(log: &slog::Logger, sampler: Sampler, max_depth: u32) -> Self {
         let log = log.new(o!("integrator" => "direct lighting integrator"));
-        Self { sampler, log }
+        Self {
+            sampler,
+            log,
+            max_depth,
+        }
     }
 
     pub fn set_sampler(&mut self, sampler: Sampler) {
@@ -57,6 +62,7 @@ impl DirectLightingIntegrator {
         );
 
         let ns = isect.shading.n;
+        let L;
         if pdf > 0.0 && !f.is_black() && wi.dot(&ns).abs() != 0.0 {
             // Compute ray differential rd for specular reflection
             let mut rd = RayDifferential::new(isect.general.spawn_ray(&wi));
@@ -73,10 +79,19 @@ impl DirectLightingIntegrator {
                 rd.rx_direction = wi - dwodx + 2.0 * (wo.dot(&ns) * dndx + dDNdx * ns);
                 rd.ry_direction = wi - dwody + 2.0 * (wo.dot(&ns) * dndy + dDNdy * ns);
             }
-            f * self.li(&rd, &scene, &mut sampler, depth + 1) * wi.dot(&ns).abs() / pdf
+            L = f * self.li(&rd, &scene, &mut sampler, depth + 1) * wi.dot(&ns).abs() / pdf;
         } else {
-            Spectrum::new(0.0)
+            L = Spectrum::new(0.0);
         }
+
+        trace!(
+            self.log,
+            "L: {:?}, after specular reflect depth: {:?}",
+            L,
+            depth
+        );
+
+        L
     }
 
     fn specular_transmit(
@@ -136,6 +151,17 @@ impl DirectLightingIntegrator {
             L = f * self.li(&rd, &scene, &mut sampler, depth + 1) * wi.dot(&ns).abs() / pdf
         }
 
+        trace!(
+            self.log,
+            "L: {:?}, after specular transmit depth: {:?}, pdf: {:?}, f: {:?}, wi: {:?}, ns: {:?}",
+            L,
+            depth,
+            pdf,
+            f,
+            wi,
+            ns
+        );
+
         L
     }
 
@@ -146,7 +172,6 @@ impl DirectLightingIntegrator {
         mut sampler: &mut Sampler,
         depth: u32,
     ) -> Spectrum {
-        const MAX_DEPTH: u32 = 5;
         let mut L = Spectrum::new(0.0);
         let mut isect = Default::default();
 
@@ -164,6 +189,8 @@ impl DirectLightingIntegrator {
         let wo = isect.general.wo;
 
         L += isect.le(&wo);
+
+        trace!(self.log, "L: {:?}, before light rays", L);
 
         for light in &scene.lights {
             let mut wi: na::Vector3<f32> = glm::zero();
@@ -196,12 +223,16 @@ impl DirectLightingIntegrator {
                     if visibility.unoccluded(&scene) {
                         trace!(self.log, "light: {:p}, unoccluded", light);
                         L += f * li * wi.dot(&n) / pdf;
+                    } else {
+                        trace!(self.log, "light: {:p}, occluded", light);
                     }
                 }
             }
         }
 
-        if depth + 1 < MAX_DEPTH {
+        trace!(self.log, "L: {:?}, after light rays", L);
+
+        if depth + 1 < self.max_depth {
             L += self.specular_reflect(&r, &isect, &scene, &mut sampler, depth);
             L += self.specular_transmit(&r, &isect, &scene, &mut sampler, depth);
         }

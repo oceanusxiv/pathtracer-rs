@@ -22,6 +22,7 @@ use shape::shape_from_mesh;
 use std::cell::RefCell;
 use std::sync::Arc;
 
+#[derive(PartialEq, Eq)]
 pub enum TransportMode {
     Radiance,
     Importance,

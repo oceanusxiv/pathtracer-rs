@@ -102,10 +102,12 @@ pub struct Material {
     pub index: usize,
     pub pbr_metallic_roughness: PbrMetallicRoughness,
     pub emissive_factor: [f32; 3],
+    pub transmission_factor: f32,
+    pub ior: f32,
 }
 
-impl Material {
-    pub fn default() -> Self {
+impl Default for Material {
+    fn default() -> Self {
         Material {
             index: 0,
             pbr_metallic_roughness: PbrMetallicRoughness {
@@ -117,6 +119,8 @@ impl Material {
                 roughness_factor: 1.0,
             },
             emissive_factor: [0.0, 0.0, 0.0],
+            transmission_factor: 0.0,
+            ior: 1.5,
         }
     }
 }
@@ -299,6 +303,7 @@ impl World {
                     roughness_factor: material.pbr_metallic_roughness().roughness_factor(),
                 },
                 emissive_factor: material.emissive_factor(),
+                ..Default::default()
             }))
         }
     }

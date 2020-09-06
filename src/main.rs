@@ -18,6 +18,8 @@ use winit::{
     window::WindowBuilder,
 };
 
+const MAX_DEPTH: u32 = 5;
+
 fn sample_arg_legal(val: String) -> Result<(), String> {
     if let Ok(val) = val.parse::<f64>() {
         if val.sqrt() % 1.0 == 0.0 {
@@ -33,7 +35,7 @@ fn sample_arg_legal(val: String) -> Result<(), String> {
 fn new_drain(level: slog::Level) -> slog::Fuse<slog::LevelFilter<slog::Fuse<slog_async::Async>>> {
     let decorator = slog_term::TermDecorator::new().build();
     let drain = slog_term::FullFormat::new(decorator).build().fuse();
-    let drain = slog_async::Async::new(drain).build().fuse();
+    let drain = slog_async::Async::new(drain).chan_size(1000).build().fuse();
     drain.filter_level(level).fuse()
 }
 
@@ -64,6 +66,7 @@ fn main() {
         (@arg output: -o --output +takes_value +required "Sets the output directory to save renders at")
         (@arg samples: -s --samples default_value("1") validator(sample_arg_legal) "Number of samples path tracer to take per pixel (must be perfect square)")
         (@arg resolution: -r --resolution +takes_value "Resolution of the window")
+        (@arg max_depth: -d --max-depth +takes_value default_value("5") "Maximum ray tracing depth")
         (@arg verbose: -v --verbose "Print test information verbosely")
     )
     .get_matches();
@@ -87,11 +90,23 @@ fn main() {
     } else {
         *common::DEFAULT_RESOLUTION
     };
+    let max_depth = matches
+        .value_of("max_depth")
+        .unwrap()
+        .parse::<u32>()
+        .unwrap_or_else(|err| {
+            warn!(
+                log,
+                "failed parsing max depth, falling back to default max depth"
+            );
+            MAX_DEPTH
+        });
     let (world, mut camera) = common::World::from_gltf(scene_path, &resolution);
     let render_scene = pathtracer::RenderScene::from_world(&log, &world);
     let sampler =
         pathtracer::sampling::Sampler::new(pixel_samples_sqrt, pixel_samples_sqrt, true, 8);
-    let mut integrator = pathtracer::integrator::DirectLightingIntegrator::new(&log, sampler);
+    let mut integrator =
+        pathtracer::integrator::DirectLightingIntegrator::new(&log, sampler, max_depth);
 
     debug!(log, "camera starting at: {:?}", camera.cam_to_world);
 
