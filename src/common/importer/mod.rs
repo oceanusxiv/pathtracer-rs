@@ -1,6 +1,7 @@
 use super::Camera;
 
 pub mod gltf;
+pub mod mitsuba;
 
 pub fn import(
     log: &slog::Logger,

@@ -12,6 +12,9 @@ extern crate hexf;
 #[macro_use]
 extern crate slog;
 
+#[macro_use]
+extern crate serde_derive;
+
 extern crate nalgebra as na;
 extern crate nalgebra_glm as glm;
 
