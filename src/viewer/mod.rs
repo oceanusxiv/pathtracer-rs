@@ -11,7 +11,7 @@ mod wireframe;
 
 use crate::common::Camera;
 use bounds::{BoundsRenderPass, DrawBounds};
-use camera::OrbitalCameraController;
+use camera::{CameraController, OrbitalCameraController};
 use mesh::{DrawMesh, MeshRenderPass};
 use quad::{DrawQuad, QuadRenderPass};
 use winit::{event::*, window::Window};
@@ -119,7 +119,7 @@ pub struct Viewer {
     uniform_bind_group: wgpu::BindGroup,
     depth_texture: texture::Texture,
     size: winit::dpi::PhysicalSize<u32>,
-    camera_controller: OrbitalCameraController,
+    camera_controller: Box<dyn CameraController>,
     mouse_pressed: bool,
     log: slog::Logger,
     pub state: ViewerState,
@@ -135,8 +135,12 @@ impl Viewer {
     ) -> Self {
         let log = log.new(o!());
 
-        let camera_controller =
-            OrbitalCameraController::new(&log, glm::vec3(0.0, 0.0, 0.0), 50.0, 0.01);
+        let camera_controller = Box::new(OrbitalCameraController::new(
+            &log,
+            glm::vec3(0.0, 0.0, 0.0),
+            50.0,
+            0.01,
+        ));
 
         let size = window.inner_size();
 
@@ -268,6 +272,21 @@ impl Viewer {
     pub fn input(&mut self, event: &DeviceEvent) -> bool {
         match self.state {
             ViewerState::RenderScene => match event {
+                DeviceEvent::Key(input) => match input {
+                    KeyboardInput {
+                        state: ElementState::Pressed,
+                        virtual_keycode,
+                        ..
+                    } => {
+                        if let Some(keycode) = virtual_keycode {
+                            self.camera_controller.process_key(keycode);
+                            true
+                        } else {
+                            false
+                        }
+                    }
+                    _ => false,
+                },
                 DeviceEvent::MouseWheel { delta, .. } => {
                     self.camera_controller.process_scroll(delta);
                     true

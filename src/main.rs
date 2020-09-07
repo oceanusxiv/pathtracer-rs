@@ -174,14 +174,20 @@ fn main() {
                             state: ElementState::Pressed,
                             virtual_keycode: Some(VirtualKeyCode::W),
                             ..
-                        } => viewer.draw_wireframe = !viewer.draw_wireframe,
+                        } => {
+                            if crtl_clicked {
+                                viewer.draw_wireframe = !viewer.draw_wireframe;
+                            }
+                        }
                         KeyboardInput {
                             state: ElementState::Pressed,
                             virtual_keycode: Some(VirtualKeyCode::S),
                             ..
                         } => {
-                            info!(log, "saving image to {:?}", &output_path);
-                            camera.film.save(&output_path);
+                            if crtl_clicked {
+                                info!(log, "saving image to {:?}", &output_path);
+                                camera.film.save(&output_path);
+                            }
                         }
                         KeyboardInput {
                             state: ElementState::Pressed,

@@ -1,6 +1,12 @@
 use crate::common::Camera;
 use winit::{dpi::LogicalPosition, event::*};
 
+pub trait CameraController {
+    fn process_mouse(&mut self, mouse_dx: f64, mouse_dy: f64);
+    fn process_key(&mut self, key: &VirtualKeyCode) {}
+    fn process_scroll(&mut self, delta: &MouseScrollDelta) {}
+    fn update_camera(&mut self, camera: &mut Camera, dt: std::time::Duration);
+}
 pub struct OrbitalCameraController {
     pivot: glm::Vec3,
     orbit_speed: f32,
@@ -24,13 +30,15 @@ impl OrbitalCameraController {
             log,
         }
     }
+}
 
-    pub fn process_mouse(&mut self, mouse_dx: f64, mouse_dy: f64) {
+impl CameraController for OrbitalCameraController {
+    fn process_mouse(&mut self, mouse_dx: f64, mouse_dy: f64) {
         self.rotate_horizontal = mouse_dx.to_radians() as f32;
         self.rotate_vertical = mouse_dy.to_radians() as f32;
     }
 
-    pub fn process_scroll(&mut self, delta: &MouseScrollDelta) {
+    fn process_scroll(&mut self, delta: &MouseScrollDelta) {
         self.scroll = match delta {
             // I'm assuming a line is about 100 pixels
             MouseScrollDelta::LineDelta(_, scroll) => scroll * 100.0,
@@ -38,7 +46,7 @@ impl OrbitalCameraController {
         };
     }
 
-    pub fn update_camera(&mut self, camera: &mut Camera, dt: std::time::Duration) {
+    fn update_camera(&mut self, camera: &mut Camera, dt: std::time::Duration) {
         let dt = dt.as_secs_f32();
 
         let mut cam_pos = camera.cam_to_world.translation.vector - self.pivot; // relative to pivot
@@ -71,5 +79,31 @@ impl OrbitalCameraController {
         self.rotate_horizontal = 0.0;
         self.rotate_vertical = 0.0;
         self.scroll = 0.0;
+    }
+}
+
+pub struct FirstPersonCameraController {
+    rotate_sensitivity: f32,
+    move_sensitivity: f32,
+    log: slog::Logger,
+}
+
+impl CameraController for FirstPersonCameraController {
+    fn process_key(&mut self, key: &VirtualKeyCode) {
+        match key {
+            VirtualKeyCode::W => {}
+            VirtualKeyCode::A => {}
+            VirtualKeyCode::S => {}
+            VirtualKeyCode::D => {}
+            _ => {}
+        }
+    }
+
+    fn process_mouse(&mut self, mouse_dx: f64, mouse_dy: f64) {
+        todo!()
+    }
+
+    fn update_camera(&mut self, camera: &mut Camera, dt: std::time::Duration) {
+        todo!()
     }
 }
