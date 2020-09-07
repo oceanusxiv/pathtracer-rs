@@ -17,6 +17,7 @@ use winit::{
     event_loop::{ControlFlow, EventLoop},
     window::WindowBuilder,
 };
+use std::str::FromStr;
 
 const MAX_DEPTH: u32 = 5;
 
@@ -52,12 +53,6 @@ fn parse_resolution(res_str: &str) -> Result<na::Vector2<f32>> {
 }
 
 fn main() {
-    let info_drain = new_drain(slog::Level::Info);
-    let drain = slog_atomic::AtomicSwitch::new(info_drain);
-    let ctrl = drain.ctrl();
-    let log = slog::Logger::root(drain.fuse(), o!());
-    let mut trace_mode = false;
-
     let matches = clap_app!(pathtracer_rs =>
         (version: "1.0")
         (author: "Eric F. <eric1221bday@gmail.com>")
@@ -67,9 +62,17 @@ fn main() {
         (@arg samples: -s --samples default_value("1") validator(sample_arg_legal) "Number of samples path tracer to take per pixel (must be perfect square)")
         (@arg resolution: -r --resolution +takes_value "Resolution of the window")
         (@arg max_depth: -d --max-depth +takes_value default_value("5") "Maximum ray tracing depth")
+        (@arg log_level: -l --log-level +takes_value default_value("WARN") "Application wide log level")
         (@arg verbose: -v --verbose "Print test information verbosely")
     )
     .get_matches();
+
+    let init_log_level = slog::Level::from_str(matches.value_of("log_level").unwrap()).unwrap_or_else(|()| slog::Level::Info);
+    let drain = new_drain(init_log_level);
+    let drain = slog_atomic::AtomicSwitch::new(drain);
+    let ctrl = drain.ctrl();
+    let log = slog::Logger::root(drain.fuse(), o!());
+    let mut trace_mode = false;
 
     let scene_path = matches.value_of("SCENE").unwrap();
     let output_path = Path::new(matches.value_of("output").unwrap()).join("render.png");
@@ -185,10 +188,10 @@ fn main() {
                             ..
                         } => {
                             if trace_mode {
-                                info!(log, "setting log level to info");
+                                info!(log, "setting log level to {:?}", init_log_level);
                                 ctrl.set(new_drain(slog::Level::Info));
                             } else {
-                                info!(log, "setting log level to trace");
+                                info!(log, "setting log level to {:?}", slog::Level::Trace);
                                 ctrl.set(new_drain(slog::Level::Trace));
                             }
                             trace_mode = !trace_mode;
