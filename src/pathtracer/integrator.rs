@@ -116,7 +116,7 @@ impl DirectLightingIntegrator {
             BxDFType::BSDF_TRANSMISSION | BxDFType::BSDF_SPECULAR,
             &mut None,
         );
-        let mut L = Spectrum::new(0.0);
+        let mut l = Spectrum::new(0.0);
 
         if pdf > 0.0 && !f.is_black() && wi.dot(&ns).abs() != 0.0 {
             let mut rd = RayDifferential::new(isect.general.spawn_ray(&wi));
@@ -148,13 +148,13 @@ impl DirectLightingIntegrator {
                 rd.rx_direction = wi - eta * dwodx + (mu * dndx + dmudx * ns);
                 rd.ry_direction = wi - eta * dwody + (mu * dndy + dmudy * ns);
             }
-            L = f * self.li(&rd, &scene, &mut sampler, depth + 1) * wi.dot(&ns).abs() / pdf
+            l = f * self.li(&rd, &scene, &mut sampler, depth + 1) * wi.dot(&ns).abs() / pdf
         }
 
         trace!(
             self.log,
             "L: {:?}, after specular transmit depth: {:?}, pdf: {:?}, f: {:?}, wi: {:?}, ns: {:?}",
-            L,
+            l,
             depth,
             pdf,
             f,
@@ -162,7 +162,7 @@ impl DirectLightingIntegrator {
             ns
         );
 
-        L
+        l
     }
 
     fn li(
