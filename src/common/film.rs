@@ -45,7 +45,7 @@ impl FilmTile {
         return &mut self.tile[offset as usize];
     }
 
-    pub fn add_sample(&mut self, p_film: &na::Point2<f32>, L: &Spectrum) {
+    pub fn add_sample(&mut self, p_film: &na::Point2<f32>, l: &Spectrum) {
         let discrete_x = p_film
             .x
             .floor()
@@ -58,7 +58,7 @@ impl FilmTile {
             .max(self.pixel_bounds.p_min.coords.y as f32) as i32;
 
         let pixel = self.get_pixel_mut(&na::Point2::new(discrete_x, discrete_y));
-        pixel.contrib_sum += *L;
+        pixel.contrib_sum += *l;
         pixel.filter_wight_sum += 1.0;
     }
 

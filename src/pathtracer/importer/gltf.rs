@@ -2,7 +2,7 @@ use crate::{
     common::{importer::gltf::trans_from_gltf, spectrum::Spectrum, WrapMode},
     pathtracer::{
         accelerator,
-        light::{DiffuseAreaLight, DirectionalLight, Light, PointLight, SyncLight},
+        light::{DiffuseAreaLight, DirectionalLight, PointLight, SyncLight},
         material::{GlassMaterial, Material, MatteMaterial, MirrorMaterial},
         primitive::{GeometricPrimitive, SyncPrimitive},
         shape::{SyncShape, Triangle, TriangleMesh},
@@ -10,7 +10,7 @@ use crate::{
         RenderScene,
     },
 };
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 impl ImageTexture<f32> {}
 
@@ -208,7 +208,7 @@ pub fn shapes_from_gltf_prim(
                 .collect(),
             None => vec![],
         },
-        alpha_mask: None,
+        alpha_mask: alpha_mask_texture,
     };
 
     for pos in &mut world_mesh.pos {
@@ -247,7 +247,7 @@ fn populate_scene(
     materials: &Vec<Arc<Material>>,
     mut primitives: &mut Vec<Arc<dyn SyncPrimitive>>,
     mut lights: &mut Vec<Arc<dyn SyncLight>>,
-    mut preprocess_lights: &mut Vec<Arc<Mutex<dyn SyncLight>>>,
+    mut preprocess_lights: &mut Vec<Arc<dyn SyncLight>>,
 ) {
     let current_transform = *parent_transform * trans_from_gltf(current_node.transform());
     if let Some(gltf_mesh) = current_node.mesh() {
@@ -288,11 +288,11 @@ fn populate_scene(
         };
         match light.kind() {
             gltf::khr_lights_punctual::Kind::Directional => {
-                preprocess_lights.push(Arc::new(Mutex::new(DirectionalLight::new(
+                preprocess_lights.push(Arc::new(DirectionalLight::new(
                     &current_transform,
                     light_color,
                     na::Vector3::new(0.0, 0.0, -1.0),
-                ))));
+                )));
             }
 
             gltf::khr_lights_punctual::Kind::Point => {
@@ -334,7 +334,7 @@ impl RenderScene {
         let mut primitives: Vec<Arc<dyn SyncPrimitive>> = Vec::new();
         let mut materials = vec![Arc::new(default_material(log))];
         let mut lights: Vec<Arc<dyn SyncLight>> = Vec::new();
-        let mut preprocess_lights: Vec<Arc<Mutex<dyn SyncLight>>> = Vec::new();
+        let mut preprocess_lights: Vec<Arc<dyn SyncLight>> = Vec::new();
 
         for material in document.materials() {
             materials.push(Arc::new(material_from_gltf(log, &material, &images)));
@@ -359,18 +359,24 @@ impl RenderScene {
         let bvh = Box::new(accelerator::BVH::new(log, primitives, &4)) as Box<dyn SyncPrimitive>;
         let world_bound = bvh.world_bound();
 
-        if lights.is_empty() {
+        if lights.is_empty() && preprocess_lights.is_empty() {
             let default_direction_light = Arc::new(DirectionalLight::new(
                 &na::convert(na::Translation3::new(1.0, 3.5, 0.0)),
                 Spectrum::new(10.0),
                 na::Vector3::new(0.0, 1.0, 0.5),
             ));
-            lights.push(default_direction_light as Arc<dyn SyncLight>);
+            preprocess_lights.push(default_direction_light as Arc<dyn SyncLight>);
             let default_point_light = Arc::new(PointLight::new(
                 &na::convert(na::Translation3::new(1.0, 3.5, 0.0)),
                 Spectrum::new(30.0),
             ));
             lights.push(default_point_light as Arc<dyn SyncLight>);
+        }
+
+        // run preprocess for lights that need it
+        for mut light in preprocess_lights.into_iter() {
+            Arc::get_mut(&mut light).unwrap().preprocess(&world_bound);
+            lights.push(Arc::clone(&light));
         }
 
         Self { scene: bvh, lights }

@@ -5,13 +5,6 @@ use std::io::BufReader;
 
 use serde_xml_rs::from_reader;
 
-fn indent(size: usize) -> String {
-    const INDENT: &'static str = "    ";
-    (0..size)
-        .map(|_| INDENT)
-        .fold(String::with_capacity(size * INDENT.len()), |r, s| r + s)
-}
-
 pub struct Mesh {
     pub indices: Vec<u32>,
     pub pos: Vec<na::Point3<f32>>,
