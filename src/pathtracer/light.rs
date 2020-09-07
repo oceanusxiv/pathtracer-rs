@@ -3,7 +3,6 @@ use crate::common::{
     bounds::Bounds3,
     ray::{Ray, RayDifferential},
     spectrum::Spectrum,
-    LightInfo,
 };
 use std::sync::Arc;
 
@@ -56,38 +55,12 @@ pub trait Light {
     );
 
     fn pdf_le(&self, r: &Ray, n_light: &na::Vector3<f32>, pdf_pos: &mut f32, pdf_dir: &mut f32);
+
+    fn preprocess(&mut self, world_bound: &Bounds3) {}
 }
 
 pub trait SyncLight: Light + Send + Sync {}
 impl<T> SyncLight for T where T: Light + Send + Sync {}
-
-impl dyn Light {
-    pub fn from_gltf(light_info: &LightInfo, world_bound: &Bounds3) -> Arc<dyn SyncLight> {
-        let color = Spectrum {
-            r: light_info.intensity * light_info.color[0],
-            g: light_info.intensity * light_info.color[0],
-            b: light_info.intensity * light_info.color[0],
-        };
-        match light_info.light_type {
-            gltf::khr_lights_punctual::Kind::Directional => Arc::new(DirectionalLight::new(
-                light_info.light_to_world,
-                color,
-                na::Vector3::new(0.0, 0.0, -1.0),
-                world_bound,
-            )),
-
-            gltf::khr_lights_punctual::Kind::Point => {
-                Arc::new(PointLight::new(light_info.light_to_world, color))
-            }
-
-            // TODO: implement spotlight
-            gltf::khr_lights_punctual::Kind::Spot {
-                inner_cone_angle,
-                outer_cone_angle,
-            } => Arc::new(PointLight::new(light_info.light_to_world, color)),
-        }
-    }
-}
 
 pub struct PointLight {
     flags: LightFlags,
@@ -99,11 +72,11 @@ pub struct PointLight {
 }
 
 impl PointLight {
-    pub fn new(light_to_world: na::Projective3<f32>, I: Spectrum) -> Self {
+    pub fn new(light_to_world: &na::Projective3<f32>, I: Spectrum) -> Self {
         Self {
             flags: LightFlags::DELTA_POSITION,
             num_samples: 1,
-            light_to_world,
+            light_to_world: *light_to_world,
             world_to_light: light_to_world.inverse(),
             p_light: light_to_world * na::Point3::origin(),
             I,
@@ -171,22 +144,18 @@ pub struct DirectionalLight {
 
 impl DirectionalLight {
     pub fn new(
-        light_to_world: na::Projective3<f32>,
+        light_to_world: &na::Projective3<f32>,
         L: Spectrum,
         w_light: na::Vector3<f32>,
-        world_bound: &Bounds3,
     ) -> Self {
-        let mut world_center = na::Point3::origin();
-        let mut world_radius = 0.0;
-        world_bound.bounding_sphere(&mut world_center, &mut world_radius);
         Self {
             flags: LightFlags::DELTA_POSITION,
-            light_to_world,
+            light_to_world: *light_to_world,
             world_to_light: light_to_world.inverse(),
             L,
             w_light: (light_to_world * w_light).normalize(),
-            world_center,
-            world_radius,
+            world_center: na::Point3::origin(),
+            world_radius: 0.0,
         }
     }
 }
@@ -237,6 +206,10 @@ impl Light for DirectionalLight {
 
     fn pdf_le(&self, r: &Ray, n_light: &na::Vector3<f32>, pdf_pos: &mut f32, pdf_dir: &mut f32) {
         todo!()
+    }
+
+    fn preprocess(&mut self, world_bound: &Bounds3) {
+        world_bound.bounding_sphere(&mut self.world_center, &mut self.world_radius);
     }
 }
 

@@ -1,11 +1,9 @@
 use super::vertex::VertexPos;
-use super::{pipeline::create_render_pipeline, shaders, Instance};
-use crate::common::{Mesh, World};
+use super::{pipeline::create_render_pipeline, shaders, Instance, Mesh, ViewerScene};
 use itertools::Itertools;
 use std::collections::HashSet;
 
 pub struct WireFrameHandle {
-    pub index: usize,
     pub vertex_buffer: wgpu::Buffer,
     pub num_elements: usize,
 }
@@ -51,7 +49,6 @@ impl WireFrameHandle {
             .create_buffer_with_data(bytemuck::cast_slice(&line_list), wgpu::BufferUsage::VERTEX);
 
         WireFrameHandle {
-            index: mesh.index,
             vertex_buffer,
             num_elements: line_list.len(),
         }
@@ -67,18 +64,16 @@ pub struct WireFrameInstancesHandle {
 }
 
 impl WireFrameInstancesHandle {
-    pub fn from_world(
+    pub fn new(
         device: &wgpu::Device,
         instances_bind_group_layout: &wgpu::BindGroupLayout,
-        world: &World,
+        instances: &Vec<na::Projective3<f32>>,
         wireframe: WireFrameHandle,
     ) -> Self {
-        let instance_data = world
-            .objects
+        let instance_data = instances
             .iter()
-            .filter(|obj| obj.mesh.index == wireframe.index)
-            .map(|obj| Instance {
-                model: obj.obj_to_world.to_homogeneous(),
+            .map(|trans| Instance {
+                model: trans.to_homogeneous(),
             })
             .collect_vec();
 
@@ -119,11 +114,11 @@ pub struct WireFrameRenderPass {
 }
 
 impl WireFrameRenderPass {
-    pub fn from_world(
+    pub fn from_scene(
         device: &wgpu::Device,
         mut compiler: &mut shaderc::Compiler,
         uniform_bind_group_layout: &wgpu::BindGroupLayout,
-        world: &World,
+        scene: &ViewerScene,
     ) -> Self {
         let (vs_module, fs_module) =
             shaders::flat_instance::compile_shaders(&mut compiler, &device);
@@ -133,14 +128,14 @@ impl WireFrameRenderPass {
                 label: Some("instances_bind_group_layout"),
             });
 
-        let wireframe_instances = world
+        let wireframe_instances = scene
             .meshes
             .iter()
             .map(|mesh| {
-                WireFrameInstancesHandle::from_world(
+                WireFrameInstancesHandle::new(
                     &device,
                     &instances_bind_group_layout,
-                    &world,
+                    &mesh.instances,
                     WireFrameHandle::from_mesh(&device, &mesh),
                 )
             })

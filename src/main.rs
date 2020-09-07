@@ -10,14 +10,14 @@ use anyhow::Result;
 use clap::clap_app;
 use pathtracer_rs::*;
 use slog::Drain;
-use std::{time::Instant, path::Path};
+use std::str::FromStr;
+use std::{path::Path, time::Instant};
 use winit::{
     dpi::{LogicalSize, Size},
     event::*,
     event_loop::{ControlFlow, EventLoop},
     window::WindowBuilder,
 };
-use std::str::FromStr;
 
 const MAX_DEPTH: u32 = 5;
 
@@ -62,12 +62,13 @@ fn main() {
         (@arg samples: -s --samples default_value("1") validator(sample_arg_legal) "Number of samples path tracer to take per pixel (must be perfect square)")
         (@arg resolution: -r --resolution +takes_value "Resolution of the window")
         (@arg max_depth: -d --max-depth +takes_value default_value("5") "Maximum ray tracing depth")
-        (@arg log_level: -l --log-level +takes_value default_value("WARN") "Application wide log level")
+        (@arg log_level: -l --log-level +takes_value default_value("INFO") "Application wide log level")
         (@arg verbose: -v --verbose "Print test information verbosely")
     )
     .get_matches();
 
-    let init_log_level = slog::Level::from_str(matches.value_of("log_level").unwrap()).unwrap_or_else(|()| slog::Level::Info);
+    let init_log_level = slog::Level::from_str(matches.value_of("log_level").unwrap())
+        .unwrap_or_else(|()| slog::Level::Info);
     let drain = new_drain(init_log_level);
     let drain = slog_atomic::AtomicSwitch::new(drain);
     let ctrl = drain.ctrl();
@@ -97,7 +98,7 @@ fn main() {
         .value_of("max_depth")
         .unwrap()
         .parse::<u32>()
-        .unwrap_or_else(|err| {
+        .unwrap_or_else(|_| {
             warn!(
                 log,
                 "failed parsing max depth, falling back to default max depth"
@@ -106,8 +107,8 @@ fn main() {
         });
 
     let start = Instant::now();
-    let (world, mut camera) = common::World::from_gltf(scene_path, &resolution);
-    let render_scene = pathtracer::RenderScene::from_world(&log, &world);
+    let (mut camera, render_scene, viewer_scene) =
+        common::importer::gltf::from_gltf(&log, &scene_path, &resolution);
     let sampler =
         pathtracer::sampling::Sampler::new(pixel_samples_sqrt, pixel_samples_sqrt, true, 8);
     let mut integrator =
@@ -124,7 +125,7 @@ fn main() {
         .build(&event_loop)
         .unwrap();
     let mut viewer =
-        futures::executor::block_on(viewer::Viewer::new(&log, &window, &world, &camera));
+        futures::executor::block_on(viewer::Viewer::new(&log, &window, &viewer_scene, &camera));
     debug!(log, "initialization took: {:?}", start.elapsed());
 
     let mut last_render_time = Instant::now();

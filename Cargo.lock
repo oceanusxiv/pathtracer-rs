@@ -1577,6 +1577,7 @@ dependencies = [
  "slog-term",
  "wgpu",
  "winit",
+ "xml-rs",
 ]
 
 [[package]]

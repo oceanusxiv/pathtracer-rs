@@ -1,10 +1,8 @@
 use super::vertex::VertexPosNorm;
-use super::{pipeline::create_render_pipeline, shaders, Instance};
-use crate::common::{Mesh, World};
+use super::{pipeline::create_render_pipeline, shaders, Instance, Mesh, ViewerScene};
 use itertools::{zip_eq, Itertools};
 
 pub struct MeshHandle {
-    pub index: usize,
     pub vertex_buffer: wgpu::Buffer,
     pub index_buffer: wgpu::Buffer,
     pub num_elements: usize,
@@ -27,7 +25,6 @@ impl MeshHandle {
         );
 
         MeshHandle {
-            index: mesh.index,
             vertex_buffer,
             index_buffer,
             num_elements: mesh.indices.len(),
@@ -44,18 +41,16 @@ pub struct MeshInstancesHandle {
 }
 
 impl MeshInstancesHandle {
-    pub fn from_world(
+    pub fn new(
         device: &wgpu::Device,
         instances_bind_group_layout: &wgpu::BindGroupLayout,
-        world: &World,
+        instances: &Vec<na::Projective3<f32>>,
         mesh: MeshHandle,
     ) -> Self {
-        let instance_data = world
-            .objects
+        let instance_data = instances
             .iter()
-            .filter(|obj| obj.mesh.index == mesh.index)
-            .map(|obj| Instance {
-                model: obj.obj_to_world.to_homogeneous(),
+            .map(|trans| Instance {
+                model: trans.to_homogeneous(),
             })
             .collect_vec();
         let instance_buffer_size = instance_data.len() * std::mem::size_of::<glm::Mat4>();
@@ -95,11 +90,11 @@ pub struct MeshRenderPass {
 }
 
 impl MeshRenderPass {
-    pub fn from_world(
+    pub fn from_scene(
         device: &wgpu::Device,
         mut compiler: &mut shaderc::Compiler,
         uniform_bind_group_layout: &wgpu::BindGroupLayout,
-        world: &World,
+        scene: &ViewerScene,
     ) -> Self {
         let (vs_module, fs_module) = shaders::phong::compile_shaders(&mut compiler, &device);
 
@@ -109,14 +104,14 @@ impl MeshRenderPass {
                 label: Some("instances_bind_group_layout"),
             });
 
-        let draw_mesh_instances = world
+        let draw_mesh_instances = scene
             .meshes
             .iter()
             .map(|mesh| {
-                MeshInstancesHandle::from_world(
+                MeshInstancesHandle::new(
                     &device,
                     &instances_bind_group_layout,
-                    &world,
+                    &mesh.instances,
                     MeshHandle::from_mesh(&device, &mesh),
                 )
             })

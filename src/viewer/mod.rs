@@ -1,5 +1,6 @@
 mod bounds;
 mod camera;
+pub mod importer;
 mod mesh;
 mod pipeline;
 mod quad;
@@ -8,7 +9,7 @@ mod texture;
 mod vertex;
 mod wireframe;
 
-use crate::common::{Camera, World};
+use crate::common::Camera;
 use bounds::{BoundsRenderPass, DrawBounds};
 use camera::OrbitalCameraController;
 use mesh::{DrawMesh, MeshRenderPass};
@@ -24,6 +25,21 @@ lazy_static::lazy_static! {
         0.0, 0.0, 0.5, 0.0,
         0.0, 0.0, 0.5, 1.0,
     );
+}
+
+pub struct Mesh {
+    pub id: usize,
+    pub indices: Vec<u32>,
+    pub pos: Vec<na::Point3<f32>>,
+    pub normal: Vec<na::Vector3<f32>>,
+    pub s: Vec<na::Vector3<f32>>,
+    pub uv: Vec<na::Point2<f32>>,
+    pub colors: Vec<na::Vector3<f32>>,
+
+    pub instances: Vec<na::Projective3<f32>>,
+}
+pub struct ViewerScene {
+    meshes: Vec<Mesh>,
 }
 
 #[repr(C)] // We need this for Rust to store our data correctly for the shaders
@@ -111,7 +127,12 @@ pub struct Viewer {
 }
 
 impl Viewer {
-    pub async fn new(log: &slog::Logger, window: &Window, world: &World, camera: &Camera) -> Self {
+    pub async fn new(
+        log: &slog::Logger,
+        window: &Window,
+        scene: &ViewerScene,
+        camera: &Camera,
+    ) -> Self {
         let log = log.new(o!());
 
         let camera_controller = OrbitalCameraController::new(glm::vec3(0.0, 0.0, 0.0), 50.0, 0.01);
@@ -180,7 +201,7 @@ impl Viewer {
         });
 
         let mesh_render_pass =
-            MeshRenderPass::from_world(&device, &mut compiler, &uniform_bind_group_layout, &world);
+            MeshRenderPass::from_scene(&device, &mut compiler, &uniform_bind_group_layout, &scene);
 
         let bounds_render_pass = BoundsRenderPass::from_bounds(
             &device,
@@ -189,11 +210,11 @@ impl Viewer {
             &vec![],
         );
 
-        let wireframe_render_pass = WireFrameRenderPass::from_world(
+        let wireframe_render_pass = WireFrameRenderPass::from_scene(
             &device,
             &mut compiler,
             &uniform_bind_group_layout,
-            &world,
+            &scene,
         );
 
         let depth_texture =

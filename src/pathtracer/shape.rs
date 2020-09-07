@@ -5,7 +5,6 @@ use super::{
 use crate::common::bounds::Bounds3;
 use crate::common::math::*;
 use crate::common::ray::Ray;
-use crate::common::{Mesh, Object, TextureInfo};
 use std::sync::Arc;
 
 pub trait Shape {
@@ -30,6 +29,20 @@ pub struct Triangle {
 }
 
 impl Triangle {
+    pub fn new(
+        mesh: Arc<TriangleMesh>,
+        indices: [u32; 3],
+        reverse_orientation: bool,
+        transform_swaps_handedness: bool,
+    ) -> Self {
+        Self {
+            mesh,
+            indices,
+            reverse_orientation,
+            transform_swaps_handedness,
+        }
+    }
+
     fn get_uvs(&self) -> [na::Point2<f32>; 3] {
         if !self.mesh.uv.is_empty() {
             [
@@ -512,62 +525,4 @@ pub struct TriangleMesh {
     pub uv: Vec<na::Point2<f32>>,
     pub colors: Vec<na::Vector3<f32>>,
     pub alpha_mask: Option<Arc<dyn SyncTexture<f32>>>,
-}
-
-pub fn shape_from_mesh(
-    log: &slog::Logger,
-    mesh: &Mesh,
-    object: &Object,
-    alpha_mask: Option<&TextureInfo<image::GrayImage>>,
-) -> Vec<Arc<dyn SyncShape>> {
-    let mut alpha_mask_texture = None;
-    if let Some(alpha_mask_info) = alpha_mask {
-        alpha_mask_texture = Some(Arc::new(ImageTexture::<f32>::new(
-            log,
-            &alpha_mask_info.image,
-            1.0,
-            alpha_mask_info.sampler_info.wrap_mode,
-            UVMap::new(
-                alpha_mask_info.image.width() as f32,
-                alpha_mask_info.image.height() as f32,
-                0.0,
-                0.0,
-            ),
-        )) as Arc<dyn SyncTexture<f32>>);
-    }
-    let mut world_mesh = TriangleMesh {
-        indices: mesh.indices.clone(),
-        pos: mesh.pos.clone(),
-        normal: mesh.normal.clone(),
-        s: mesh.s.clone(),
-        uv: mesh.uv.clone(),
-        colors: mesh.colors.clone(),
-        alpha_mask: alpha_mask_texture,
-    };
-
-    for pos in &mut world_mesh.pos {
-        *pos = object.obj_to_world * *pos;
-    }
-
-    for normal in &mut world_mesh.normal {
-        *normal = object.obj_to_world * *normal;
-    }
-
-    for s in &mut world_mesh.s {
-        *s = object.obj_to_world * *s;
-    }
-
-    let mut shapes = Vec::new();
-
-    let world_mesh = Arc::new(world_mesh);
-    for chunk in world_mesh.indices.chunks_exact(3) {
-        shapes.push(Arc::new(Triangle {
-            mesh: Arc::clone(&world_mesh),
-            indices: [chunk[0], chunk[1], chunk[2]],
-            reverse_orientation: false,
-            transform_swaps_handedness: false,
-        }) as Arc<dyn SyncShape>)
-    }
-
-    shapes
 }
