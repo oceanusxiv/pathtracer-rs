@@ -10,7 +10,7 @@ use anyhow::Result;
 use clap::clap_app;
 use pathtracer_rs::*;
 use slog::Drain;
-use std::path::Path;
+use std::{time::Instant, path::Path};
 use winit::{
     dpi::{LogicalSize, Size},
     event::*,
@@ -101,6 +101,8 @@ fn main() {
             );
             MAX_DEPTH
         });
+
+    let start = Instant::now();
     let (world, mut camera) = common::World::from_gltf(scene_path, &resolution);
     let render_scene = pathtracer::RenderScene::from_world(&log, &world);
     let sampler =
@@ -120,8 +122,9 @@ fn main() {
         .unwrap();
     let mut viewer =
         futures::executor::block_on(viewer::Viewer::new(&log, &window, &world, &camera));
+    debug!(log, "initialization took: {:?}", start.elapsed());
 
-    let mut last_render_time = std::time::Instant::now();
+    let mut last_render_time = Instant::now();
     let mut cursor_in_window = true;
     let mut crtl_clicked = false;
     let mut cursor_position: winit::dpi::PhysicalPosition<f64> =
