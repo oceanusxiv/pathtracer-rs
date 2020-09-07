@@ -11,12 +11,11 @@ pub mod sampling;
 mod shape;
 mod texture;
 
-use crate::common::bounds::Bounds3;
 use crate::common::ray::{Ray, RayDifferential};
-use crate::common::spectrum::Spectrum;
+
 use crate::common::Camera;
 use interaction::SurfaceInteraction;
-use light::{DiffuseAreaLight, DirectionalLight, Light, PointLight, SyncLight};
+use light::SyncLight;
 use material::{Material, MaterialInterface};
 use primitive::SyncPrimitive;
 use std::cell::RefCell;

@@ -1,6 +1,6 @@
 use super::shape::SyncShape;
 use super::{
-    light::DiffuseAreaLight, Light, Material, MaterialInterface, SurfaceInteraction, TransportMode,
+    light::DiffuseAreaLight, Material, MaterialInterface, SurfaceInteraction, TransportMode,
 };
 use crate::common::bounds::Bounds3;
 use crate::common::ray::Ray;

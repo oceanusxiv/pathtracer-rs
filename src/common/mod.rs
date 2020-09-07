@@ -5,10 +5,7 @@ pub mod math;
 pub mod ray;
 pub mod spectrum;
 
-use crate::pathtracer::light;
 use film::Film;
-use std::collections::HashMap;
-use std::rc::Rc;
 
 lazy_static::lazy_static! {
     pub static ref DEFAULT_RESOLUTION: glm::Vec2 = glm::vec2(640.0, 480.0);
