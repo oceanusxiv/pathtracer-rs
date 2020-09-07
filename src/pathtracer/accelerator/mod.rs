@@ -95,6 +95,14 @@ impl BVH {
 
         let log = log.new(o!());
 
+        if primitives.is_empty() {
+            return Self {
+                log,
+                primitives,
+                nodes: Box::new([]),
+            };
+        }
+
         let mut primitive_info = Vec::<BVHPrimitiveInfo>::with_capacity(primitives.len());
 
         for i in 0..primitives.len() {

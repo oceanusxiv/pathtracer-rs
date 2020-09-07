@@ -20,7 +20,7 @@ pub struct Mesh {
 
 pub fn gen_rectangle() -> Mesh {
     Mesh {
-        indices: vec![0, 1, 2, 2, 3, 0],
+        indices: vec![0, 2, 1, 2, 0, 3],
         pos: vec![
             na::Point3::new(-1.0, -1.0, 0.0),
             na::Point3::new(1.0, -1.0, 0.0),
@@ -222,18 +222,16 @@ pub struct Scene {
 }
 
 fn get_camera(scene: &Scene, resolution: &na::Vector2<f32>) -> Camera {
+    let params = &scene.sensor.float_params;
+    let fov = params["fov"].to_radians();
+
     Camera::new(
-        &na::Isometry3::look_at_rh(
-            &na::Point3::new(0.2, 0.05, 0.2),
-            &na::Point3::origin(),
-            &na::Vector3::new(0.0, 1.0, 0.0),
-        )
-        .inverse(),
+        &na::try_convert(scene.sensor.transform).unwrap(),
         &na::Perspective3::new(
             resolution.x / resolution.y,
-            std::f32::consts::FRAC_PI_2 * (resolution.y / resolution.x),
+            fov * (resolution.y / resolution.x),
             0.01,
-            1000.0,
+            10000.0,
         ),
         &resolution,
     )

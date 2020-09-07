@@ -17,7 +17,7 @@ fn main() {
     } else {
         scene_path = "/home/eric/Downloads/cornell-box/scene.xml";
     }
-    info!(log, "openning scene: {:?}", scene_path);
+    info!(log, "opening scene: {:?}", scene_path);
     let pixel_samples_sqrt = 2;
     common::importer::mitsuba::from_mitsuba(&log, &scene_path, &common::DEFAULT_RESOLUTION);
 }

@@ -8,10 +8,12 @@ pub struct OrbitalCameraController {
     rotate_horizontal: f32,
     rotate_vertical: f32,
     scroll: f32,
+    log: slog::Logger,
 }
 
 impl OrbitalCameraController {
-    pub fn new(pivot: glm::Vec3, orbit_speed: f32, zoom_speed: f32) -> Self {
+    pub fn new(log: &slog::Logger, pivot: glm::Vec3, orbit_speed: f32, zoom_speed: f32) -> Self {
+        let log = log.new(o!("camera controller" => "orbital"));
         Self {
             pivot,
             orbit_speed,
@@ -19,6 +21,7 @@ impl OrbitalCameraController {
             rotate_horizontal: 0.0,
             rotate_vertical: 0.0,
             scroll: 0.0,
+            log,
         }
     }
 
@@ -62,6 +65,8 @@ impl OrbitalCameraController {
             &glm::vec3(0.0, 1.0, 0.0),
         )
         .inverse();
+
+        trace!(self.log, "camera is now at: {:?}", camera.cam_to_world);
 
         self.rotate_horizontal = 0.0;
         self.rotate_vertical = 0.0;

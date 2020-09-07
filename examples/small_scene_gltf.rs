@@ -17,7 +17,7 @@ fn main() {
     } else {
         scene_path = "/home/eric/Downloads/Sponza/Sponza.gltf";
     }
-    info!(log, "openning scene: {:?}", scene_path);
+    info!(log, "opening scene: {:?}", scene_path);
     let pixel_samples_sqrt = 2;
     let (document, buffers, images) = gltf::import(scene_path).unwrap();
     let mut camera = common::importer::gltf::get_camera(&document, &common::DEFAULT_RESOLUTION);

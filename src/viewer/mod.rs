@@ -135,7 +135,7 @@ impl Viewer {
     ) -> Self {
         let log = log.new(o!());
 
-        let camera_controller = OrbitalCameraController::new(glm::vec3(0.0, 0.0, 0.0), 50.0, 0.01);
+        let camera_controller = OrbitalCameraController::new(&log, glm::vec3(0.0, 0.0, 0.0), 50.0, 0.01);
 
         let size = window.inner_size();
 
