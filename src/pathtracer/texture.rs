@@ -19,7 +19,7 @@ impl<T: Copy> ConstantTexture<T> {
 }
 
 impl<T: Copy> Texture<T> for ConstantTexture<T> {
-    fn evaluate(&self, it: &SurfaceInteraction) -> T {
+    fn evaluate(&self, _it: &SurfaceInteraction) -> T {
         self.value
     }
 }

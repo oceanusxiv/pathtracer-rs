@@ -4,7 +4,6 @@ use crate::common::{
     ray::{Ray, RayDifferential},
     spectrum::Spectrum,
 };
-use std::sync::Arc;
 
 bitflags! {
     pub struct LightFlags: u32 {

@@ -230,7 +230,7 @@ impl<'a> SurfaceInteraction<'a> {
                 dim[1] = 1;
             }
 
-            let A = na::Matrix2::new(
+            let a = na::Matrix2::new(
                 self.dpdu[dim[0]],
                 self.dpdv[dim[0]],
                 self.dpdu[dim[1]],
@@ -239,7 +239,7 @@ impl<'a> SurfaceInteraction<'a> {
             let bx = na::Vector2::new(px[dim[0]] - p[dim[0]], px[dim[1]] - p[dim[1]]);
             let by = na::Vector2::new(py[dim[0]] - p[dim[0]], py[dim[1]] - p[dim[1]]);
 
-            if let Some(result) = solve_linear_system_2x2(&A, &bx) {
+            if let Some(result) = solve_linear_system_2x2(&a, &bx) {
                 self.dudx = result[0];
                 self.dvdx = result[1];
             } else {
@@ -247,7 +247,7 @@ impl<'a> SurfaceInteraction<'a> {
                 self.dvdx = 0.0;
             }
 
-            if let Some(result) = solve_linear_system_2x2(&A, &by) {
+            if let Some(result) = solve_linear_system_2x2(&a, &by) {
                 self.dudy = result[0];
                 self.dvdy = result[1];
             } else {

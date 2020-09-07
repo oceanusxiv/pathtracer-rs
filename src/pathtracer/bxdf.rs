@@ -118,18 +118,18 @@ pub enum BxDF {
 }
 
 pub struct LambertianReflection {
-    R: Spectrum,
+    r: Spectrum,
 }
 
 impl LambertianReflection {
-    pub fn new(R: Spectrum) -> Self {
-        Self { R }
+    pub fn new(r: Spectrum) -> Self {
+        Self { r }
     }
 }
 
 impl BxDFInterface for LambertianReflection {
     fn f(&self, _wo: &na::Vector3<f32>, _wi: &na::Vector3<f32>) -> Spectrum {
-        self.R * std::f32::consts::FRAC_1_PI
+        self.r * std::f32::consts::FRAC_1_PI
     }
 
     fn get_type(&self) -> BxDFType {
@@ -142,7 +142,7 @@ impl BxDFInterface for LambertianReflection {
         _n_samples: usize,
         _samples: &[na::Point2<f32>],
     ) -> Spectrum {
-        self.R
+        self.r
     }
 
     fn rho_no_wo(
@@ -151,7 +151,7 @@ impl BxDFInterface for LambertianReflection {
         _samples_1: &[na::Point2<f32>],
         _samples_2: &[na::Point2<f32>],
     ) -> Spectrum {
-        self.R
+        self.r
     }
 }
 
@@ -223,13 +223,13 @@ impl FresnelInterface for FresnelNoOp {
 }
 
 pub struct SpecularReflection {
-    R: Spectrum,
+    r: Spectrum,
     fresnel: Fresnel,
 }
 
 impl SpecularReflection {
-    pub fn new(R: Spectrum, fresnel: Fresnel) -> Self {
-        Self { R, fresnel }
+    pub fn new(r: Spectrum, fresnel: Fresnel) -> Self {
+        Self { r, fresnel }
     }
 }
 
@@ -252,7 +252,7 @@ impl BxDFInterface for SpecularReflection {
     ) -> Spectrum {
         *wi = na::Vector3::new(-wo.x, -wo.y, wo.z);
         *pdf = 1.0;
-        self.fresnel.evaluate(cos_theta(&wi)) * self.R / abs_cos_theta(&wi)
+        self.fresnel.evaluate(cos_theta(&wi)) * self.r / abs_cos_theta(&wi)
     }
 
     fn pdf(&self, _wo: &na::Vector3<f32>, _wi: &na::Vector3<f32>) -> f32 {
@@ -261,7 +261,7 @@ impl BxDFInterface for SpecularReflection {
 }
 
 pub struct SpecularTransmission {
-    T: Spectrum,
+    t: Spectrum,
     eta_a: f32,
     eta_b: f32,
     fresnel: FresnelDielectric,
@@ -269,9 +269,9 @@ pub struct SpecularTransmission {
 }
 
 impl SpecularTransmission {
-    pub fn new(T: Spectrum, eta_a: f32, eta_b: f32, mode: TransportMode) -> Self {
+    pub fn new(t: Spectrum, eta_a: f32, eta_b: f32, mode: TransportMode) -> Self {
         Self {
-            T,
+            t,
             eta_a,
             eta_b,
             fresnel: FresnelDielectric {
@@ -332,7 +332,7 @@ impl BxDFInterface for SpecularTransmission {
         }
 
         *pdf = 1.0;
-        let mut ft = self.T * (Spectrum::new(1.0) - self.fresnel.evaluate(cos_theta(&wi)));
+        let mut ft = self.t * (Spectrum::new(1.0) - self.fresnel.evaluate(cos_theta(&wi)));
 
         if self.mode == TransportMode::Radiance {
             ft *= (eta_i * eta_i) / (eta_t * eta_t);

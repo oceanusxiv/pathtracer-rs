@@ -4,7 +4,7 @@ use super::{
         BxDF, Fresnel, FresnelDielectric, FresnelNoOp, FresnelSpecular, LambertianReflection,
         SpecularReflection, SpecularTransmission,
     },
-    texture::{ConstantTexture, ImageTexture, NormalMap, SyncTexture, Texture, UVMap},
+    texture::SyncTexture,
     SurfaceInteraction, TransportMode,
 };
 use crate::common::{self, spectrum::Spectrum};
@@ -68,7 +68,7 @@ pub fn normal_mapping(
 }
 
 pub struct MatteMaterial {
-    Kd: Box<dyn SyncTexture<Spectrum>>,
+    kd: Box<dyn SyncTexture<Spectrum>>,
     normal_map: Option<Box<dyn SyncTexture<na::Vector3<f32>>>>,
     log: slog::Logger,
 }
@@ -76,12 +76,12 @@ pub struct MatteMaterial {
 impl MatteMaterial {
     pub fn new(
         log: &slog::Logger,
-        Kd: Box<dyn SyncTexture<Spectrum>>,
+        kd: Box<dyn SyncTexture<Spectrum>>,
         normal_map: Option<Box<dyn SyncTexture<na::Vector3<f32>>>>,
     ) -> Self {
         let log = log.new(o!());
         Self {
-            Kd,
+            kd,
             normal_map,
             log,
         }
@@ -95,7 +95,7 @@ impl MaterialInterface for MatteMaterial {
         }
 
         let mut bsdf = BSDF::new(&self.log, &si, 1.0);
-        let r = self.Kd.evaluate(&si);
+        let r = self.kd.evaluate(&si);
         bsdf.add(BxDF::Lambertian(LambertianReflection::new(r)));
 
         si.bsdf = Some(bsdf);
@@ -127,8 +127,8 @@ impl MaterialInterface for MirrorMaterial {
 }
 
 pub struct GlassMaterial {
-    Kr: Box<dyn SyncTexture<Spectrum>>,
-    Kt: Box<dyn SyncTexture<Spectrum>>,
+    kr: Box<dyn SyncTexture<Spectrum>>,
+    kt: Box<dyn SyncTexture<Spectrum>>,
     index: Box<dyn SyncTexture<f32>>,
     log: slog::Logger,
 }
@@ -136,23 +136,23 @@ pub struct GlassMaterial {
 impl GlassMaterial {
     pub fn new(
         log: &slog::Logger,
-        Kr: Box<dyn SyncTexture<Spectrum>>,
-        Kt: Box<dyn SyncTexture<Spectrum>>,
+        kr: Box<dyn SyncTexture<Spectrum>>,
+        kt: Box<dyn SyncTexture<Spectrum>>,
         index: Box<dyn SyncTexture<f32>>,
     ) -> Self {
         let log = log.new(o!());
-        Self { Kr, Kt, index, log }
+        Self { kr, kt, index, log }
     }
 }
 
 impl MaterialInterface for GlassMaterial {
     fn compute_scattering_functions(&self, si: &mut SurfaceInteraction, mode: TransportMode) {
         let eta = self.index.evaluate(&si);
-        let R = self.Kr.evaluate(&si);
-        let T = self.Kt.evaluate(&si);
+        let r = self.kr.evaluate(&si);
+        let t = self.kt.evaluate(&si);
 
         let mut bsdf = BSDF::new(&self.log, &si, eta);
-        if R.is_black() && T.is_black() {
+        if r.is_black() && t.is_black() {
             return;
         }
 
@@ -161,23 +161,23 @@ impl MaterialInterface for GlassMaterial {
         // FIXME: enable fresnel specular when monte carlo is ready
         if is_specular && false {
             bsdf.add(BxDF::FresnelSpecular(FresnelSpecular::new(
-                R, T, 1.0, eta, mode,
+                r, t, 1.0, eta, mode,
             )));
         } else {
-            if !R.is_black() {
+            if !r.is_black() {
                 let fresnel = Fresnel::Dielectric(FresnelDielectric::new(1.0, eta));
                 if is_specular {
                     bsdf.add(BxDF::SpecularReflection(SpecularReflection::new(
-                        R, fresnel,
+                        r, fresnel,
                     )));
                 } else {
                 }
             }
 
-            if !T.is_black() {
+            if !t.is_black() {
                 if is_specular {
                     bsdf.add(BxDF::SpecularTransmission(SpecularTransmission::new(
-                        T, 1.0, eta, mode,
+                        t, 1.0, eta, mode,
                     )));
                 } else {
                 }

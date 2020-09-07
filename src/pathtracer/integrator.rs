@@ -62,7 +62,7 @@ impl DirectLightingIntegrator {
         );
 
         let ns = isect.shading.n;
-        let L;
+        let l;
         if pdf > 0.0 && !f.is_black() && wi.dot(&ns).abs() != 0.0 {
             // Compute ray differential rd for specular reflection
             let mut rd = RayDifferential::new(isect.general.spawn_ray(&wi));
@@ -74,24 +74,24 @@ impl DirectLightingIntegrator {
                 let dndy = isect.shading.dndu * isect.dudy + isect.shading.dndv * isect.dvdy;
                 let dwodx = -r.rx_direction - wo;
                 let dwody = -r.ry_direction - wo;
-                let dDNdx = dwodx.dot(&ns) + wo.dot(&dndx);
-                let dDNdy = dwody.dot(&ns) + wo.dot(&dndy);
-                rd.rx_direction = wi - dwodx + 2.0 * (wo.dot(&ns) * dndx + dDNdx * ns);
-                rd.ry_direction = wi - dwody + 2.0 * (wo.dot(&ns) * dndy + dDNdy * ns);
+                let d_dndx = dwodx.dot(&ns) + wo.dot(&dndx);
+                let d_dndy = dwody.dot(&ns) + wo.dot(&dndy);
+                rd.rx_direction = wi - dwodx + 2.0 * (wo.dot(&ns) * dndx + d_dndx * ns);
+                rd.ry_direction = wi - dwody + 2.0 * (wo.dot(&ns) * dndy + d_dndy * ns);
             }
-            L = f * self.li(&rd, &scene, &mut sampler, depth + 1) * wi.dot(&ns).abs() / pdf;
+            l = f * self.li(&rd, &scene, &mut sampler, depth + 1) * wi.dot(&ns).abs() / pdf;
         } else {
-            L = Spectrum::new(0.0);
+            l = Spectrum::new(0.0);
         }
 
         trace!(
             self.log,
             "L: {:?}, after specular reflect depth: {:?}",
-            L,
+            l,
             depth
         );
 
-        L
+        l
     }
 
     fn specular_transmit(
@@ -138,12 +138,12 @@ impl DirectLightingIntegrator {
 
                 let dwodx = -r.rx_direction - wo;
                 let dwody = -r.ry_direction - wo;
-                let dDNdx = dwodx.dot(&ns) + wo.dot(&dndx);
-                let dDNdy = dwody.dot(&ns) + wo.dot(&dndy);
+                let d_dndx = dwodx.dot(&ns) + wo.dot(&dndx);
+                let d_dndy = dwody.dot(&ns) + wo.dot(&dndy);
 
                 let mu = eta * wo.dot(&ns) - wi.dot(&ns).abs();
-                let dmudx = (eta - (eta * eta * wo.dot(&ns)) / wi.dot(&ns).abs()) * dDNdx;
-                let dmudy = (eta - (eta * eta * wo.dot(&ns)) / wi.dot(&ns).abs()) * dDNdy;
+                let dmudx = (eta - (eta * eta * wo.dot(&ns)) / wi.dot(&ns).abs()) * d_dndx;
+                let dmudy = (eta - (eta * eta * wo.dot(&ns)) / wi.dot(&ns).abs()) * d_dndy;
 
                 rd.rx_direction = wi - eta * dwodx + (mu * dndx + dmudx * ns);
                 rd.ry_direction = wi - eta * dwody + (mu * dndy + dmudy * ns);
@@ -167,30 +167,30 @@ impl DirectLightingIntegrator {
 
     fn li(
         &self,
-        r: &RayDifferential,
+        ray: &RayDifferential,
         scene: &RenderScene,
         mut sampler: &mut Sampler,
         depth: u32,
     ) -> Spectrum {
-        let mut L = Spectrum::new(0.0);
+        let mut l = Spectrum::new(0.0);
         let mut isect = Default::default();
 
-        if !scene.intersect(&r.ray, &mut isect) {
+        if !scene.intersect(&ray.ray, &mut isect) {
             for light in &scene.lights {
-                L += light.le(&r);
+                l += light.le(&ray);
             }
-            return L;
+            return l;
         }
         trace!(self.log, "intersected geometry at: {:?}", isect.general.p);
 
-        isect.compute_scattering_functions(r, TransportMode::Radiance);
+        isect.compute_scattering_functions(ray, TransportMode::Radiance);
 
         let n = isect.shading.n;
         let wo = isect.general.wo;
 
-        L += isect.le(&wo);
+        l += isect.le(&wo);
 
-        trace!(self.log, "L: {:?}, before light rays", L);
+        trace!(self.log, "L: {:?}, before light rays", l);
 
         for light in &scene.lights {
             let mut wi: na::Vector3<f32> = glm::zero();
@@ -222,7 +222,7 @@ impl DirectLightingIntegrator {
                 if let Some(visibility) = visibility {
                     if visibility.unoccluded(&scene) {
                         trace!(self.log, "light: {:p}, unoccluded", light);
-                        L += f * li * wi.dot(&n) / pdf;
+                        l += f * li * wi.dot(&n) / pdf;
                     } else {
                         trace!(self.log, "light: {:p}, occluded", light);
                     }
@@ -230,14 +230,14 @@ impl DirectLightingIntegrator {
             }
         }
 
-        trace!(self.log, "L: {:?}, after light rays", L);
+        trace!(self.log, "L: {:?}, after light rays", l);
 
         if depth + 1 < self.max_depth {
-            L += self.specular_reflect(&r, &isect, &scene, &mut sampler, depth);
-            L += self.specular_transmit(&r, &isect, &scene, &mut sampler, depth);
+            l += self.specular_reflect(&ray, &isect, &scene, &mut sampler, depth);
+            l += self.specular_transmit(&ray, &isect, &scene, &mut sampler, depth);
         }
 
-        L
+        l
     }
 
     pub fn render_single_pixel(
@@ -261,9 +261,9 @@ impl DirectLightingIntegrator {
             let mut ray = camera.generate_ray_differential(&camera_sample);
             ray.scale_differentials(1.0 / (pixel_sampler.samples_per_pixel() as f32).sqrt());
             trace!(self.log, "generated ray: {:?}", ray);
-            let mut L = Spectrum::new(0.0);
-            L = self.li(&ray, &scene, &mut pixel_sampler, 0);
-            trace!(self.log, "output L: {:?}", L);
+            let mut l = Spectrum::new(0.0);
+            l = self.li(&ray, &scene, &mut pixel_sampler, 0);
+            trace!(self.log, "output L: {:?}", l);
 
             if !pixel_sampler.start_next_sample() {
                 break;
@@ -327,10 +327,10 @@ impl DirectLightingIntegrator {
                             1.0 / (tile_sampler.samples_per_pixel() as f32).sqrt(),
                         );
 
-                        let mut L = Spectrum::new(0.0);
-                        L = self.li(&ray, &scene, &mut tile_sampler, 0);
+                        let mut l = Spectrum::new(0.0);
+                        l = self.li(&ray, &scene, &mut tile_sampler, 0);
 
-                        film_tile.add_sample(&camera_sample.p_film, &L);
+                        film_tile.add_sample(&camera_sample.p_film, &l);
 
                         if !tile_sampler.start_next_sample() {
                             break;

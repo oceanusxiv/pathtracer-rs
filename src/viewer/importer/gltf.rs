@@ -79,7 +79,7 @@ impl ViewerScene {
         log: &slog::Logger,
         document: &gltf::Document,
         buffers: &[gltf::buffer::Data],
-        images: &[gltf::image::Data],
+        _images: &[gltf::image::Data],
     ) -> Self {
         let mut meshes = vec![];
         let mut mesh_prim_indice_map = HashMap::new();
