@@ -108,7 +108,7 @@ fn main() {
 
     let start = Instant::now();
     let (mut camera, render_scene, viewer_scene) =
-        common::importer::gltf::from_gltf(&log, &scene_path, &resolution);
+        common::importer::import(&log, &scene_path, &resolution);
     let sampler =
         pathtracer::sampling::Sampler::new(pixel_samples_sqrt, pixel_samples_sqrt, true, 8);
     let mut integrator =
