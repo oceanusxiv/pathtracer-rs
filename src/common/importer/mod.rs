@@ -16,6 +16,8 @@ pub fn import(
 
     if ext == "gltf" || ext == "glb" {
         gltf::from_gltf(&log, &path, &resolution)
+    } else if ext == "xml" {
+        mitsuba::from_mitsuba(&log, &path, &resolution)
     } else {
         panic!("unsupported format!");
     }
