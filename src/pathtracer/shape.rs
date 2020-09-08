@@ -589,3 +589,34 @@ pub struct TriangleMesh {
     pub colors: Vec<na::Vector3<f32>>,
     pub alpha_mask: Option<Arc<dyn SyncTexture<f32>>>,
 }
+
+pub fn shapes_from_mesh(
+    mut mesh: TriangleMesh,
+    obj_to_world: &na::Projective3<f32>,
+) -> Vec<Arc<dyn SyncShape>> {
+    for pos in &mut mesh.pos {
+        *pos = obj_to_world * *pos;
+    }
+
+    for normal in &mut mesh.normal {
+        *normal = obj_to_world * *normal;
+    }
+
+    for s in &mut mesh.s {
+        *s = obj_to_world * *s;
+    }
+
+    let mut shapes = Vec::new();
+
+    let world_mesh = Arc::new(mesh);
+    for chunk in world_mesh.indices.chunks_exact(3) {
+        shapes.push(Arc::new(Triangle::new(
+            Arc::clone(&world_mesh),
+            [chunk[0], chunk[1], chunk[2]],
+            false,
+            false,
+        )) as Arc<dyn SyncShape>)
+    }
+
+    shapes
+}

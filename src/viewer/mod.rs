@@ -133,7 +133,7 @@ impl Viewer {
         scene: &ViewerScene,
         camera: &Camera,
     ) -> Self {
-        let log = log.new(o!());
+        let log = log.new(o!("module" => "viewer"));
 
         let camera_controller = Box::new(OrbitalCameraController::new(
             &log,

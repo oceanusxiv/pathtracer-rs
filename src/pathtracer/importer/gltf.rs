@@ -5,7 +5,7 @@ use crate::{
         light::{DiffuseAreaLight, DirectionalLight, PointLight, SyncLight},
         material::{GlassMaterial, Material, MatteMaterial, MirrorMaterial},
         primitive::{GeometricPrimitive, SyncPrimitive},
-        shape::{SyncShape, Triangle, TriangleMesh},
+        shape::{shapes_from_mesh, SyncShape, TriangleMesh},
         texture::{ConstantTexture, ImageTexture, NormalMap, SyncTexture, UVMap},
         RenderScene,
     },
@@ -212,31 +212,7 @@ pub fn shapes_from_gltf_prim(
         alpha_mask: alpha_mask_texture,
     };
 
-    for pos in &mut world_mesh.pos {
-        *pos = obj_to_world * *pos;
-    }
-
-    for normal in &mut world_mesh.normal {
-        *normal = obj_to_world * *normal;
-    }
-
-    for s in &mut world_mesh.s {
-        *s = obj_to_world * *s;
-    }
-
-    let mut shapes = Vec::new();
-
-    let world_mesh = Arc::new(world_mesh);
-    for chunk in world_mesh.indices.chunks_exact(3) {
-        shapes.push(Arc::new(Triangle::new(
-            Arc::clone(&world_mesh),
-            [chunk[0], chunk[1], chunk[2]],
-            false,
-            false,
-        )) as Arc<dyn SyncShape>)
-    }
-
-    shapes
+    shapes_from_mesh(world_mesh, &obj_to_world)
 }
 
 fn populate_scene(

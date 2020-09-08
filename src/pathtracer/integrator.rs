@@ -28,7 +28,7 @@ pub struct DirectLightingIntegrator {
 
 impl DirectLightingIntegrator {
     pub fn new(log: &slog::Logger, sampler: Sampler, max_depth: u32) -> Self {
-        let log = log.new(o!("integrator" => "direct lighting integrator"));
+        let log = log.new(o!("module" => "integrator"));
         Self {
             sampler,
             max_depth,
@@ -240,7 +240,7 @@ impl DirectLightingIntegrator {
                 if let Some(visibility) = visibility {
                     if visibility.unoccluded(&scene) {
                         trace!(self.log, "light: {:p}, unoccluded", light);
-                        l += f * li * wi.dot(&n) / pdf;
+                        l += f * li * wi.dot(&n).abs() / pdf;
                     } else {
                         trace!(self.log, "light: {:p}, occluded", light);
                     }

@@ -4,12 +4,17 @@ extern crate slog;
 #[macro_use]
 extern crate anyhow;
 
+#[macro_use]
+extern crate maplit;
+
 extern crate nalgebra as na;
 
 use anyhow::Result;
 use clap::clap_app;
 use pathtracer_rs::*;
 use slog::Drain;
+use std::collections::HashSet;
+use std::iter::FromIterator;
 use std::str::FromStr;
 use std::{path::Path, time::Instant};
 use winit::{
@@ -33,10 +38,17 @@ fn sample_arg_legal(val: String) -> Result<(), String> {
     }
 }
 
-fn new_drain(level: slog::Level) -> slog::Fuse<slog::LevelFilter<slog::Fuse<slog_async::Async>>> {
+fn new_drain(
+    level: slog::Level,
+    allowed_modules: &Option<slog_kvfilter::KVFilterList>,
+) -> slog::Fuse<slog::LevelFilter<slog::Fuse<slog_kvfilter::KVFilter<slog::Fuse<slog_async::Async>>>>>
+{
     let decorator = slog_term::TermDecorator::new().build();
-    let drain = slog_term::FullFormat::new(decorator).build().fuse();
+    let drain = slog_term::CompactFormat::new(decorator).build().fuse();
     let drain = slog_async::Async::new(drain).chan_size(1000).build().fuse();
+    let drain = slog_kvfilter::KVFilter::new(drain, slog::Level::Warning)
+        .only_pass_any_on_all_keys(allowed_modules.clone())
+        .fuse();
     drain.filter_level(level).fuse()
 }
 
@@ -61,15 +73,24 @@ fn main() {
         (@arg output: -o --output +takes_value +required "Sets the output directory to save renders at")
         (@arg samples: -s --samples default_value("1") validator(sample_arg_legal) "Number of samples path tracer to take per pixel (must be perfect square)")
         (@arg resolution: -r --resolution +takes_value "Resolution of the window")
-        (@arg max_depth: -d --max-depth +takes_value default_value("5") "Maximum ray tracing depth")
-        (@arg log_level: -l --log-level +takes_value default_value("INFO") "Application wide log level")
+        (@arg max_depth: -d --max_depth default_value("5") "Maximum ray tracing depth")
+        (@arg log_level: -l --log_level default_value("INFO") "Application wide log level")
+        (@arg module_log: -m --module_log default_value("all") "Module names to log, (all for every module)")
         (@arg verbose: -v --verbose "Print test information verbosely")
     )
     .get_matches();
 
     let init_log_level = slog::Level::from_str(matches.value_of("log_level").unwrap())
         .unwrap_or_else(|()| slog::Level::Info);
-    let drain = new_drain(init_log_level);
+    let allowed_modules_str = matches.value_of("module_log").unwrap();
+    let allowed_modules = if allowed_modules_str == "all" {
+        None
+    } else {
+        Some(
+            hashmap! {String::from("module") => HashSet::<String>::from_iter(allowed_modules_str.split(",").map(|s| String::from(s)).into_iter())},
+        )
+    };
+    let drain = new_drain(init_log_level, &allowed_modules);
     let drain = slog_atomic::AtomicSwitch::new(drain);
     let ctrl = drain.ctrl();
     let log = slog::Logger::root(drain.fuse(), o!());
@@ -197,10 +218,10 @@ fn main() {
                         } => {
                             if trace_mode {
                                 info!(log, "setting log level to {:?}", init_log_level);
-                                ctrl.set(new_drain(slog::Level::Info));
+                                ctrl.set(new_drain(slog::Level::Info, &allowed_modules));
                             } else {
                                 info!(log, "setting log level to {:?}", slog::Level::Trace);
-                                ctrl.set(new_drain(slog::Level::Trace));
+                                ctrl.set(new_drain(slog::Level::Trace, &allowed_modules));
                             }
                             trace_mode = !trace_mode;
                         }

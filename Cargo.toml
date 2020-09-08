@@ -21,6 +21,7 @@ anyhow = "^1.0"
 slog-term = "2.6.0"
 slog-async = "2.5.0"
 slog-atomic = "3.0.0"
+slog-kvfilter = "0.7.0"
 nalgebra-glm = "0.8.0"
 nalgebra = "0.22.0"
 genmesh = "^0.6"
@@ -41,10 +42,11 @@ ambassador = "0.2.1"
 serde = "1.0.115"
 serde_derive = "1.0.115"
 serde-xml-rs = "0.4.0"
+maplit = "1.0.2"
 
 [dependencies.slog]
 version = "2.5.2"
-# features = ["release_max_level_trace"]
+features = ["release_max_level_trace"]
 
 [dependencies.indicatif]
 version = "^0.15"

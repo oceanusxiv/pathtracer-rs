@@ -172,16 +172,16 @@ mod transform {
 
 #[derive(Debug, Deserialize)]
 pub struct TwoSided {
-    id: Option<String>,
-    bsdf: Box<BSDF>,
+    pub id: Option<String>,
+    pub bsdf: Box<BSDF>,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct Diffuse {
-    id: Option<String>,
+    pub id: Option<String>,
 
     #[serde(with = "rgb")]
-    rgb: [f32; 3],
+    pub rgb: [f32; 3],
 }
 
 #[derive(Debug, Deserialize)]
@@ -246,11 +246,12 @@ pub enum Emitter {
         #[serde(with = "rgb")]
         rgb: [f32; 3],
     },
+    Point,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct Reference {
-    id: String,
+    pub id: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -330,7 +331,7 @@ pub fn from_mitsuba(
     let scene: Scene = from_reader(file).unwrap();
 
     let camera = get_camera(&scene, &resolution);
-    let render_scene = crate::pathtracer::RenderScene::from_mitsuba(&log);
+    let render_scene = crate::pathtracer::RenderScene::from_mitsuba(&log, &scene);
     let viewer_scene = crate::viewer::ViewerScene::from_mitsuba(&log, &scene);
 
     (camera, render_scene, viewer_scene)
