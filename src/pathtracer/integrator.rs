@@ -12,6 +12,7 @@ use itertools::Itertools;
 use rayon::prelude::*;
 use std::time::Instant;
 
+#[derive(Debug, Eq, PartialEq)]
 pub enum LightStrategy {
     UniformSampleAll,
     UniformSampleOne,
@@ -20,6 +21,8 @@ pub enum LightStrategy {
 pub struct DirectLightingIntegrator {
     sampler: Sampler,
     max_depth: u32,
+    strategy: LightStrategy,
+    num_light_samples: Vec<usize>,
     log: slog::Logger,
 }
 
@@ -28,16 +31,30 @@ impl DirectLightingIntegrator {
         let log = log.new(o!("integrator" => "direct lighting integrator"));
         Self {
             sampler,
-            log,
             max_depth,
+            strategy: LightStrategy::UniformSampleAll,
+            num_light_samples: vec![],
+            log,
         }
     }
 
-    pub fn set_sampler(&mut self, sampler: Sampler) {
-        self.sampler = sampler;
-    }
+    // this should be run before rendering starts, or if the render scene changed
+    pub fn preprocess(&mut self, scene: &RenderScene) {
+        self.num_light_samples.clear();
 
-    pub fn preprocess() {}
+        if self.strategy == LightStrategy::UniformSampleAll {
+            for light in &scene.lights {
+                self.num_light_samples.push(light.get_num_samples());
+            }
+
+            for _ in 0..self.max_depth {
+                for j in 0..scene.lights.len() {
+                    self.sampler.request_2d_array(self.num_light_samples[j]);
+                    self.sampler.request_2d_array(self.num_light_samples[j]);
+                }
+            }
+        }
+    }
 
     fn specular_reflect(
         &self,
@@ -277,7 +294,7 @@ impl DirectLightingIntegrator {
         );
     }
 
-    pub fn render(&self, camera: &mut Camera, scene: &RenderScene) {
+    pub fn render(&mut self, camera: &mut Camera, scene: &RenderScene) {
         debug!(
             self.log,
             "start rendering image of size: {:?}",

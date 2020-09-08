@@ -24,7 +24,7 @@ fn main() {
     let render_scene = pathtracer::RenderScene::from_gltf(&log, &document, &buffers, &images);
     let sampler =
         pathtracer::sampling::Sampler::new(pixel_samples_sqrt, pixel_samples_sqrt, true, 8);
-    let integrator = pathtracer::integrator::DirectLightingIntegrator::new(&log, sampler, 5);
-
+    let mut integrator = pathtracer::integrator::DirectLightingIntegrator::new(&log, sampler, 5);
+    integrator.preprocess(&render_scene);
     integrator.render(&mut camera, &render_scene);
 }

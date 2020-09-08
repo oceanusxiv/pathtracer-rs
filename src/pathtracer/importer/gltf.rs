@@ -269,6 +269,7 @@ fn populate_scene(
                             b: EMISSIVE_SCALING_FACTOR * emissive_factor[0],
                         },
                         Arc::clone(&shape),
+                        1,
                     ));
                     lights.push(Arc::clone(&area_light) as Arc<dyn SyncLight>);
                     some_area_light = Some(Arc::clone(&area_light));

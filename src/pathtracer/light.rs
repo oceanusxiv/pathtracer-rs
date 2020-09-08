@@ -62,6 +62,10 @@ pub trait Light {
     fn pdf_le(&self, r: &Ray, n_light: &na::Vector3<f32>, pdf_pos: &mut f32, pdf_dir: &mut f32);
 
     fn preprocess(&mut self, world_bound: &Bounds3) {}
+
+    fn get_num_samples(&self) -> usize {
+        1
+    }
 }
 
 pub trait SyncLight: Light + Send + Sync {}
@@ -221,14 +225,16 @@ impl Light for DirectionalLight {
 pub struct DiffuseAreaLight {
     l_emit: Spectrum,
     shape: Arc<dyn SyncShape>,
+    num_samples: usize,
     area: f32,
 }
 
 impl DiffuseAreaLight {
-    pub fn new(l_emit: Spectrum, shape: Arc<dyn SyncShape>) -> Self {
+    pub fn new(l_emit: Spectrum, shape: Arc<dyn SyncShape>, num_samples: usize) -> Self {
         Self {
             l_emit,
             area: shape.area(),
+            num_samples,
             shape,
         }
     }
@@ -291,6 +297,10 @@ impl Light for DiffuseAreaLight {
         pdf_dir: &mut f32,
     ) {
         todo!()
+    }
+
+    fn get_num_samples(&self) -> usize {
+        self.num_samples
     }
 }
 

@@ -44,14 +44,17 @@ impl CoreSampler {
         self.sample_array_1d
             .push(vec![0.0; n * self.samples_per_pixel])
     }
+
     fn request_2d_array(&mut self, n: usize) {
         self.sample_2d_array_sizes.push(n);
         self.sample_array_2d
             .push(vec![na::Point2::new(0.0, 0.0); n * self.samples_per_pixel])
     }
+
     fn round_count(&self, n: i32) -> i32 {
         n
     }
+
     fn get_1d_array(&mut self, n: usize) -> Option<f32> {
         if self.array_1d_offset == self.sample_array_1d.len() {
             None
@@ -347,6 +350,14 @@ impl StratifiedSampler {
 
     pub fn samples_per_pixel(&self) -> usize {
         self.pixel_sampler.sampler.samples_per_pixel
+    }
+
+    pub fn request_1d_array(&mut self, n: usize) {
+        self.pixel_sampler.sampler.request_1d_array(n)
+    }
+
+    pub fn request_2d_array(&mut self, n: usize) {
+        self.pixel_sampler.sampler.request_2d_array(n)
     }
 }
 

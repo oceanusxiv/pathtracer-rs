@@ -113,6 +113,7 @@ fn main() {
         pathtracer::sampling::Sampler::new(pixel_samples_sqrt, pixel_samples_sqrt, true, 8);
     let mut integrator =
         pathtracer::integrator::DirectLightingIntegrator::new(&log, sampler, max_depth);
+    integrator.preprocess(&render_scene);
 
     debug!(log, "camera starting at: {:?}", camera.cam_to_world);
 
@@ -214,12 +215,17 @@ fn main() {
                                 "pixel sample count now {:?}",
                                 pixel_samples_sqrt * pixel_samples_sqrt
                             );
-                            integrator.set_sampler(pathtracer::sampling::Sampler::new(
-                                pixel_samples_sqrt,
-                                pixel_samples_sqrt,
-                                true,
-                                8,
-                            ));
+                            integrator = pathtracer::integrator::DirectLightingIntegrator::new(
+                                &log,
+                                pathtracer::sampling::Sampler::new(
+                                    pixel_samples_sqrt,
+                                    pixel_samples_sqrt,
+                                    true,
+                                    8,
+                                ),
+                                max_depth,
+                            );
+                            integrator.preprocess(&render_scene);
                         }
                         KeyboardInput {
                             state: ElementState::Pressed,
@@ -232,12 +238,17 @@ fn main() {
                                 "pixel sample count now {:?}",
                                 pixel_samples_sqrt * pixel_samples_sqrt
                             );
-                            integrator.set_sampler(pathtracer::sampling::Sampler::new(
-                                pixel_samples_sqrt,
-                                pixel_samples_sqrt,
-                                true,
-                                8,
-                            ));
+                            integrator = pathtracer::integrator::DirectLightingIntegrator::new(
+                                &log,
+                                pathtracer::sampling::Sampler::new(
+                                    pixel_samples_sqrt,
+                                    pixel_samples_sqrt,
+                                    true,
+                                    8,
+                                ),
+                                max_depth,
+                            );
+                            integrator.preprocess(&render_scene);
                         }
                         _ => {}
                     },
