@@ -251,6 +251,7 @@ fn populate_scene(
     mut preprocess_lights: &mut Vec<Arc<dyn SyncLight>>,
 ) {
     let current_transform = *parent_transform * trans_from_gltf(current_node.transform());
+    const EMISSIVE_SCALING_FACTOR: f32 = 10.0; // hack for gltf since it clamps emissive factor to 1.0
     if let Some(gltf_mesh) = current_node.mesh() {
         for gltf_prim in gltf_mesh.primitives() {
             for shape in
@@ -263,9 +264,9 @@ fn populate_scene(
                 {
                     let area_light = Arc::new(DiffuseAreaLight::new(
                         Spectrum {
-                            r: emissive_factor[0],
-                            g: emissive_factor[0],
-                            b: emissive_factor[0],
+                            r: EMISSIVE_SCALING_FACTOR * emissive_factor[0],
+                            g: EMISSIVE_SCALING_FACTOR * emissive_factor[0],
+                            b: EMISSIVE_SCALING_FACTOR * emissive_factor[0],
                         },
                         Arc::clone(&shape),
                     ));
