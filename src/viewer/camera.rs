@@ -1,12 +1,24 @@
 use crate::common::Camera;
+use ambassador::{delegatable_trait, Delegate};
 use winit::{dpi::LogicalPosition, event::*};
 
-pub trait CameraController {
+#[delegatable_trait]
+pub trait CameraControllerInterface {
     fn process_mouse(&mut self, mouse_dx: f64, mouse_dy: f64);
-    fn process_key(&mut self, key: &VirtualKeyCode) {}
-    fn process_scroll(&mut self, delta: &MouseScrollDelta) {}
+    fn process_key(&mut self, _key: &VirtualKeyCode) -> bool {
+        false
+    }
+    fn process_scroll(&mut self, _delta: &MouseScrollDelta) {}
     fn update_camera(&mut self, camera: &mut Camera, dt: std::time::Duration);
 }
+
+#[derive(Delegate)]
+#[delegate(CameraControllerInterface)]
+pub enum CameraController {
+    Orbit(OrbitalCameraController),
+    FirstPerson(FirstPersonCameraController),
+}
+
 pub struct OrbitalCameraController {
     pivot: glm::Vec3,
     orbit_speed: f32,
@@ -32,7 +44,7 @@ impl OrbitalCameraController {
     }
 }
 
-impl CameraController for OrbitalCameraController {
+impl CameraControllerInterface for OrbitalCameraController {
     fn process_mouse(&mut self, mouse_dx: f64, mouse_dy: f64) {
         self.rotate_horizontal = mouse_dx.to_radians() as f32;
         self.rotate_vertical = mouse_dy.to_radians() as f32;
@@ -85,17 +97,50 @@ impl CameraController for OrbitalCameraController {
 pub struct FirstPersonCameraController {
     rotate_sensitivity: f32,
     move_sensitivity: f32,
+    translation: na::Translation3<f32>,
     log: slog::Logger,
 }
 
-impl CameraController for FirstPersonCameraController {
-    fn process_key(&mut self, key: &VirtualKeyCode) {
+impl FirstPersonCameraController {
+    pub fn new(log: &slog::Logger, rotate_sensitivity: f32, move_sensitivity: f32) -> Self {
+        let log = log.new(o!());
+        Self {
+            rotate_sensitivity,
+            move_sensitivity,
+            translation: na::Translation3::identity(),
+            log,
+        }
+    }
+}
+
+impl CameraControllerInterface for FirstPersonCameraController {
+    fn process_key(&mut self, key: &VirtualKeyCode) -> bool {
         match key {
-            VirtualKeyCode::W => {}
-            VirtualKeyCode::A => {}
-            VirtualKeyCode::S => {}
-            VirtualKeyCode::D => {}
-            _ => {}
+            VirtualKeyCode::W => {
+                self.translation.z = -self.move_sensitivity;
+                true
+            }
+            VirtualKeyCode::A => {
+                self.translation.x = -self.move_sensitivity;
+                true
+            }
+            VirtualKeyCode::S => {
+                self.translation.z = self.move_sensitivity;
+                true
+            }
+            VirtualKeyCode::D => {
+                self.translation.x = self.move_sensitivity;
+                true
+            }
+            VirtualKeyCode::Z => {
+                self.translation.y = self.move_sensitivity;
+                true
+            }
+            VirtualKeyCode::X => {
+                self.translation.y = -self.move_sensitivity;
+                true
+            }
+            _ => false,
         }
     }
 
@@ -104,6 +149,18 @@ impl CameraController for FirstPersonCameraController {
     }
 
     fn update_camera(&mut self, camera: &mut Camera, dt: std::time::Duration) {
-        todo!()
+        let dt = dt.as_secs_f32();
+
+        let translation = na::Translation3::new(
+            self.translation.x * dt,
+            self.translation.y * dt,
+            self.translation.z * dt,
+        );
+
+        camera.cam_to_world.append_translation_mut(&translation);
+
+        trace!(self.log, "camera is now at: {:?}", camera.cam_to_world);
+
+        self.translation = na::Translation3::identity();
     }
 }

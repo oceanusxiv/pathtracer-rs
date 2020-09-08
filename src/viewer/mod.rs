@@ -1,5 +1,5 @@
 mod bounds;
-mod camera;
+pub mod camera;
 pub mod importer;
 mod mesh;
 mod pipeline;
@@ -11,7 +11,7 @@ mod wireframe;
 
 use crate::common::Camera;
 use bounds::{BoundsRenderPass, DrawBounds};
-use camera::{CameraController, OrbitalCameraController};
+use camera::{CameraController, CameraControllerInterface};
 use mesh::{DrawMesh, MeshRenderPass};
 use quad::{DrawQuad, QuadRenderPass};
 use winit::{event::*, window::Window};
@@ -119,7 +119,7 @@ pub struct Viewer {
     uniform_bind_group: wgpu::BindGroup,
     depth_texture: texture::Texture,
     size: winit::dpi::PhysicalSize<u32>,
-    camera_controller: Box<dyn CameraController>,
+    camera_controller: CameraController,
     mouse_pressed: bool,
     log: slog::Logger,
     pub state: ViewerState,
@@ -132,15 +132,9 @@ impl Viewer {
         window: &Window,
         scene: &ViewerScene,
         camera: &Camera,
+        camera_controller: CameraController,
     ) -> Self {
         let log = log.new(o!("module" => "viewer"));
-
-        let camera_controller = Box::new(OrbitalCameraController::new(
-            &log,
-            glm::vec3(0.0, 0.0, 0.0),
-            50.0,
-            0.01,
-        ));
 
         let size = window.inner_size();
 
@@ -268,25 +262,33 @@ impl Viewer {
         self.swap_chain = self.device.create_swap_chain(&self.surface, &self.sc_desc);
     }
 
-    // input() won't deal with GPU code, so it can be synchronous
-    pub fn input(&mut self, event: &DeviceEvent) -> bool {
+    pub fn window_input(&mut self, event: &WindowEvent) -> bool {
         match self.state {
             ViewerState::RenderScene => match event {
-                DeviceEvent::Key(input) => match input {
+                WindowEvent::KeyboardInput { input, .. } => match input {
                     KeyboardInput {
                         state: ElementState::Pressed,
                         virtual_keycode,
                         ..
                     } => {
                         if let Some(keycode) = virtual_keycode {
-                            self.camera_controller.process_key(keycode);
-                            true
+                            self.camera_controller.process_key(keycode)
                         } else {
                             false
                         }
                     }
                     _ => false,
                 },
+                _ => false,
+            },
+            _ => false,
+        }
+    }
+
+    // input() won't deal with GPU code, so it can be synchronous
+    pub fn device_input(&mut self, event: &DeviceEvent) -> bool {
+        match self.state {
+            ViewerState::RenderScene => match event {
                 DeviceEvent::MouseWheel { delta, .. } => {
                     self.camera_controller.process_scroll(delta);
                     true

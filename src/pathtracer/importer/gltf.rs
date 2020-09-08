@@ -180,7 +180,7 @@ pub fn shapes_from_gltf_prim(
     }
 
     let reader = gltf_prim.reader(|buffer| Some(&buffers[buffer.index()]));
-    let mut world_mesh = TriangleMesh {
+    let world_mesh = TriangleMesh {
         indices: reader.read_indices().unwrap().into_u32().collect(),
         pos: reader
             .read_positions()
