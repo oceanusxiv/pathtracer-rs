@@ -246,6 +246,8 @@ fn populate_scene(
 ) {
     let current_transform = *parent_transform * trans_from_gltf(current_node.transform());
     const EMISSIVE_SCALING_FACTOR: f32 = 10.0; // hack for gltf since it clamps emissive factor to 1.0
+    const SAMPLE_COUNT: usize = 10;
+    const SAMPLE_STEP: f32 = 1.0 / SAMPLE_COUNT as f32;
     if let Some(gltf_mesh) = current_node.mesh() {
         for gltf_prim in gltf_mesh.primitives() {
             let emissive_factor = gltf_prim.material().emissive_factor();
@@ -257,7 +259,7 @@ fn populate_scene(
             let mut ke = Arc::new(ConstantTexture::<Spectrum>::new(emissive_factor))
                 as Arc<dyn SyncTexture<Spectrum>>;
 
-            if emissive_factor.r > 0.0 || emissive_factor.g > 0.0 || emissive_factor.b > 0.0 {
+            if !emissive_factor.is_black() {
                 if let Some(info) = gltf_prim.material().emissive_texture() {
                     if let Some(texture) =
                         color_texture_from_gltf(&log, &info, emissive_factor, &images)
@@ -270,9 +272,19 @@ fn populate_scene(
             for shape in
                 shapes_from_gltf_prim(log, &gltf_prim, &current_transform, &images, buffers)
             {
+                let mut total_light = Spectrum::new(0.0);
+
+                for x in 0..SAMPLE_COUNT {
+                    for y in 0..SAMPLE_COUNT {
+                        let x = x as f32 * SAMPLE_STEP;
+                        let y = y as f32 * SAMPLE_STEP;
+                        total_light += ke.evaluate(&shape.sample(&na::Point2::new(x, y)));
+                    }
+                }
+
                 let some_area_light;
                 // only create area light if object material is emissive
-                if emissive_factor.r > 0.0 || emissive_factor.g > 0.0 || emissive_factor.b > 0.0 {
+                if !emissive_factor.is_black() && !total_light.is_black() {
                     let area_light = Arc::new(DiffuseAreaLight::new(
                         Arc::clone(&ke),
                         Arc::clone(&shape),
