@@ -38,7 +38,8 @@ impl DirectLightingIntegrator {
         }
     }
 
-    // this should be run before rendering starts, or if the render scene changed
+    // this should be run once per scene change or sampler change
+    // NOTE: sampler should be reset every scene change as well
     pub fn preprocess(&mut self, scene: &RenderScene) {
         self.num_light_samples.clear();
 
@@ -294,7 +295,7 @@ impl DirectLightingIntegrator {
         );
     }
 
-    pub fn render(&mut self, camera: &mut Camera, scene: &RenderScene) {
+    pub fn render(&self, camera: &mut Camera, scene: &RenderScene) {
         debug!(
             self.log,
             "start rendering image of size: {:?}",
