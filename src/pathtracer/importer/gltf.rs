@@ -43,9 +43,8 @@ pub fn material_from_gltf(
             gltf::texture::WrappingMode::Repeat => WrapMode::Repeat,
         };
 
-        match gltf_material.alpha_mode() {
-            gltf::material::AlphaMode::Opaque => {
-                assert!(image.format == gltf::image::Format::R8G8B8);
+        match image.format {
+            gltf::image::Format::R8G8B8 => {
                 if let Some(image) =
                     image::RgbImage::from_raw(image.width, image.height, image.pixels.clone())
                 {
@@ -59,8 +58,7 @@ pub fn material_from_gltf(
                     )) as Box<dyn SyncTexture<Spectrum>>;
                 }
             }
-            gltf::material::AlphaMode::Mask => {
-                assert!(image.format == gltf::image::Format::R8G8B8A8);
+            gltf::image::Format::R8G8B8A8 => {
                 if let Some(image) = image::RgbImage::from_raw(
                     image.width,
                     image.height,
@@ -82,7 +80,10 @@ pub fn material_from_gltf(
                     )) as Box<dyn SyncTexture<Spectrum>>;
                 }
             }
-            _ => {}
+            _ => error!(
+                log,
+                "unsupported image format {:?} for color texture", image.format
+            ),
         }
     }
 
@@ -258,9 +259,16 @@ fn populate_scene(
                 let emissive_factor = gltf_prim.material().emissive_factor();
                 let some_area_light;
                 // only create area light if object material is emissive
-                if emissive_factor[0] > 0.0 && emissive_factor[1] > 0.0 && emissive_factor[2] > 0.0
+                if emissive_factor[0] > 0.0 || emissive_factor[1] > 0.0 || emissive_factor[2] > 0.0
                 {
-                    let area_light = Arc::new(DiffuseAreaLight::new());
+                    let area_light = Arc::new(DiffuseAreaLight::new(
+                        Spectrum {
+                            r: emissive_factor[0],
+                            g: emissive_factor[0],
+                            b: emissive_factor[0],
+                        },
+                        Arc::clone(&shape),
+                    ));
                     lights.push(Arc::clone(&area_light) as Arc<dyn SyncLight>);
                     some_area_light = Some(Arc::clone(&area_light));
                 } else {

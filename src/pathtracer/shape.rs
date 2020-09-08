@@ -1,4 +1,4 @@
-use super::{texture::SyncTexture, SurfaceInteraction};
+use super::{interaction::Interaction, texture::SyncTexture, SurfaceInteraction};
 use crate::common::bounds::Bounds3;
 use crate::common::math::*;
 use crate::common::ray::Ray;
@@ -13,6 +13,25 @@ pub trait Shape {
     ) -> bool;
     fn intersect_p(&self, r: &Ray) -> bool;
     fn world_bound(&self) -> Bounds3;
+    fn area(&self) -> f32;
+    fn sample(&self, u: &na::Point2<f32>) -> Interaction;
+    fn sample_at_point(&self, reference: &Interaction, u: &na::Point2<f32>) -> Interaction {
+        self.sample(&u)
+    }
+    fn pdf(&self, it: &Interaction) -> f32 {
+        1.0 / self.area()
+    }
+    fn pdf_at_point(&self, reference: &Interaction, wi: &na::Vector3<f32>) -> f32 {
+        let ray = reference.spawn_ray(&wi);
+        let mut t_hit = 0.0;
+        let mut isect_light = SurfaceInteraction::default();
+        if !self.intersect(&ray, &mut t_hit, &mut isect_light) {
+            return 0.0;
+        }
+
+        (reference.p - isect_light.general.p).norm_squared()
+            / (isect_light.general.n.dot(&-wi).abs() * self.area())
+    }
 }
 
 pub trait SyncShape: Shape + Send + Sync {}
@@ -23,6 +42,11 @@ pub struct Triangle {
     indices: [u32; 3],
     reverse_orientation: bool,
     transform_swaps_handedness: bool,
+}
+
+fn uniform_sample_triangle(u: &na::Point2<f32>) -> na::Point2<f32> {
+    let su0 = u[0].sqrt();
+    na::Point2::new(1.0 - su0, u[1] * su0)
 }
 
 impl Triangle {
@@ -511,6 +535,48 @@ impl Shape for Triangle {
         let p1 = self.mesh.pos[self.indices[1] as usize];
         let p2 = self.mesh.pos[self.indices[2] as usize];
         Bounds3::union_p(&Bounds3::new(p0, p1), &p2)
+    }
+
+    fn area(&self) -> f32 {
+        let p0 = self.mesh.pos[self.indices[0] as usize];
+        let p1 = self.mesh.pos[self.indices[1] as usize];
+        let p2 = self.mesh.pos[self.indices[2] as usize];
+
+        0.5 * (p1 - p0).cross(&(p2 - p0)).norm()
+    }
+
+    fn sample(&self, u: &na::Point2<f32>) -> Interaction {
+        let b = uniform_sample_triangle(&u);
+        let p0 = self.mesh.pos[self.indices[0] as usize];
+        let p1 = self.mesh.pos[self.indices[1] as usize];
+        let p2 = self.mesh.pos[self.indices[2] as usize];
+
+        let mut it = Interaction::default();
+        it.p = na::Point3::from(
+            (b[0] * p0.coords) + (b[1] * p1.coords) + (1.0 - b[0] - b[1]) * p2.coords,
+        );
+
+        if !self.mesh.normal.is_empty() {
+            let n0 = self.mesh.normal[self.indices[0] as usize];
+            let n1 = self.mesh.normal[self.indices[1] as usize];
+            let n2 = self.mesh.normal[self.indices[2] as usize];
+
+            it.n = (b[0] * n0) + (b[1] * n1) + (1.0 - b[0] - b[1]) * n2;
+        } else {
+            it.n = (p1 - p0).cross(&(p2 - p0)).normalize();
+        }
+
+        if self.reverse_orientation {
+            it.n *= -1.0;
+        }
+
+        let p_abs_sum = (b[0] * p0.coords).abs()
+            + (b[1] * p1.coords).abs()
+            + ((1.0 - b[0] - b[1]) * p2.coords).abs();
+
+        it.p_error = gamma(6) * p_abs_sum;
+
+        it
     }
 }
 

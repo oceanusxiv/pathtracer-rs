@@ -149,7 +149,7 @@ impl<T: na::Scalar + num::Zero> Texture<T> for ImageTexture<T> {
     }
 }
 
-struct MIPMap<T: na::Scalar + num::Zero> {
+pub struct MIPMap<T: na::Scalar + num::Zero> {
     pyramid: Vec<na::DMatrix<T>>,
     wrap_mode: WrapMode,
     resolution: na::Point2<f32>,

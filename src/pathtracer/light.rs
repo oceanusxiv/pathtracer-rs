@@ -1,4 +1,6 @@
-use super::{interaction::Interaction, RenderScene};
+use std::sync::Arc;
+
+use super::{interaction::Interaction, shape::SyncShape, texture::MIPMap, RenderScene};
 use crate::common::{
     bounds::Bounds3,
     ray::{Ray, RayDifferential},
@@ -12,6 +14,10 @@ bitflags! {
         const AREA = 4;
         const INFINITE = 8;
     }
+}
+
+pub fn is_delta_light(flags: &LightFlags) -> bool {
+    flags.contains(LightFlags::DELTA_DIRECTION) || flags.contains(LightFlags::DELTA_POSITION)
 }
 
 pub struct VisibilityTester {
@@ -111,7 +117,7 @@ impl Light for PointLight {
     }
 
     fn pdf_li(&self, reference: &Interaction, wi: &na::Vector3<f32>) -> f32 {
-        todo!()
+        0.0
     }
 
     fn sample_le(
@@ -148,7 +154,7 @@ impl DirectionalLight {
         w_light: na::Vector3<f32>,
     ) -> Self {
         Self {
-            flags: LightFlags::DELTA_POSITION,
+            flags: LightFlags::DELTA_DIRECTION,
             light_to_world: *light_to_world,
             world_to_light: light_to_world.inverse(),
             L,
@@ -188,7 +194,7 @@ impl Light for DirectionalLight {
     }
 
     fn pdf_li(&self, reference: &Interaction, wi: &na::Vector3<f32>) -> f32 {
-        todo!()
+        0.0
     }
 
     fn sample_le(
@@ -212,15 +218,27 @@ impl Light for DirectionalLight {
     }
 }
 
-pub struct DiffuseAreaLight {}
+pub struct DiffuseAreaLight {
+    l_emit: Spectrum,
+    shape: Arc<dyn SyncShape>,
+    area: f32,
+}
 
 impl DiffuseAreaLight {
-    pub fn new() -> Self {
-        Self {}
+    pub fn new(l_emit: Spectrum, shape: Arc<dyn SyncShape>) -> Self {
+        Self {
+            l_emit,
+            area: shape.area(),
+            shape,
+        }
     }
 
     pub fn L(&self, inter: &Interaction, w: &na::Vector3<f32>) -> Spectrum {
-        Spectrum::new(0.0)
+        if inter.n.dot(&w) > 0.0 {
+            self.l_emit
+        } else {
+            Spectrum::new(0.0)
+        }
     }
 }
 
@@ -233,7 +251,16 @@ impl Light for DiffuseAreaLight {
         pdf: &mut f32,
         vis: &mut Option<VisibilityTester>,
     ) -> Spectrum {
-        todo!()
+        let p_shape = self.shape.sample_at_point(&reference, &u);
+
+        *wi = (p_shape.p - reference.p).normalize();
+        *pdf = self.shape.pdf_at_point(&reference, &wi);
+        *vis = Some(VisibilityTester {
+            p0: *reference,
+            p1: p_shape,
+        });
+
+        self.L(&p_shape, &-*wi)
     }
 
     fn power(&self) -> Spectrum {
@@ -241,7 +268,7 @@ impl Light for DiffuseAreaLight {
     }
 
     fn pdf_li(&self, reference: &Interaction, wi: &nalgebra::Vector3<f32>) -> f32 {
-        todo!()
+        self.shape.pdf_at_point(&reference, &wi)
     }
 
     fn sample_le(
@@ -267,4 +294,8 @@ impl Light for DiffuseAreaLight {
     }
 }
 
-pub struct InfiniteAreaLight {}
+pub struct InfiniteAreaLight {
+    l_map: Box<MIPMap<Spectrum>>,
+    world_center: na::Point3<f32>,
+    world_radius: f32,
+}
