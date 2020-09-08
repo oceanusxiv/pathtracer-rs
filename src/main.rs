@@ -77,6 +77,7 @@ fn main() {
         (@arg max_depth: -d --max_depth default_value("5") "Maximum ray tracing depth")
         (@arg log_level: -l --log_level default_value("INFO") "Application wide log level")
         (@arg module_log: -m --module_log default_value("all") "Module names to log, (all for every module)")
+        (@arg default_lights: --default_lights "Add default lights into the scene")
         (@arg verbose: -v --verbose "Print test information verbosely")
     )
     .get_matches();
@@ -149,9 +150,11 @@ fn main() {
         )
     }
 
+    let default_lights = matches.is_present("default_lights");
+
     let start = Instant::now();
     let (mut camera, render_scene, viewer_scene) =
-        common::importer::import(&log, &scene_path, &resolution);
+        common::importer::import(&log, &scene_path, &resolution, default_lights);
     let sampler =
         pathtracer::sampling::Sampler::new(pixel_samples_sqrt, pixel_samples_sqrt, true, 8);
     let mut integrator =

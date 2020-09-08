@@ -6,7 +6,7 @@ use crate::{
         material::{Material, MatteMaterial},
         primitive::{GeometricPrimitive, SyncPrimitive},
         shape::{shapes_from_mesh, TriangleMesh},
-        texture::ConstantTexture,
+        texture::{ConstantTexture, SyncTexture},
         RenderScene,
     },
 };
@@ -81,15 +81,12 @@ fn parse_shape(
     for shape in shapes_from_mesh(world_mesh, &obj_to_world) {
         let area_light = if let Some(light_info) = light_info {
             if let mitsuba::Emitter::Area { rgb } = light_info {
-                let light = Arc::new(DiffuseAreaLight::new(
-                    Spectrum {
-                        r: rgb[0],
-                        g: rgb[1],
-                        b: rgb[2],
-                    },
-                    Arc::clone(&shape),
-                    1,
-                ));
+                let ke = Arc::new(ConstantTexture::<Spectrum>::new(Spectrum {
+                    r: rgb[0],
+                    g: rgb[1],
+                    b: rgb[2],
+                })) as Arc<dyn SyncTexture<Spectrum>>;
+                let light = Arc::new(DiffuseAreaLight::new(ke, Arc::clone(&shape), 1));
                 lights.push(Arc::clone(&light) as Arc<dyn SyncLight>);
                 Some(light)
             } else {

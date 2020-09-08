@@ -22,6 +22,72 @@ pub fn default_material(log: &slog::Logger) -> Material {
     Material::Matte(MatteMaterial::new(log, color_texture, None))
 }
 
+pub fn color_texture_from_gltf(
+    log: &slog::Logger,
+    texture: &gltf::texture::Info,
+    factor: Spectrum,
+    images: &[gltf::image::Data],
+) -> Option<ImageTexture<Spectrum>> {
+    let image = &images[texture.texture().source().index()];
+    let sampler = &texture.texture().sampler();
+    assert_eq!(sampler.wrap_s(), sampler.wrap_t());
+    let wrap_mode = match sampler.wrap_s() {
+        gltf::texture::WrappingMode::ClampToEdge => WrapMode::Clamp,
+        gltf::texture::WrappingMode::MirroredRepeat => WrapMode::Repeat,
+        gltf::texture::WrappingMode::Repeat => WrapMode::Repeat,
+    };
+
+    match image.format {
+        gltf::image::Format::R8G8B8 => {
+            if let Some(image) =
+                image::RgbImage::from_raw(image.width, image.height, image.pixels.clone())
+            {
+                Some(ImageTexture::<Spectrum>::new(
+                    log,
+                    &image,
+                    factor,
+                    wrap_mode,
+                    UVMap::new(image.width() as f32, image.height() as f32, 0.0, 0.0),
+                    true,
+                ))
+            } else {
+                None
+            }
+        }
+        gltf::image::Format::R8G8B8A8 => {
+            if let Some(image) = image::RgbImage::from_raw(
+                image.width,
+                image.height,
+                image
+                    .pixels
+                    .iter()
+                    .enumerate()
+                    .filter(|&(i, _)| i % 4 != 3)
+                    .map(|(_, v)| *v)
+                    .collect(),
+            ) {
+                Some(ImageTexture::<Spectrum>::new(
+                    log,
+                    &image,
+                    factor,
+                    wrap_mode,
+                    UVMap::new(image.width() as f32, image.height() as f32, 0.0, 0.0),
+                    true,
+                ))
+            } else {
+                None
+            }
+        }
+        _ => {
+            error!(
+                log,
+                "unsupported image format {:?} for color texture", image.format
+            );
+            None
+        }
+    }
+}
+
 pub fn material_from_gltf(
     log: &slog::Logger,
     gltf_material: &gltf::Material,
@@ -33,57 +99,9 @@ pub fn material_from_gltf(
         Box::new(ConstantTexture::<Spectrum>::new(color_factor)) as Box<dyn SyncTexture<Spectrum>>;
     let mut normal_map = None;
 
-    if let Some(texture) = pbr.base_color_texture() {
-        let image = &images[texture.texture().source().index()];
-        let sampler = &texture.texture().sampler();
-        assert_eq!(sampler.wrap_s(), sampler.wrap_t());
-        let wrap_mode = match sampler.wrap_s() {
-            gltf::texture::WrappingMode::ClampToEdge => WrapMode::Clamp,
-            gltf::texture::WrappingMode::MirroredRepeat => WrapMode::Repeat,
-            gltf::texture::WrappingMode::Repeat => WrapMode::Repeat,
-        };
-
-        match image.format {
-            gltf::image::Format::R8G8B8 => {
-                if let Some(image) =
-                    image::RgbImage::from_raw(image.width, image.height, image.pixels.clone())
-                {
-                    color_texture = Box::new(ImageTexture::<Spectrum>::new(
-                        log,
-                        &image,
-                        color_factor,
-                        wrap_mode,
-                        UVMap::new(image.width() as f32, image.height() as f32, 0.0, 0.0),
-                        true,
-                    )) as Box<dyn SyncTexture<Spectrum>>;
-                }
-            }
-            gltf::image::Format::R8G8B8A8 => {
-                if let Some(image) = image::RgbImage::from_raw(
-                    image.width,
-                    image.height,
-                    image
-                        .pixels
-                        .iter()
-                        .enumerate()
-                        .filter(|&(i, _)| i % 4 != 3)
-                        .map(|(_, v)| *v)
-                        .collect(),
-                ) {
-                    color_texture = Box::new(ImageTexture::<Spectrum>::new(
-                        log,
-                        &image,
-                        color_factor,
-                        wrap_mode,
-                        UVMap::new(image.width() as f32, image.height() as f32, 0.0, 0.0),
-                        true,
-                    )) as Box<dyn SyncTexture<Spectrum>>;
-                }
-            }
-            _ => error!(
-                log,
-                "unsupported image format {:?} for color texture", image.format
-            ),
+    if let Some(info) = pbr.base_color_texture() {
+        if let Some(texture) = color_texture_from_gltf(&log, &info, color_factor, &images) {
+            color_texture = Box::new(texture) as Box<dyn SyncTexture<Spectrum>>;
         }
     }
 
@@ -230,20 +248,33 @@ fn populate_scene(
     const EMISSIVE_SCALING_FACTOR: f32 = 10.0; // hack for gltf since it clamps emissive factor to 1.0
     if let Some(gltf_mesh) = current_node.mesh() {
         for gltf_prim in gltf_mesh.primitives() {
+            let emissive_factor = gltf_prim.material().emissive_factor();
+            let emissive_factor = Spectrum {
+                r: EMISSIVE_SCALING_FACTOR * emissive_factor[0],
+                g: EMISSIVE_SCALING_FACTOR * emissive_factor[0],
+                b: EMISSIVE_SCALING_FACTOR * emissive_factor[0],
+            };
+            let mut ke = Arc::new(ConstantTexture::<Spectrum>::new(emissive_factor))
+                as Arc<dyn SyncTexture<Spectrum>>;
+
+            if emissive_factor.r > 0.0 || emissive_factor.g > 0.0 || emissive_factor.b > 0.0 {
+                if let Some(info) = gltf_prim.material().emissive_texture() {
+                    if let Some(texture) =
+                        color_texture_from_gltf(&log, &info, emissive_factor, &images)
+                    {
+                        ke = Arc::new(texture) as Arc<dyn SyncTexture<Spectrum>>;
+                    }
+                }
+            }
+
             for shape in
                 shapes_from_gltf_prim(log, &gltf_prim, &current_transform, &images, buffers)
             {
-                let emissive_factor = gltf_prim.material().emissive_factor();
                 let some_area_light;
                 // only create area light if object material is emissive
-                if emissive_factor[0] > 0.0 || emissive_factor[1] > 0.0 || emissive_factor[2] > 0.0
-                {
+                if emissive_factor.r > 0.0 || emissive_factor.g > 0.0 || emissive_factor.b > 0.0 {
                     let area_light = Arc::new(DiffuseAreaLight::new(
-                        Spectrum {
-                            r: EMISSIVE_SCALING_FACTOR * emissive_factor[0],
-                            g: EMISSIVE_SCALING_FACTOR * emissive_factor[0],
-                            b: EMISSIVE_SCALING_FACTOR * emissive_factor[0],
-                        },
+                        Arc::clone(&ke),
                         Arc::clone(&shape),
                         1,
                     ));
@@ -316,6 +347,7 @@ impl RenderScene {
         document: &gltf::Document,
         buffers: &[gltf::buffer::Data],
         images: &[gltf::image::Data],
+        default_lights: bool,
     ) -> Self {
         let mut primitives: Vec<Arc<dyn SyncPrimitive>> = Vec::new();
         let mut materials = vec![Arc::new(default_material(log))];
@@ -345,7 +377,7 @@ impl RenderScene {
         let bvh = Box::new(accelerator::BVH::new(log, primitives, &4)) as Box<dyn SyncPrimitive>;
         let world_bound = bvh.world_bound();
 
-        if lights.is_empty() && preprocess_lights.is_empty() {
+        if default_lights {
             let default_direction_light = Arc::new(DirectionalLight::new(
                 &na::convert(na::Translation3::new(1.0, 3.5, 0.0)),
                 Spectrum::new(10.0),

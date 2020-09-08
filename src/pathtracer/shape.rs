@@ -14,8 +14,10 @@ pub trait Shape {
     fn intersect_p(&self, r: &Ray) -> bool;
     fn world_bound(&self) -> Bounds3;
     fn area(&self) -> f32;
-    fn sample(&self, u: &na::Point2<f32>) -> Interaction;
-    fn sample_at_point(&self, reference: &Interaction, u: &na::Point2<f32>) -> Interaction {
+
+    // surface interaction is empty aside from uv for emissive map lookup
+    fn sample(&self, u: &na::Point2<f32>) -> SurfaceInteraction;
+    fn sample_at_point(&self, reference: &Interaction, u: &na::Point2<f32>) -> SurfaceInteraction {
         self.sample(&u)
     }
     fn pdf(&self, it: &Interaction) -> f32 {
@@ -545,7 +547,7 @@ impl Shape for Triangle {
         0.5 * (p1 - p0).cross(&(p2 - p0)).norm()
     }
 
-    fn sample(&self, u: &na::Point2<f32>) -> Interaction {
+    fn sample(&self, u: &na::Point2<f32>) -> SurfaceInteraction {
         let b = uniform_sample_triangle(&u);
         let p0 = self.mesh.pos[self.indices[0] as usize];
         let p1 = self.mesh.pos[self.indices[1] as usize];
@@ -576,7 +578,14 @@ impl Shape for Triangle {
 
         it.p_error = gamma(6) * p_abs_sum;
 
-        it
+        let uv = self.get_uvs();
+        let uv_hit = b[0] * uv[0].coords + b[1] * uv[1].coords + (1.0 - b[0] - b[1]) * uv[2].coords;
+
+        SurfaceInteraction {
+            general: it,
+            uv: na::Point2::from(uv_hit),
+            ..Default::default()
+        }
     }
 }
 

@@ -1,6 +1,11 @@
 use std::sync::Arc;
 
-use super::{interaction::Interaction, shape::SyncShape, texture::MIPMap, RenderScene};
+use super::{
+    interaction::{Interaction, SurfaceInteraction},
+    shape::SyncShape,
+    texture::{MIPMap, SyncTexture},
+    RenderScene,
+};
 use crate::common::{
     bounds::Bounds3,
     ray::{Ray, RayDifferential},
@@ -223,25 +228,29 @@ impl Light for DirectionalLight {
 }
 
 pub struct DiffuseAreaLight {
-    l_emit: Spectrum,
+    ke: Arc<dyn SyncTexture<Spectrum>>,
     shape: Arc<dyn SyncShape>,
     num_samples: usize,
     area: f32,
 }
 
 impl DiffuseAreaLight {
-    pub fn new(l_emit: Spectrum, shape: Arc<dyn SyncShape>, num_samples: usize) -> Self {
+    pub fn new(
+        ke: Arc<dyn SyncTexture<Spectrum>>,
+        shape: Arc<dyn SyncShape>,
+        num_samples: usize,
+    ) -> Self {
         Self {
-            l_emit,
+            ke,
             area: shape.area(),
             num_samples,
             shape,
         }
     }
 
-    pub fn L(&self, inter: &Interaction, w: &na::Vector3<f32>) -> Spectrum {
-        if inter.n.dot(&w) > 0.0 {
-            self.l_emit
+    pub fn L(&self, inter: &SurfaceInteraction, w: &na::Vector3<f32>) -> Spectrum {
+        if inter.general.n.dot(&w) > 0.0 {
+            self.ke.evaluate(&inter)
         } else {
             Spectrum::new(0.0)
         }
@@ -259,11 +268,11 @@ impl Light for DiffuseAreaLight {
     ) -> Spectrum {
         let p_shape = self.shape.sample_at_point(&reference, &u);
 
-        *wi = (p_shape.p - reference.p).normalize();
+        *wi = (p_shape.general.p - reference.p).normalize();
         *pdf = self.shape.pdf_at_point(&reference, &wi);
         *vis = Some(VisibilityTester {
             p0: *reference,
-            p1: p_shape,
+            p1: p_shape.general,
         });
 
         self.L(&p_shape, &-*wi)
