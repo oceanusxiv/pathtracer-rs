@@ -1,7 +1,7 @@
 use super::bxdf::BxDFType;
-use super::interaction::SurfaceInteraction;
-use super::sampling::Sampler;
-use super::{RenderScene, TransportMode};
+use super::interaction::{Interaction, SurfaceInteraction};
+use super::sampling::{Sampler, SamplerBuilder};
+use super::{light::SyncLight, RenderScene, TransportMode};
 use crate::common::bounds::Bounds2i;
 use crate::common::film::FilmTile;
 use crate::common::ray::RayDifferential;
@@ -18,8 +18,59 @@ pub enum LightStrategy {
     UniformSampleOne,
 }
 
+fn estimate_direct(
+    it: &Interaction,
+    u_scattering: &na::Point2<f32>,
+    light: &dyn SyncLight,
+    u_light: &na::Point2<f32>,
+    scene: &RenderScene,
+    sampler: &Sampler,
+    specular: bool,
+) -> Spectrum {
+    Spectrum::new(0.0)
+}
+
+fn uniform_sample_all_lights(
+    it: &Interaction,
+    scene: &RenderScene,
+    mut sampler: &mut Sampler,
+    num_light_samples: Vec<usize>,
+) -> Spectrum {
+    let mut l = Spectrum::new(0.0);
+
+    for j in 0..scene.lights.len() {
+        let light = scene.lights[j].as_ref();
+        let num_samples = num_light_samples[j];
+        let u_light_array = sampler.get_2d_array(num_samples);
+        let u_scattering_array = sampler.get_2d_array(num_samples);
+
+        if u_light_array.is_none() || u_scattering_array.is_none() {
+            let u_light = sampler.get_2d();
+            let u_scattering = sampler.get_2d();
+            l += estimate_direct(&it, &u_scattering, light, &u_light, &scene, &sampler, false);
+        } else {
+            let mut ld = Spectrum::new(0.0);
+            let u_scattering_array = u_scattering_array.unwrap();
+            let u_light_array = u_light_array.unwrap();
+            for k in 0..num_samples {
+                ld += estimate_direct(
+                    &it,
+                    &u_scattering_array[k],
+                    light,
+                    &u_light_array[k],
+                    &scene,
+                    &sampler,
+                    false,
+                );
+            }
+        }
+    }
+
+    l
+}
+
 pub struct DirectLightingIntegrator {
-    sampler: Sampler,
+    sampler_builder: SamplerBuilder,
     max_depth: u32,
     strategy: LightStrategy,
     num_light_samples: Vec<usize>,
@@ -27,10 +78,10 @@ pub struct DirectLightingIntegrator {
 }
 
 impl DirectLightingIntegrator {
-    pub fn new(log: &slog::Logger, sampler: Sampler, max_depth: u32) -> Self {
+    pub fn new(log: &slog::Logger, sampler_builder: SamplerBuilder, max_depth: u32) -> Self {
         let log = log.new(o!("module" => "integrator"));
         Self {
-            sampler,
+            sampler_builder,
             max_depth,
             strategy: LightStrategy::UniformSampleAll,
             num_light_samples: vec![],
@@ -50,8 +101,10 @@ impl DirectLightingIntegrator {
 
             for _ in 0..self.max_depth {
                 for j in 0..scene.lights.len() {
-                    self.sampler.request_2d_array(self.num_light_samples[j]);
-                    self.sampler.request_2d_array(self.num_light_samples[j]);
+                    self.sampler_builder
+                        .request_2d_array(self.num_light_samples[j]);
+                    self.sampler_builder
+                        .request_2d_array(self.num_light_samples[j]);
                 }
             }
         }
@@ -270,7 +323,8 @@ impl DirectLightingIntegrator {
             "camera at location: {:?}",
             camera.cam_to_world.translation
         );
-        let mut pixel_sampler = self.sampler.clone_with_seed(0);
+        let mut sampler_builder = self.sampler_builder.clone();
+        let mut pixel_sampler = sampler_builder.with_seed(0).build();
         pixel_sampler.start_pixel(&pixel);
 
         loop {
@@ -318,7 +372,7 @@ impl DirectLightingIntegrator {
             .map(|(x, y)| {
                 let tile = na::Point2::new(*x, *y);
                 let seed = (tile.y * num_tiles.x + tile.x) as u64;
-                let mut tile_sampler = self.sampler.clone_with_seed(seed);
+                let mut tile_sampler = self.sampler_builder.clone().with_seed(seed).build();
 
                 let x0 = sample_bounds.p_min.x + tile.x * TILE_SIZE;
                 let x1 = std::cmp::min(x0 + TILE_SIZE, sample_bounds.p_max.x);
