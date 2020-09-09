@@ -156,7 +156,7 @@ fn main() {
     let (mut camera, render_scene, viewer_scene) =
         common::importer::import(&log, &scene_path, &resolution, default_lights);
     let sampler =
-        pathtracer::sampling::Sampler::new(pixel_samples_sqrt, pixel_samples_sqrt, true, 8);
+        pathtracer::sampling::Sampler::new(&log, pixel_samples_sqrt, pixel_samples_sqrt, true, 8);
     let mut integrator =
         pathtracer::integrator::DirectLightingIntegrator::new(&log, sampler, max_depth);
     integrator.preprocess(&render_scene);
@@ -270,6 +270,7 @@ fn main() {
                                 integrator = pathtracer::integrator::DirectLightingIntegrator::new(
                                     &log,
                                     pathtracer::sampling::Sampler::new(
+                                        &log,
                                         pixel_samples_sqrt,
                                         pixel_samples_sqrt,
                                         true,
@@ -293,6 +294,7 @@ fn main() {
                                 integrator = pathtracer::integrator::DirectLightingIntegrator::new(
                                     &log,
                                     pathtracer::sampling::Sampler::new(
+                                        &log,
                                         pixel_samples_sqrt,
                                         pixel_samples_sqrt,
                                         true,

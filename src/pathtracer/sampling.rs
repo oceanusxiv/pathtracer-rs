@@ -66,6 +66,7 @@ impl CoreSampler {
             Some(ret)
         }
     }
+
     fn get_2d_array(&mut self, n: usize) -> Option<na::Point2<f32>> {
         if self.array_2d_offset == self.sample_array_2d.len() {
             None
@@ -77,6 +78,7 @@ impl CoreSampler {
             Some(ret)
         }
     }
+
     fn start_next_sample(&mut self) -> bool {
         self.array_1d_offset = 0;
         self.array_2d_offset = 0;
@@ -185,8 +187,8 @@ fn stratified_sample_2d(
     let dy = 1.0 / (ny as f32);
 
     let mut i = 0;
-    for _ in 0..ny {
-        for _ in 0..nx {
+    for y in 0..ny {
+        for x in 0..nx {
             let jx = if jitter {
                 rng.gen_range(0.0, 1.0)
             } else {
@@ -197,8 +199,8 @@ fn stratified_sample_2d(
             } else {
                 0.5f32
             };
-            samp[i].x = ((i as f32 + jx) * dx).min(ONE_MINUS_EPSILON);
-            samp[i].y = ((i as f32 + jy) * dy).min(ONE_MINUS_EPSILON);
+            samp[i].x = ((x as f32 + jx) * dx).min(ONE_MINUS_EPSILON);
+            samp[i].y = ((y as f32 + jy) * dy).min(ONE_MINUS_EPSILON);
             i += 1;
         }
     }
@@ -244,15 +246,18 @@ pub struct StratifiedSampler {
     x_pixel_samples: usize,
     y_pixel_samples: usize,
     jitter_samples: bool,
+    log: slog::Logger,
 }
 
 impl StratifiedSampler {
     pub fn new(
+        log: &slog::Logger,
         x_pixel_samples: usize,
         y_pixel_samples: usize,
         jitter_samples: bool,
         n_sampled_dimensions: usize,
     ) -> Self {
+        let log = log.new(o!("module" => "sampler"));
         Self {
             pixel_sampler: PixelSampler::new(
                 x_pixel_samples * y_pixel_samples,
@@ -261,6 +266,7 @@ impl StratifiedSampler {
             x_pixel_samples,
             y_pixel_samples,
             jitter_samples,
+            log,
         }
     }
 
@@ -326,6 +332,7 @@ impl StratifiedSampler {
             }
         }
 
+        trace!(self.log, "generated 2d sample array: {:?}", pixel_sampler.samples_2d);
         sampler.start_pixel(&p);
     }
 
@@ -341,11 +348,15 @@ impl StratifiedSampler {
     }
 
     pub fn start_next_sample(&mut self) -> bool {
-        self.pixel_sampler.sampler.start_next_sample()
+        trace!(self.log, "starting next sample");
+        self.pixel_sampler.start_next_sample()
     }
 
     pub fn get_2d(&mut self) -> na::Point2<f32> {
-        self.pixel_sampler.get_2d()
+        trace!(self.log, "curr_2d_dim: {:?}, curr_pixel_sample_idx: {:?}", self.pixel_sampler.current_2d_dimension, self.pixel_sampler.sampler.current_pixel_sample_index);
+        let sample = self.pixel_sampler.get_2d();
+        trace!(self.log, "2d sample {:?}", sample);
+        sample
     }
 
     pub fn samples_per_pixel(&self) -> usize {
@@ -358,6 +369,14 @@ impl StratifiedSampler {
 
     pub fn request_2d_array(&mut self, n: usize) {
         self.pixel_sampler.sampler.request_2d_array(n)
+    }
+
+    pub fn get_1d_array(&mut self, n: usize) -> Option<f32> {
+        self.pixel_sampler.sampler.get_1d_array(n)
+    }
+
+    pub fn get_2d_array(&mut self, n: usize) -> Option<na::Point2<f32>> {
+        self.pixel_sampler.sampler.get_2d_array(n)
     }
 }
 
