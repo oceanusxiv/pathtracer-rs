@@ -14,6 +14,10 @@ name = "small_scene_mitsuba"
 debug=true
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[dev-dependencies.cargo-husky]
+version = "1.5.0"
+default-features = false # Disable features which are enabled by default
+features = ["precommit-hook", "run-cargo-fmt"]
 
 [dependencies]
 lazy_static = "^1.3"
