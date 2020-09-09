@@ -1,4 +1,4 @@
-use super::{interaction::Interaction, texture::SyncTexture, SurfaceInteraction};
+use super::{interaction::Interaction, texture::SyncTexture, SurfaceMediumInteraction};
 use crate::common::bounds::Bounds3;
 use crate::common::math::*;
 use crate::common::ray::Ray;
@@ -9,15 +9,19 @@ pub trait Shape {
         &'a self,
         r: &Ray,
         t_hit: &mut f32,
-        isect: &mut SurfaceInteraction<'a>,
+        isect: &mut SurfaceMediumInteraction<'a>,
     ) -> bool;
     fn intersect_p(&self, r: &Ray) -> bool;
     fn world_bound(&self) -> Bounds3;
     fn area(&self) -> f32;
 
     // surface interaction is empty aside from uv for emissive map lookup
-    fn sample(&self, u: &na::Point2<f32>) -> SurfaceInteraction;
-    fn sample_at_point(&self, reference: &Interaction, u: &na::Point2<f32>) -> SurfaceInteraction {
+    fn sample(&self, u: &na::Point2<f32>) -> SurfaceMediumInteraction;
+    fn sample_at_point(
+        &self,
+        reference: &Interaction,
+        u: &na::Point2<f32>,
+    ) -> SurfaceMediumInteraction {
         self.sample(&u)
     }
     fn pdf(&self, it: &Interaction) -> f32 {
@@ -26,7 +30,7 @@ pub trait Shape {
     fn pdf_at_point(&self, reference: &Interaction, wi: &na::Vector3<f32>) -> f32 {
         let ray = reference.spawn_ray(&wi);
         let mut t_hit = 0.0;
-        let mut isect_light = SurfaceInteraction::default();
+        let mut isect_light = SurfaceMediumInteraction::default();
         if !self.intersect(&ray, &mut t_hit, &mut isect_light) {
             return 0.0;
         }
@@ -88,7 +92,7 @@ impl Shape for Triangle {
         &'a self,
         r: &Ray,
         t_hit: &mut f32,
-        isect: &mut SurfaceInteraction<'a>,
+        isect: &mut SurfaceMediumInteraction<'a>,
     ) -> bool {
         // get triangle vertices
         let p0 = self.mesh.pos[self.indices[0] as usize];
@@ -239,7 +243,7 @@ impl Shape for Triangle {
 
         // Test intersection against alpha texture, if present
         if let Some(alpha_mask) = self.mesh.alpha_mask.as_ref() {
-            let isect_local = SurfaceInteraction::new(
+            let isect_local = SurfaceMediumInteraction::new(
                 &na::Point3::from(p_hit),
                 &glm::zero(),
                 &na::Point2::from(uv_hit),
@@ -257,7 +261,7 @@ impl Shape for Triangle {
         }
 
         // Fill in SurfaceInteraction from triangle hit
-        (*isect) = SurfaceInteraction::new(
+        (*isect) = SurfaceMediumInteraction::new(
             &na::Point3::from(p_hit),
             &p_error,
             &na::Point2::from(uv_hit),
@@ -512,7 +516,7 @@ impl Shape for Triangle {
             let p_hit = b0 * p0.coords + b1 * p1.coords + b2 * p2.coords;
             let uv_hit = b0 * uv[0].coords + b1 * uv[1].coords + b2 * uv[2].coords;
 
-            let isect_local = SurfaceInteraction::new(
+            let isect_local = SurfaceMediumInteraction::new(
                 &na::Point3::from(p_hit),
                 &glm::zero(),
                 &na::Point2::from(uv_hit),
@@ -547,7 +551,7 @@ impl Shape for Triangle {
         0.5 * (p1 - p0).cross(&(p2 - p0)).norm()
     }
 
-    fn sample(&self, u: &na::Point2<f32>) -> SurfaceInteraction {
+    fn sample(&self, u: &na::Point2<f32>) -> SurfaceMediumInteraction {
         let b = uniform_sample_triangle(&u);
         let p0 = self.mesh.pos[self.indices[0] as usize];
         let p1 = self.mesh.pos[self.indices[1] as usize];
@@ -581,7 +585,7 @@ impl Shape for Triangle {
         let uv = self.get_uvs();
         let uv_hit = b[0] * uv[0].coords + b[1] * uv[1].coords + (1.0 - b[0] - b[1]) * uv[2].coords;
 
-        SurfaceInteraction {
+        SurfaceMediumInteraction {
             general: it,
             uv: na::Point2::from(uv_hit),
             ..Default::default()

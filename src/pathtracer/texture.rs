@@ -1,8 +1,8 @@
-use super::interaction::SurfaceInteraction;
+use super::interaction::SurfaceMediumInteraction;
 use crate::common::{spectrum::Spectrum, WrapMode};
 
 pub trait Texture<T> {
-    fn evaluate(&self, it: &SurfaceInteraction) -> T;
+    fn evaluate(&self, it: &SurfaceMediumInteraction) -> T;
 }
 
 pub trait SyncTexture<T>: Texture<T> + Send + Sync {}
@@ -19,7 +19,7 @@ impl<T: Copy> ConstantTexture<T> {
 }
 
 impl<T: Copy> Texture<T> for ConstantTexture<T> {
-    fn evaluate(&self, _it: &SurfaceInteraction) -> T {
+    fn evaluate(&self, _it: &SurfaceMediumInteraction) -> T {
         self.value
     }
 }
@@ -38,7 +38,7 @@ impl UVMap {
 
     pub fn map(
         &self,
-        it: &SurfaceInteraction,
+        it: &SurfaceMediumInteraction,
         dst_dx: &mut na::Vector2<f32>,
         dst_dy: &mut na::Vector2<f32>,
     ) -> na::Point2<f32> {
@@ -140,7 +140,7 @@ impl ImageTexture<na::Vector3<f32>> {
 pub type NormalMap = ImageTexture<na::Vector3<f32>>;
 
 impl<T: na::Scalar + num::Zero> Texture<T> for ImageTexture<T> {
-    fn evaluate(&self, it: &SurfaceInteraction) -> T {
+    fn evaluate(&self, it: &SurfaceMediumInteraction) -> T {
         let mut dst_dx = glm::zero();
         let mut dst_dy = glm::zero();
         trace!(self.log, "current mesh uv: {:?}", it.uv);

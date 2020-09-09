@@ -1,5 +1,5 @@
 use super::bxdf::BxDFType;
-use super::interaction::{Interaction, SurfaceInteraction};
+use super::interaction::{Interaction, SurfaceMediumInteraction};
 use super::sampling::{Sampler, SamplerBuilder};
 use super::{light::SyncLight, RenderScene, TransportMode};
 use crate::common::bounds::Bounds2i;
@@ -19,7 +19,7 @@ pub enum LightStrategy {
 }
 
 fn estimate_direct(
-    it: &Interaction,
+    it: &SurfaceMediumInteraction,
     u_scattering: &na::Point2<f32>,
     light: &dyn SyncLight,
     u_light: &na::Point2<f32>,
@@ -27,13 +27,33 @@ fn estimate_direct(
     sampler: &Sampler,
     specular: bool,
 ) -> Spectrum {
-    Spectrum::new(0.0)
+    let bsdf_flags = if specular {
+        BxDFType::BSDF_ALL
+    } else {
+        BxDFType::BSDF_ALL - BxDFType::BSDF_SPECULAR
+    };
+    let mut ld = Spectrum::new(0.0);
+
+    let mut wi = na::Vector3::zeros();
+    let mut light_pdf = 0.0;
+    let scattering_pdf = 0.0;
+    let mut visibility = None;
+    let li = light.sample_li(
+        &it.general,
+        &u_light,
+        &mut wi,
+        &mut light_pdf,
+        &mut visibility,
+    );
+    if light_pdf > 0.0 && !li.is_black() {}
+
+    ld
 }
 
 fn uniform_sample_all_lights(
-    it: &Interaction,
+    it: &SurfaceMediumInteraction,
     scene: &RenderScene,
-    mut sampler: &mut Sampler,
+    sampler: &mut Sampler,
     num_light_samples: Vec<usize>,
 ) -> Spectrum {
     let mut l = Spectrum::new(0.0);
@@ -63,10 +83,29 @@ fn uniform_sample_all_lights(
                     false,
                 );
             }
+            l += ld / num_samples as f32;
         }
     }
 
     l
+}
+
+fn uniform_sample_one_light(
+    it: &SurfaceMediumInteraction,
+    scene: &RenderScene,
+    sampler: &mut Sampler,
+) -> Spectrum {
+    let num_lights = scene.lights.len();
+    if num_lights == 0 {
+        return Spectrum::new(0.0);
+    }
+
+    let u_light = sampler.get_2d();
+    let u_scattering = sampler.get_2d();
+    let light_idx = ((sampler.get_1d() * num_lights as f32).floor() as usize).min(num_lights - 1);
+    let light = scene.lights[light_idx].as_ref();
+    num_lights as f32
+        * estimate_direct(&it, &u_scattering, light, &u_light, &scene, &sampler, false)
 }
 
 pub struct DirectLightingIntegrator {
@@ -113,7 +152,7 @@ impl DirectLightingIntegrator {
     fn specular_reflect(
         &self,
         r: &RayDifferential,
-        isect: &SurfaceInteraction,
+        isect: &SurfaceMediumInteraction,
         scene: &RenderScene,
         mut sampler: &mut Sampler,
         depth: u32,
@@ -168,7 +207,7 @@ impl DirectLightingIntegrator {
     fn specular_transmit(
         &self,
         r: &RayDifferential,
-        isect: &SurfaceInteraction,
+        isect: &SurfaceMediumInteraction,
         scene: &RenderScene,
         mut sampler: &mut Sampler,
         depth: u32,

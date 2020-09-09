@@ -1,6 +1,6 @@
 use super::{
     bxdf::{BxDF, BxDFInterface, BxDFType},
-    interaction::SurfaceInteraction,
+    interaction::SurfaceMediumInteraction,
 };
 use crate::common::spectrum::Spectrum;
 
@@ -17,7 +17,7 @@ pub struct BSDF {
 }
 
 impl BSDF {
-    pub fn new(log: &slog::Logger, si: &SurfaceInteraction, eta: f32) -> Self {
+    pub fn new(log: &slog::Logger, si: &SurfaceMediumInteraction, eta: f32) -> Self {
         let log = log.new(o!());
         let ns = si.shading.n;
         let ss = si.shading.dpdu.normalize();

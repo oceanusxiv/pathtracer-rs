@@ -80,7 +80,7 @@ impl Default for SurfaceInteractionShading {
     }
 }
 
-pub struct SurfaceInteraction<'a> {
+pub struct SurfaceMediumInteraction<'a> {
     pub general: Interaction,
     pub uv: na::Point2<f32>,
     pub dpdu: na::Vector3<f32>,
@@ -100,9 +100,9 @@ pub struct SurfaceInteraction<'a> {
     pub dvdy: f32,
 }
 
-impl<'a> Default for SurfaceInteraction<'a> {
-    fn default() -> SurfaceInteraction<'a> {
-        SurfaceInteraction {
+impl<'a> Default for SurfaceMediumInteraction<'a> {
+    fn default() -> SurfaceMediumInteraction<'a> {
+        SurfaceMediumInteraction {
             general: Interaction {
                 p: na::Point3::origin(),
                 time: 0.0,
@@ -129,7 +129,7 @@ impl<'a> Default for SurfaceInteraction<'a> {
     }
 }
 
-impl<'a> SurfaceInteraction<'a> {
+impl<'a> SurfaceMediumInteraction<'a> {
     pub fn new(
         p: &na::Point3<f32>,
         p_error: &na::Vector3<f32>,

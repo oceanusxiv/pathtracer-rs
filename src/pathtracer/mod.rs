@@ -14,7 +14,7 @@ mod texture;
 use crate::common::ray::{Ray, RayDifferential};
 
 use crate::common::Camera;
-use interaction::SurfaceInteraction;
+use interaction::SurfaceMediumInteraction;
 use light::SyncLight;
 use material::{Material, MaterialInterface};
 use primitive::SyncPrimitive;
@@ -79,7 +79,7 @@ pub struct RenderScene {
 }
 
 impl RenderScene {
-    pub fn intersect<'a>(&'a self, r: &Ray, isect: &mut SurfaceInteraction<'a>) -> bool {
+    pub fn intersect<'a>(&'a self, r: &Ray, isect: &mut SurfaceMediumInteraction<'a>) -> bool {
         self.scene.intersect(r, isect)
     }
 

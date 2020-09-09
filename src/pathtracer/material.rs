@@ -5,7 +5,7 @@ use super::{
         SpecularReflection, SpecularTransmission,
     },
     texture::SyncTexture,
-    SurfaceInteraction, TransportMode,
+    SurfaceMediumInteraction, TransportMode,
 };
 use crate::common::{self, spectrum::Spectrum};
 use ambassador::{delegatable_trait, Delegate};
@@ -13,7 +13,7 @@ use common::math::coordinate_system;
 
 #[delegatable_trait]
 pub trait MaterialInterface {
-    fn compute_scattering_functions(&self, si: &mut SurfaceInteraction, mode: TransportMode);
+    fn compute_scattering_functions(&self, si: &mut SurfaceMediumInteraction, mode: TransportMode);
 }
 
 #[derive(Delegate)]
@@ -28,7 +28,7 @@ pub enum Material {
 pub fn normal_mapping(
     log: &slog::Logger,
     d: &Box<dyn SyncTexture<na::Vector3<f32>>>,
-    si: &mut SurfaceInteraction,
+    si: &mut SurfaceMediumInteraction,
 ) {
     trace!(
         log,
@@ -89,7 +89,11 @@ impl MatteMaterial {
 }
 
 impl MaterialInterface for MatteMaterial {
-    fn compute_scattering_functions(&self, mut si: &mut SurfaceInteraction, _mode: TransportMode) {
+    fn compute_scattering_functions(
+        &self,
+        mut si: &mut SurfaceMediumInteraction,
+        _mode: TransportMode,
+    ) {
         if let Some(normal_map) = self.normal_map.as_ref() {
             normal_mapping(&self.log, normal_map, &mut si);
         }
@@ -114,7 +118,11 @@ impl MirrorMaterial {
 }
 
 impl MaterialInterface for MirrorMaterial {
-    fn compute_scattering_functions(&self, si: &mut SurfaceInteraction, _mode: TransportMode) {
+    fn compute_scattering_functions(
+        &self,
+        si: &mut SurfaceMediumInteraction,
+        _mode: TransportMode,
+    ) {
         let mut bsdf = BSDF::new(&self.log, &si, 1.0);
         let r = Spectrum::new(1.0);
         bsdf.add(BxDF::SpecularReflection(SpecularReflection::new(
@@ -146,7 +154,7 @@ impl GlassMaterial {
 }
 
 impl MaterialInterface for GlassMaterial {
-    fn compute_scattering_functions(&self, si: &mut SurfaceInteraction, mode: TransportMode) {
+    fn compute_scattering_functions(&self, si: &mut SurfaceMediumInteraction, mode: TransportMode) {
         let eta = self.index.evaluate(&si);
         let r = self.kr.evaluate(&si);
         let t = self.kt.evaluate(&si);

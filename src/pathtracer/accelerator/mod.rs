@@ -1,5 +1,5 @@
 use super::primitive::Primitive;
-use super::{SurfaceInteraction, SyncPrimitive};
+use super::{SurfaceMediumInteraction, SyncPrimitive};
 use crate::common::bounds::Bounds3;
 use crate::common::ray::Ray;
 use std::{sync::Arc, time::Instant};
@@ -337,7 +337,7 @@ impl BVH {
 }
 
 impl Primitive for BVH {
-    fn intersect<'a>(&'a self, r: &Ray, mut isect: &mut SurfaceInteraction<'a>) -> bool {
+    fn intersect<'a>(&'a self, r: &Ray, mut isect: &mut SurfaceMediumInteraction<'a>) -> bool {
         if self.nodes.is_empty() {
             return false;
         }
@@ -468,7 +468,7 @@ impl Primitive for BVH {
 
     fn compute_scattering_functions(
         &self,
-        _si: &mut SurfaceInteraction,
+        _si: &mut SurfaceMediumInteraction,
         _mode: super::TransportMode,
     ) {
         unimplemented!()

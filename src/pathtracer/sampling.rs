@@ -417,6 +417,10 @@ impl StratifiedSampler {
         self.pixel_sampler.start_next_sample()
     }
 
+    pub fn get_1d(&self) -> f32 {
+        self.pixel_sampler.get_1d()
+    }
+
     pub fn get_2d(&self) -> na::Point2<f32> {
         trace!(
             self.log,

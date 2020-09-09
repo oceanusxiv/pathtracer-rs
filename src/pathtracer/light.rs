@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use super::{
-    interaction::{Interaction, SurfaceInteraction},
+    interaction::{Interaction, SurfaceMediumInteraction},
     shape::SyncShape,
     texture::{MIPMap, SyncTexture},
     RenderScene,
@@ -248,7 +248,7 @@ impl DiffuseAreaLight {
         }
     }
 
-    pub fn L(&self, inter: &SurfaceInteraction, w: &na::Vector3<f32>) -> Spectrum {
+    pub fn L(&self, inter: &SurfaceMediumInteraction, w: &na::Vector3<f32>) -> Spectrum {
         if inter.general.n.dot(&w) > 0.0 {
             self.ke.evaluate(&inter)
         } else {
