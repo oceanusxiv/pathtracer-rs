@@ -103,7 +103,7 @@ pub struct FirstPersonCameraController {
     rotate_sensitivity: f32,
     move_sensitivity: f32,
     translation: na::Translation3<f32>,
-    rotation: (f32, f32, f32),
+    rotation: (f32, f32),
     log: slog::Logger,
 }
 
@@ -114,7 +114,7 @@ impl FirstPersonCameraController {
             rotate_sensitivity,
             move_sensitivity,
             translation: na::Translation3::identity(),
-            rotation: (0.0, 0.0, 0.0),
+            rotation: (0.0, 0.0),
             log,
         }
     }
@@ -155,7 +155,6 @@ impl CameraControllerInterface for FirstPersonCameraController {
         self.rotation = (
             -mouse_dy.to_radians() as f32 * self.rotate_sensitivity,
             -mouse_dx.to_radians() as f32 * self.rotate_sensitivity,
-            0.0,
         );
     }
 
@@ -167,10 +166,17 @@ impl CameraControllerInterface for FirstPersonCameraController {
             self.translation.y * dt,
             self.translation.z * dt,
         );
-        let (r, p, y) = self.rotation;
-        let rotation = na::UnitQuaternion::from_euler_angles(r * dt, p * dt, y * dt);
-
-        camera.cam_to_world = camera.cam_to_world * rotation;
+        let (r, p) = self.rotation;
+        let (curr_r, curr_p, _) = camera.cam_to_world.rotation.euler_angles();
+        let next_r = curr_r + r * dt;
+        let next_p = curr_p + p * dt;
+        if (r != 0.0 || p != 0.0)
+            && (next_r > -std::f32::consts::FRAC_PI_2)
+            && (next_r < std::f32::consts::FRAC_PI_2)
+        {
+            let rotation = na::UnitQuaternion::from_euler_angles(next_r, next_p, 0.0);
+            camera.cam_to_world.rotation = rotation;
+        }
 
         let translation = camera.cam_to_world.transform_vector(&translation);
         let translation = na::Translation3::from(translation);
@@ -179,7 +185,7 @@ impl CameraControllerInterface for FirstPersonCameraController {
         trace!(self.log, "camera is now at: {:?}", camera.cam_to_world);
 
         self.translation = na::Translation3::identity();
-        self.rotation = (0.0, 0.0, 0.0);
+        self.rotation = (0.0, 0.0);
     }
 
     fn require_mouse_press(&self) -> bool {
