@@ -256,15 +256,15 @@ fn populate_scene(
                 g: EMISSIVE_SCALING_FACTOR * emissive_factor[0],
                 b: EMISSIVE_SCALING_FACTOR * emissive_factor[0],
             };
-            let mut ke = Arc::new(ConstantTexture::<Spectrum>::new(emissive_factor))
-                as Arc<dyn SyncTexture<Spectrum>>;
+            let mut ke = None;
 
             if !emissive_factor.is_black() {
+                ke = Some(Arc::new(ConstantTexture::<Spectrum>::new(emissive_factor)) as Arc<dyn SyncTexture<Spectrum>>);
                 if let Some(info) = gltf_prim.material().emissive_texture() {
                     if let Some(texture) =
                         color_texture_from_gltf(&log, &info, emissive_factor, &images)
                     {
-                        ke = Arc::new(texture) as Arc<dyn SyncTexture<Spectrum>>;
+                        ke = Some(Arc::new(texture) as Arc<dyn SyncTexture<Spectrum>>);
                     }
                 }
             }
@@ -272,21 +272,22 @@ fn populate_scene(
             for shape in
                 shapes_from_gltf_prim(log, &gltf_prim, &current_transform, &images, buffers)
             {
-                let mut total_light = Spectrum::new(0.0);
-
-                for x in 0..SAMPLE_COUNT {
-                    for y in 0..SAMPLE_COUNT {
-                        let x = x as f32 * SAMPLE_STEP;
-                        let y = y as f32 * SAMPLE_STEP;
-                        total_light += ke.evaluate(&shape.sample(&na::Point2::new(x, y)));
-                    }
-                }
-
                 let some_area_light;
                 // only create area light if object material is emissive
-                if !emissive_factor.is_black() && !total_light.is_black() {
+                if !emissive_factor.is_black() {
+                    let ke = ke.as_ref().unwrap();
+                    let mut total_light = Spectrum::new(0.0);
+
+                    for x in 0..SAMPLE_COUNT {
+                        for y in 0..SAMPLE_COUNT {
+                            let x = x as f32 * SAMPLE_STEP;
+                            let y = y as f32 * SAMPLE_STEP;
+                            total_light += ke.evaluate(&shape.sample(&na::Point2::new(x, y)));
+                        }
+                    }
+
                     let area_light = Arc::new(DiffuseAreaLight::new(
-                        Arc::clone(&ke),
+                        Arc::clone(ke),
                         Arc::clone(&shape),
                         1,
                     ));
