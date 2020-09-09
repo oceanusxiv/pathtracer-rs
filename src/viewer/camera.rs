@@ -183,6 +183,6 @@ impl CameraControllerInterface for FirstPersonCameraController {
     }
 
     fn require_mouse_press(&self) -> bool {
-        false
+        true
     }
 }
