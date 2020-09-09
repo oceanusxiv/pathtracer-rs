@@ -5,10 +5,7 @@ authors = ["Eric Fang <eric1221bday@gmail.com>"]
 edition = "2018"
 
 [[example]]
-name = "small_scene_gltf"
-
-[[example]]
-name = "small_scene_mitsuba"
+name = "small_scene"
 
 [[bench]]
 name = "benchmark_render"
@@ -47,7 +44,6 @@ clap = "^2.33"
 num = "0.3.0"
 rayon = "1.4.0"
 bitflags = "1.2.1"
-rand = "0.7.3"
 hexf = "0.1.0"
 ambassador = "0.2.1"
 serde = "1.0.115"
@@ -70,3 +66,7 @@ features = ["extern_crate_alloc"]
 [dependencies.gltf]
 version = "^0.13"
 features = ["KHR_lights_punctual"]
+
+[dependencies.rand]
+version = "0.7.3"
+features = ["small_rng"]

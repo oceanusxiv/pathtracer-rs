@@ -1,8 +1,10 @@
 use super::CameraSample;
-use rand::prelude::*;
+use rand::{Rng, SeedableRng};
 use std::cell::{Cell, RefCell};
 
 const ONE_MINUS_EPSILON: f32 = hexf32!("0x1.fffffep-1");
+
+type Random = rand::rngs::SmallRng;
 
 #[derive(Clone)]
 struct CoreSampler {
@@ -97,7 +99,7 @@ struct PixelSampler {
     current_1d_dimension: Cell<usize>,
     current_2d_dimension: Cell<usize>,
 
-    rng: RefCell<StdRng>,
+    rng: RefCell<Random>,
 }
 
 impl PixelSampler {
@@ -105,7 +107,7 @@ impl PixelSampler {
         sampler: CoreSampler,
         samples_per_pixel: usize,
         n_sampled_dimensions: usize,
-        rng: rand::rngs::StdRng,
+        rng: Random,
     ) -> Self {
         let samples_1d = vec![vec![0.0; samples_per_pixel]; n_sampled_dimensions];
         let samples_2d: Vec<Vec<na::Point2<f32>>> =
@@ -165,7 +167,7 @@ impl PixelSampler {
     }
 }
 
-fn stratified_sample_1d(samp: &mut [f32], n_samples: usize, rng: &mut StdRng, jitter: bool) {
+fn stratified_sample_1d(samp: &mut [f32], n_samples: usize, rng: &mut Random, jitter: bool) {
     let inv_n_samples = 1.0 / (n_samples as f32);
 
     for i in 0..n_samples {
@@ -182,7 +184,7 @@ fn stratified_sample_2d(
     samp: &mut [na::Point2<f32>],
     nx: usize,
     ny: usize,
-    rng: &mut StdRng,
+    rng: &mut Random,
     jitter: bool,
 ) {
     let dx = 1.0 / (nx as f32);
@@ -208,7 +210,7 @@ fn stratified_sample_2d(
     }
 }
 
-fn shuffle<T>(samp: &mut [T], count: usize, n_dimensions: usize, rng: &mut StdRng) {
+fn shuffle<T>(samp: &mut [T], count: usize, n_dimensions: usize, rng: &mut Random) {
     for i in 0..count {
         let other = i + rng.gen_range(0, count - i);
 
@@ -222,7 +224,7 @@ fn latin_hyper_cube_2d(
     samples: &mut [na::Point2<f32>],
     n_samples: usize,
     n_dim: usize,
-    rng: &mut StdRng,
+    rng: &mut Random,
 ) {
     let inv_n_samples = 1.0 / (n_samples as f32);
     for i in 0..n_samples {
@@ -248,7 +250,7 @@ pub struct StratifiedSamplerBuilder {
     y_pixel_samples: usize,
     jitter_samples: bool,
     n_sampled_dimensions: usize,
-    rng: rand::rngs::StdRng,
+    rng: Random,
     sample_1d_array_sizes: Vec<usize>,
     sample_2d_array_sizes: Vec<usize>,
     sample_array_1d: Vec<Vec<f32>>,
@@ -270,7 +272,7 @@ impl StratifiedSamplerBuilder {
             y_pixel_samples,
             jitter_samples,
             n_sampled_dimensions,
-            rng: rand::rngs::StdRng::from_entropy(),
+            rng: Random::from_entropy(),
             sample_1d_array_sizes: vec![],
             sample_2d_array_sizes: vec![],
             sample_array_1d: vec![],
@@ -321,7 +323,7 @@ impl StratifiedSamplerBuilder {
     }
 
     pub fn with_seed(&mut self, seed: u64) -> &mut Self {
-        self.rng = rand::rngs::StdRng::seed_from_u64(seed);
+        self.rng = Random::seed_from_u64(seed);
 
         self
     }
