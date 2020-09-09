@@ -141,7 +141,7 @@ fn main() {
             ));
     } else if camera_controller_type == "fp" {
         camera_controller = viewer::camera::CameraController::FirstPerson(
-            viewer::camera::FirstPersonCameraController::new(&log, 1.0, 2.0),
+            viewer::camera::FirstPersonCameraController::new(&log, 6.0, 2.5),
         );
     } else {
         panic!(

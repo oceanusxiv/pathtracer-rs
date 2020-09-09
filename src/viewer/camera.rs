@@ -10,6 +10,7 @@ pub trait CameraControllerInterface {
     }
     fn process_scroll(&mut self, _delta: &MouseScrollDelta) {}
     fn update_camera(&mut self, camera: &mut Camera, dt: std::time::Duration);
+    fn require_mouse_press(&self) -> bool;
 }
 
 #[derive(Delegate)]
@@ -92,12 +93,17 @@ impl CameraControllerInterface for OrbitalCameraController {
         self.rotate_vertical = 0.0;
         self.scroll = 0.0;
     }
+
+    fn require_mouse_press(&self) -> bool {
+        true
+    }
 }
 
 pub struct FirstPersonCameraController {
     rotate_sensitivity: f32,
     move_sensitivity: f32,
     translation: na::Translation3<f32>,
+    rotation: (f32, f32, f32),
     log: slog::Logger,
 }
 
@@ -108,6 +114,7 @@ impl FirstPersonCameraController {
             rotate_sensitivity,
             move_sensitivity,
             translation: na::Translation3::identity(),
+            rotation: (0.0, 0.0, 0.0),
             log,
         }
     }
@@ -145,22 +152,37 @@ impl CameraControllerInterface for FirstPersonCameraController {
     }
 
     fn process_mouse(&mut self, mouse_dx: f64, mouse_dy: f64) {
-        todo!()
+        self.rotation = (
+            -mouse_dy.to_radians() as f32 * self.rotate_sensitivity,
+            -mouse_dx.to_radians() as f32 * self.rotate_sensitivity,
+            0.0,
+        );
     }
 
     fn update_camera(&mut self, camera: &mut Camera, dt: std::time::Duration) {
         let dt = dt.as_secs_f32();
 
-        let translation = na::Translation3::new(
+        let translation = na::Vector3::new(
             self.translation.x * dt,
             self.translation.y * dt,
             self.translation.z * dt,
         );
+        let (r, p, y) = self.rotation;
+        let rotation = na::UnitQuaternion::from_euler_angles(r * dt, p * dt, y * dt);
 
+        camera.cam_to_world = camera.cam_to_world * rotation;
+
+        let translation = camera.cam_to_world.transform_vector(&translation);
+        let translation = na::Translation3::from(translation);
         camera.cam_to_world.append_translation_mut(&translation);
 
         trace!(self.log, "camera is now at: {:?}", camera.cam_to_world);
 
         self.translation = na::Translation3::identity();
+        self.rotation = (0.0, 0.0, 0.0);
+    }
+
+    fn require_mouse_press(&self) -> bool {
+        false
     }
 }

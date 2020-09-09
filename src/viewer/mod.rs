@@ -300,7 +300,9 @@ impl Viewer {
                 }
                 DeviceEvent::MouseMotion { delta, .. } => {
                     let (mouse_dx, mouse_dy) = delta;
-                    if self.mouse_pressed {
+                    if (self.camera_controller.require_mouse_press() && self.mouse_pressed)
+                        || !self.camera_controller.require_mouse_press()
+                    {
                         self.camera_controller.process_mouse(*mouse_dx, *mouse_dy);
                     }
                     true
