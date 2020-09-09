@@ -332,7 +332,11 @@ impl StratifiedSampler {
             }
         }
 
-        trace!(self.log, "generated 2d sample array: {:?}", pixel_sampler.samples_2d);
+        trace!(
+            self.log,
+            "generated 2d sample array: {:?}",
+            pixel_sampler.samples_2d
+        );
         sampler.start_pixel(&p);
     }
 
@@ -353,7 +357,12 @@ impl StratifiedSampler {
     }
 
     pub fn get_2d(&mut self) -> na::Point2<f32> {
-        trace!(self.log, "curr_2d_dim: {:?}, curr_pixel_sample_idx: {:?}", self.pixel_sampler.current_2d_dimension, self.pixel_sampler.sampler.current_pixel_sample_index);
+        trace!(
+            self.log,
+            "curr_2d_dim: {:?}, curr_pixel_sample_idx: {:?}",
+            self.pixel_sampler.current_2d_dimension,
+            self.pixel_sampler.sampler.current_pixel_sample_index
+        );
         let sample = self.pixel_sampler.get_2d();
         trace!(self.log, "2d sample {:?}", sample);
         sample

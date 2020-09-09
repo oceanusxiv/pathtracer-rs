@@ -259,7 +259,8 @@ fn populate_scene(
             let mut ke = None;
 
             if !emissive_factor.is_black() {
-                ke = Some(Arc::new(ConstantTexture::<Spectrum>::new(emissive_factor)) as Arc<dyn SyncTexture<Spectrum>>);
+                ke = Some(Arc::new(ConstantTexture::<Spectrum>::new(emissive_factor))
+                    as Arc<dyn SyncTexture<Spectrum>>);
                 if let Some(info) = gltf_prim.material().emissive_texture() {
                     if let Some(texture) =
                         color_texture_from_gltf(&log, &info, emissive_factor, &images)
@@ -286,11 +287,8 @@ fn populate_scene(
                         }
                     }
 
-                    let area_light = Arc::new(DiffuseAreaLight::new(
-                        Arc::clone(ke),
-                        Arc::clone(&shape),
-                        1,
-                    ));
+                    let area_light =
+                        Arc::new(DiffuseAreaLight::new(Arc::clone(ke), Arc::clone(&shape), 1));
                     lights.push(Arc::clone(&area_light) as Arc<dyn SyncLight>);
                     some_area_light = Some(Arc::clone(&area_light));
                 } else {
