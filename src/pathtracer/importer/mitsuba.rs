@@ -24,6 +24,15 @@ fn material_from_bsdf(log: &slog::Logger, bsdf: &mitsuba::BSDF) -> Material {
             })),
             None,
         )),
+        mitsuba::BSDF::RoughConductor(bsdf) => Material::Matte(MatteMaterial::new(
+            &log,
+            Box::new(ConstantTexture::<Spectrum>::new(Spectrum {
+                r: bsdf.rgb_params["specular_reflectance"][0],
+                g: bsdf.rgb_params["specular_reflectance"][1],
+                b: bsdf.rgb_params["specular_reflectance"][2],
+            })),
+            None,
+        )),
     }
 }
 

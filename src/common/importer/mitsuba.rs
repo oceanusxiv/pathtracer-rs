@@ -2,7 +2,8 @@ use crate::common::Camera;
 use genmesh::generators::IndexedPolygon;
 use genmesh::generators::SharedVertex;
 use genmesh::Triangulate;
-use quick_xml::de::{from_reader, DeError};
+use heck::SnakeCase;
+use quick_xml::de::from_reader;
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::BufReader;
@@ -74,6 +75,8 @@ pub fn gen_sphere(center: &na::Point3<f32>, radius: f32) -> Mesh {
 #[derive(Debug, Deserialize)]
 pub struct Float {
     pub name: String,
+
+    #[serde(with = "float")]
     pub value: f32,
 }
 
@@ -92,6 +95,18 @@ mod floats {
             map.insert(item.name.clone(), item.value);
         }
         Ok(map)
+    }
+}
+
+mod float {
+    use serde::de::{Deserialize, Deserializer};
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<f32, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let float = String::deserialize(deserializer)?;
+        Ok(float.parse().unwrap())
     }
 }
 
@@ -141,6 +156,48 @@ pub struct Diffuse {
     pub rgb: [f32; 3],
 }
 
+fn de_rgbs<'de, D>(deserializer: D) -> Result<HashMap<String, [f32; 3]>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    struct ChildVisitor;
+    impl<'de> serde::de::Visitor<'de> for ChildVisitor {
+        type Value = HashMap<String, [f32; 3]>;
+
+        fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+            formatter.write_str("Map of children elements - filtering for fields with `rgb` suffix")
+        }
+
+        fn visit_map<M>(self, mut access: M) -> Result<Self::Value, M::Error>
+        where
+            M: serde::de::MapAccess<'de>,
+        {
+            let mut hm = HashMap::<String, [f32; 3]>::new();
+
+            while let Some(key) = access.next_key::<String>()? {
+                if key.ends_with("rgb") {
+                    let rgb = access.next_value::<Rgb>().unwrap();
+                    let color: Vec<f32> =
+                        rgb.value.split(", ").map(|s| s.parse().unwrap()).collect();
+                    hm.insert(rgb.name.to_snake_case(), [color[0], color[1], color[2]]);
+                }
+            }
+
+            Ok(hm)
+        }
+    }
+
+    deserializer.deserialize_any(ChildVisitor {})
+}
+
+#[derive(Debug, Deserialize)]
+pub struct RoughConductor {
+    pub id: Option<String>,
+
+    #[serde(flatten, rename = "rgb", deserialize_with = "de_rgbs")]
+    pub rgb_params: HashMap<String, [f32; 3]>,
+}
+
 #[derive(Debug, Deserialize)]
 #[serde(tag = "type")]
 pub enum BSDF {
@@ -148,6 +205,8 @@ pub enum BSDF {
     TwoSided(TwoSided),
     #[serde(rename = "diffuse")]
     Diffuse(Diffuse),
+    #[serde(rename = "roughconductor")]
+    RoughConductor(RoughConductor),
 }
 
 mod bsdf {
@@ -168,6 +227,12 @@ mod bsdf {
                 }
                 BSDF::Diffuse(item) => {
                     map.insert(item.id.as_ref().unwrap().clone(), BSDF::Diffuse(item));
+                }
+                BSDF::RoughConductor(item) => {
+                    map.insert(
+                        item.id.as_ref().unwrap().clone(),
+                        BSDF::RoughConductor(item),
+                    );
                 }
             }
         }
@@ -214,8 +279,11 @@ pub struct Reference {
 #[derive(Debug, Deserialize)]
 pub struct Point {
     pub name: String,
+    #[serde(with = "float")]
     pub x: f32,
+    #[serde(with = "float")]
     pub y: f32,
+    #[serde(with = "float")]
     pub z: f32,
 }
 
