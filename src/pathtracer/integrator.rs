@@ -227,7 +227,7 @@ impl DirectLightingIntegrator {
         Self {
             sampler_builder,
             max_depth,
-            strategy: LightStrategy::UniformSampleAll,
+            strategy: LightStrategy::UniformSampleOne,
             num_light_samples: vec![],
             log,
         }
