@@ -47,7 +47,6 @@ hexf = "0.1.0"
 ambassador = "0.2.1"
 serde = "1.0.115"
 serde_derive = "1.0.115"
-serde-xml-rs = "0.4.0"
 maplit = "1.0.2"
 
 [dependencies.nalgebra]
@@ -73,3 +72,7 @@ features = ["KHR_lights_punctual"]
 [dependencies.rand]
 version = "0.7.3"
 features = ["small_rng"]
+
+[dependencies.quick-xml]
+verion = "0.18.1"
+features = ["serialize"]
