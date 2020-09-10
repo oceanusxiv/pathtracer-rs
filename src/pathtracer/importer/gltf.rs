@@ -273,7 +273,7 @@ fn populate_scene(
             for shape in
                 shapes_from_gltf_prim(log, &gltf_prim, &current_transform, &images, buffers)
             {
-                let some_area_light;
+                let mut some_area_light = None;
                 // only create area light if object material is emissive
                 if !emissive_factor.is_black() {
                     let ke = ke.as_ref().unwrap();
@@ -287,12 +287,12 @@ fn populate_scene(
                         }
                     }
 
-                    let area_light =
-                        Arc::new(DiffuseAreaLight::new(Arc::clone(ke), Arc::clone(&shape), 1));
-                    lights.push(Arc::clone(&area_light) as Arc<dyn SyncLight>);
-                    some_area_light = Some(Arc::clone(&area_light));
-                } else {
-                    some_area_light = None;
+                    if !total_light.is_black() {
+                        let area_light =
+                            Arc::new(DiffuseAreaLight::new(Arc::clone(ke), Arc::clone(&shape), 1));
+                        lights.push(Arc::clone(&area_light) as Arc<dyn SyncLight>);
+                        some_area_light = Some(Arc::clone(&area_light));
+                    }
                 }
 
                 primitives.push(Arc::new(GeometricPrimitive::new(
