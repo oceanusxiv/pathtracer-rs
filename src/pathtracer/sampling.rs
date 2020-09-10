@@ -444,6 +444,10 @@ impl StratifiedSampler {
     pub fn get_2d_array(&self, n: usize) -> Option<&[na::Point2<f32>]> {
         self.pixel_sampler.sampler.get_2d_array(n)
     }
+
+    pub fn get_current_sample_number(&self) -> usize {
+        self.pixel_sampler.sampler.current_pixel_sample_index
+    }
 }
 
 pub type Sampler = StratifiedSampler; // for now, since dealing with sampler inheritance is annoying

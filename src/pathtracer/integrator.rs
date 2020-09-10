@@ -528,6 +528,31 @@ impl DirectLightingIntegrator {
                         let mut l = Spectrum::new(0.0);
                         l = self.li(&ray, &scene, &mut tile_sampler, 0);
 
+                        if l.has_nan() {
+                            error!(
+                                self.log,
+                                "radiance contains nan for pixel: {:?}, sample: {:?}",
+                                pixel,
+                                tile_sampler.get_current_sample_number()
+                            );
+                        } else if l.y() < -1e-5 {
+                            error!(
+                                self.log,
+                                "negative luminance value: {:?} for pixel: {:?}, sampler: {:?}",
+                                l.y(),
+                                pixel,
+                                tile_sampler.get_current_sample_number()
+                            );
+                        } else if l.y().is_infinite() {
+                            error!(
+                                self.log,
+                                "infinite luminance value: {:?} for pixel: {:?}, sampler: {:?}",
+                                l.y(),
+                                pixel,
+                                tile_sampler.get_current_sample_number()
+                            );
+                        }
+
                         film_tile.add_sample(&camera_sample.p_film, &l);
 
                         if !tile_sampler.start_next_sample() {

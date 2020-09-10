@@ -65,6 +65,15 @@ impl RGBSpectrum {
     pub fn is_black(&self) -> bool {
         self.r == 0.0 && self.g == 0.0 && self.b == 0.0
     }
+
+    pub fn has_nan(&self) -> bool {
+        self.r.is_nan() || self.g.is_nan() || self.b.is_nan()
+    }
+
+    pub fn y(&self) -> f32 {
+        const Y_WEIGHT: [f32; 3] = [0.212671, 0.715160, 0.072169];
+        self.r * Y_WEIGHT[0] + self.g * Y_WEIGHT[1] + self.b * Y_WEIGHT[2]
+    }
 }
 
 impl AddAssign for RGBSpectrum {
