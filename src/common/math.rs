@@ -159,6 +159,12 @@ pub fn solve_linear_system_2x2(
     return Some(na::Vector2::new(x0, x1));
 }
 
+pub fn power_heuristic(nf: i32, f_pdf: f32, ng: i32, g_pdf: f32) -> f32 {
+    let f = nf as f32 * f_pdf;
+    let g = ng as f32 * g_pdf;
+    (f * f) / (f * f + g * g)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

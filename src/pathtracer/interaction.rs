@@ -282,4 +282,8 @@ impl<'a> SurfaceMediumInteraction<'a> {
             Spectrum::new(0.0)
         }
     }
+
+    pub fn is_surface_interaction(&self) -> bool {
+        self.shading.n != na::Vector3::zeros()
+    }
 }

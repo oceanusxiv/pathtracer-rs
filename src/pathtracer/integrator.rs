@@ -1,12 +1,12 @@
-use super::bxdf::BxDFType;
-use super::interaction::{Interaction, SurfaceMediumInteraction};
+use super::interaction::SurfaceMediumInteraction;
 use super::sampling::{Sampler, SamplerBuilder};
+use super::{bxdf::BxDFType, light::is_delta_light};
 use super::{light::SyncLight, RenderScene, TransportMode};
-use crate::common::bounds::Bounds2i;
 use crate::common::film::FilmTile;
 use crate::common::ray::RayDifferential;
 use crate::common::spectrum::Spectrum;
 use crate::common::Camera;
+use crate::common::{bounds::Bounds2i, math::power_heuristic};
 use indicatif::ParallelProgressIterator;
 use itertools::Itertools;
 use rayon::prelude::*;
@@ -25,6 +25,7 @@ fn estimate_direct(
     u_light: &na::Point2<f32>,
     scene: &RenderScene,
     sampler: &Sampler,
+    handle_media: bool,
     specular: bool,
 ) -> Spectrum {
     let bsdf_flags = if specular {
@@ -36,16 +37,101 @@ fn estimate_direct(
 
     let mut wi = na::Vector3::zeros();
     let mut light_pdf = 0.0;
-    let scattering_pdf = 0.0;
+    let mut scattering_pdf = 0.0;
     let mut visibility = None;
-    let li = light.sample_li(
+    let mut li = light.sample_li(
         &it.general,
         &u_light,
         &mut wi,
         &mut light_pdf,
         &mut visibility,
     );
-    if light_pdf > 0.0 && !li.is_black() {}
+    let visibility = visibility.unwrap();
+    if light_pdf > 0.0 && !li.is_black() {
+        let f: Spectrum;
+        if it.is_surface_interaction() {
+            let bsdf = it.bsdf.as_ref().unwrap();
+            f = bsdf.f(&it.general.wo, &wi, bsdf_flags) * wi.dot(&it.shading.n).abs();
+            scattering_pdf = bsdf.pdf(&it.general.wo, &wi, bsdf_flags);
+        } else {
+            panic!("medium interaction not supported!");
+        }
+
+        if !f.is_black() {
+            if handle_media {
+                panic!("media not supported");
+            } else {
+                if !visibility.unoccluded(&scene) {
+                    li = Spectrum::new(0.0);
+                }
+            }
+
+            if !li.is_black() {
+                if is_delta_light(&light.flags()) {
+                    ld += f * li / light_pdf;
+                } else {
+                    let weight = power_heuristic(1, light_pdf, 1, scattering_pdf);
+                    ld += f * li * weight / light_pdf;
+                }
+            }
+        }
+    }
+
+    if !is_delta_light(&light.flags()) {
+        let mut f;
+        let mut sampled_specular = false;
+
+        if it.is_surface_interaction() {
+            let mut sampled_type = Some(BxDFType::BSDF_ALL);
+            let bsdf = it.bsdf.as_ref().unwrap();
+            f = bsdf.sample_f(
+                &it.general.wo,
+                &mut wi,
+                u_scattering,
+                &mut scattering_pdf,
+                bsdf_flags,
+                &mut sampled_type,
+            );
+            f *= wi.dot(&it.shading.n).abs();
+            sampled_specular = sampled_type.unwrap().contains(BxDFType::BSDF_SPECULAR);
+        } else {
+            panic!("medium interaction not supported!");
+        }
+
+        if !f.is_black() && scattering_pdf > 0.0 {
+            let mut weight = 1.0;
+            if !sampled_specular {
+                light_pdf = light.pdf_li(&it.general, &wi);
+                if light_pdf == 0.0 {
+                    return ld;
+                }
+                weight = power_heuristic(1, scattering_pdf, 1, light_pdf);
+            }
+
+            let mut light_isect = SurfaceMediumInteraction::default();
+            let ray = it.general.spawn_ray(&wi);
+            let tr = Spectrum::new(1.0);
+            let found_surface_interaction = if handle_media {
+                panic!("medium interaction not supported!")
+            } else {
+                scene.intersect(&ray, &mut light_isect)
+            };
+
+            let mut li = Spectrum::new(0.0);
+            if found_surface_interaction {
+                if let Some(isect_light) = light_isect.primitive.unwrap().get_area_light() {
+                    if std::ptr::eq(light, isect_light) {
+                        li = light_isect.le(&-wi);
+                    }
+                }
+            } else {
+                li = light.le(&RayDifferential::new(ray));
+            }
+            if !li.is_black() {
+                ld += f * li * tr * weight / scattering_pdf;
+            }
+        }
+    }
 
     ld
 }
@@ -54,7 +140,7 @@ fn uniform_sample_all_lights(
     it: &SurfaceMediumInteraction,
     scene: &RenderScene,
     sampler: &mut Sampler,
-    num_light_samples: Vec<usize>,
+    num_light_samples: &Vec<usize>,
 ) -> Spectrum {
     let mut l = Spectrum::new(0.0);
 
@@ -67,7 +153,16 @@ fn uniform_sample_all_lights(
         if u_light_array.is_none() || u_scattering_array.is_none() {
             let u_light = sampler.get_2d();
             let u_scattering = sampler.get_2d();
-            l += estimate_direct(&it, &u_scattering, light, &u_light, &scene, &sampler, false);
+            l += estimate_direct(
+                &it,
+                &u_scattering,
+                light,
+                &u_light,
+                &scene,
+                &sampler,
+                false,
+                false,
+            );
         } else {
             let mut ld = Spectrum::new(0.0);
             let u_scattering_array = u_scattering_array.unwrap();
@@ -80,6 +175,7 @@ fn uniform_sample_all_lights(
                     &u_light_array[k],
                     &scene,
                     &sampler,
+                    false,
                     false,
                 );
             }
@@ -105,7 +201,16 @@ fn uniform_sample_one_light(
     let light_idx = ((sampler.get_1d() * num_lights as f32).floor() as usize).min(num_lights - 1);
     let light = scene.lights[light_idx].as_ref();
     num_lights as f32
-        * estimate_direct(&it, &u_scattering, light, &u_light, &scene, &sampler, false)
+        * estimate_direct(
+            &it,
+            &u_scattering,
+            light,
+            &u_light,
+            &scene,
+            &sampler,
+            false,
+            false,
+        )
 }
 
 pub struct DirectLightingIntegrator {
@@ -294,49 +399,31 @@ impl DirectLightingIntegrator {
         trace!(self.log, "intersected geometry at: {:?}", isect.general.p);
 
         isect.compute_scattering_functions(ray, TransportMode::Radiance);
+        if isect.bsdf.is_none() {
+            return self.li(
+                &RayDifferential::new(isect.general.spawn_ray(&ray.ray.d)),
+                &scene,
+                &mut sampler,
+                depth,
+            );
+        }
 
-        let n = isect.shading.n;
         let wo = isect.general.wo;
 
         l += isect.le(&wo);
 
         trace!(self.log, "L: {:?}, before light rays", l);
 
-        for light in &scene.lights {
-            let mut wi: na::Vector3<f32> = glm::zero();
-            let mut pdf = 0.0;
-            let mut visibility = None;
-            let li = light.sample_li(
-                &isect.general,
-                &sampler.get_2d(),
-                &mut wi,
-                &mut pdf,
-                &mut visibility,
-            );
-            trace!(
-                self.log,
-                "light {:p} gives li: {:?} for intersection point: {:?}",
-                light,
-                li,
-                isect.general.p
-            );
-
-            if li.is_black() || pdf == 0.0 {
-                continue;
-            }
-
-            let f = isect.bsdf.as_ref().unwrap().f(&wo, &wi, BxDFType::BSDF_ALL);
-            trace!(self.log, "bsdf f: {:?} for wo: {:?}, wi: {:?}", f, wo, wi);
-
-            if !f.is_black() {
-                if let Some(visibility) = visibility {
-                    if visibility.unoccluded(&scene) {
-                        trace!(self.log, "light: {:p}, unoccluded", light);
-                        l += f * li * wi.dot(&n).abs() / pdf;
-                    } else {
-                        trace!(self.log, "light: {:p}, occluded", light);
-                    }
-                }
+        if !scene.lights.is_empty() {
+            if self.strategy == LightStrategy::UniformSampleAll {
+                l += uniform_sample_all_lights(
+                    &isect,
+                    &scene,
+                    &mut sampler,
+                    &self.num_light_samples,
+                );
+            } else {
+                l += uniform_sample_one_light(&isect, &scene, &mut sampler);
             }
         }
 

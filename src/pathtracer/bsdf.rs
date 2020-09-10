@@ -179,4 +179,39 @@ impl BSDF {
 
         f
     }
+
+    pub fn pdf(
+        &self,
+        wo_world: &na::Vector3<f32>,
+        wi_world: &na::Vector3<f32>,
+        flags: BxDFType,
+    ) -> f32 {
+        if self.n_bxdfs == 0 {
+            return 0.0;
+        }
+
+        let wo = self.world_to_local(&wo_world);
+        let wi = self.world_to_local(&wi_world);
+
+        if wo.z == 0.0 {
+            return 0.0;
+        }
+
+        let mut pdf = 0.0;
+        let mut matching_comps = 0;
+
+        for i in 0..self.n_bxdfs {
+            let bxdf = self.bxdfs[i].as_ref().unwrap();
+            if bxdf.matches_flags(flags) {
+                matching_comps += 1;
+                pdf += bxdf.pdf(&wo, &wi);
+            }
+        }
+
+        if matching_comps > 0 {
+            pdf / matching_comps as f32
+        } else {
+            0.0
+        }
+    }
 }

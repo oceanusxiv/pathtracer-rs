@@ -71,13 +71,14 @@ pub trait Light {
     fn get_num_samples(&self) -> usize {
         1
     }
+
+    fn flags(&self) -> LightFlags;
 }
 
 pub trait SyncLight: Light + Send + Sync {}
 impl<T> SyncLight for T where T: Light + Send + Sync {}
 
 pub struct PointLight {
-    flags: LightFlags,
     num_samples: u32,
     light_to_world: na::Projective3<f32>,
     world_to_light: na::Projective3<f32>,
@@ -88,7 +89,6 @@ pub struct PointLight {
 impl PointLight {
     pub fn new(light_to_world: &na::Projective3<f32>, I: Spectrum) -> Self {
         Self {
-            flags: LightFlags::DELTA_POSITION,
             num_samples: 1,
             light_to_world: *light_to_world,
             world_to_light: light_to_world.inverse(),
@@ -144,10 +144,13 @@ impl Light for PointLight {
     fn pdf_le(&self, r: &Ray, n_light: &na::Vector3<f32>, pdf_pos: &mut f32, pdf_dir: &mut f32) {
         todo!()
     }
+
+    fn flags(&self) -> LightFlags {
+        LightFlags::DELTA_POSITION
+    }
 }
 
 pub struct DirectionalLight {
-    flags: LightFlags,
     light_to_world: na::Projective3<f32>,
     world_to_light: na::Projective3<f32>,
     L: Spectrum,
@@ -163,7 +166,6 @@ impl DirectionalLight {
         w_light: na::Vector3<f32>,
     ) -> Self {
         Self {
-            flags: LightFlags::DELTA_DIRECTION,
             light_to_world: *light_to_world,
             world_to_light: light_to_world.inverse(),
             L,
@@ -224,6 +226,10 @@ impl Light for DirectionalLight {
 
     fn preprocess(&mut self, world_bound: &Bounds3) {
         world_bound.bounding_sphere(&mut self.world_center, &mut self.world_radius);
+    }
+
+    fn flags(&self) -> LightFlags {
+        LightFlags::DELTA_DIRECTION
     }
 }
 
@@ -310,6 +316,10 @@ impl Light for DiffuseAreaLight {
 
     fn get_num_samples(&self) -> usize {
         self.num_samples
+    }
+
+    fn flags(&self) -> LightFlags {
+        LightFlags::AREA
     }
 }
 
