@@ -182,7 +182,12 @@ impl CameraControllerInterface for FirstPersonCameraController {
         let translation = na::Translation3::from(translation);
         camera.cam_to_world.append_translation_mut(&translation);
 
-        trace!(self.log, "camera is now at: {:?}", camera.cam_to_world);
+        trace!(
+            self.log,
+            "camera is now at: {:?}, rotation: {:?}",
+            camera.cam_to_world.translation,
+            camera.cam_to_world.rotation.euler_angles()
+        );
 
         self.translation = na::Translation3::identity();
         self.rotation = (0.0, 0.0);
