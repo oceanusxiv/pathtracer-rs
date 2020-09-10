@@ -2,7 +2,7 @@ use crate::common::Camera;
 use genmesh::generators::IndexedPolygon;
 use genmesh::generators::SharedVertex;
 use genmesh::Triangulate;
-use serde_xml_rs::from_reader;
+use quick_xml::de::{from_reader, DeError};
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::BufReader;
