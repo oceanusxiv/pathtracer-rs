@@ -1,9 +1,11 @@
 use crate::common::Camera;
+use genmesh::generators::IndexedPolygon;
+use genmesh::generators::SharedVertex;
+use genmesh::Triangulate;
+use serde_xml_rs::from_reader;
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::BufReader;
-
-use serde_xml_rs::from_reader;
 
 pub struct Mesh {
     pub indices: Vec<u32>,
@@ -12,116 +14,71 @@ pub struct Mesh {
 }
 
 pub fn gen_rectangle() -> Mesh {
+    let plane = genmesh::generators::Plane::new();
     Mesh {
-        indices: vec![0, 2, 1, 2, 0, 3],
-        pos: vec![
-            na::Point3::new(-1.0, -1.0, 0.0),
-            na::Point3::new(1.0, -1.0, 0.0),
-            na::Point3::new(1.0, 1.0, 0.0),
-            na::Point3::new(-1.0, 1.0, 0.0),
-        ],
-        normal: vec![
-            glm::vec3(0.0, 0.0, 1.0),
-            glm::vec3(0.0, 0.0, 1.0),
-            glm::vec3(0.0, 0.0, 1.0),
-            glm::vec3(0.0, 0.0, 1.0),
-        ],
+        indices: plane
+            .indexed_polygon_iter()
+            .triangulate()
+            .flat_map(|tr| vec![tr.x as u32, tr.y as u32, tr.z as u32])
+            .collect(),
+        pos: plane
+            .shared_vertex_iter()
+            .map(|v| na::Point3::from(na::Vector3::from(v.pos)))
+            .collect(),
+        normal: plane
+            .shared_vertex_iter()
+            .map(|v| na::Vector3::from(v.normal))
+            .collect(),
     }
 }
 
 pub fn gen_cube() -> Mesh {
+    let cube = genmesh::generators::Cube::new();
     Mesh {
-        indices: vec![
-            0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23,
-            24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35,
-        ],
-        pos: vec![
-            na::Point3::new(-1.0, -1.0, -1.0),
-            na::Point3::new(-1.0, -1.0, 1.0),
-            na::Point3::new(-1.0, 1.0, 1.0),
-            na::Point3::new(1.0, 1.0, -1.0),
-            na::Point3::new(-1.0, -1.0, -1.0),
-            na::Point3::new(-1.0, 1.0, -1.0),
-            na::Point3::new(1.0, -1.0, 1.0),
-            na::Point3::new(-1.0, -1.0, -1.0),
-            na::Point3::new(1.0, -1.0, -1.0),
-            na::Point3::new(1.0, 1.0, -1.0),
-            na::Point3::new(1.0, -1.0, -1.0),
-            na::Point3::new(-1.0, -1.0, -1.0),
-            na::Point3::new(-1.0, -1.0, -1.0),
-            na::Point3::new(-1.0, 1.0, 1.0),
-            na::Point3::new(-1.0, 1.0, -1.0),
-            na::Point3::new(1.0, -1.0, 1.0),
-            na::Point3::new(-1.0, -1.0, 1.0),
-            na::Point3::new(-1.0, -1.0, -1.0),
-            na::Point3::new(-1.0, 1.0, 1.0),
-            na::Point3::new(-1.0, -1.0, 1.0),
-            na::Point3::new(1.0, -1.0, 1.0),
-            na::Point3::new(1.0, 1.0, 1.0),
-            na::Point3::new(1.0, -1.0, -1.0),
-            na::Point3::new(1.0, 1.0, -1.0),
-            na::Point3::new(1.0, -1.0, -1.0),
-            na::Point3::new(1.0, 1.0, 1.0),
-            na::Point3::new(1.0, -1.0, 1.0),
-            na::Point3::new(1.0, 1.0, 1.0),
-            na::Point3::new(1.0, 1.0, -1.0),
-            na::Point3::new(-1.0, 1.0, -1.0),
-            na::Point3::new(1.0, 1.0, 1.0),
-            na::Point3::new(-1.0, 1.0, -1.0),
-            na::Point3::new(-1.0, 1.0, 1.0),
-            na::Point3::new(1.0, 1.0, 1.0),
-            na::Point3::new(-1.0, 1.0, 1.0),
-            na::Point3::new(1.0, -1.0, 1.0),
-        ],
-        normal: vec![
-            glm::vec3(-1.0, 0.0, 0.0).normalize(),
-            glm::vec3(-1.0, 0.0, 0.0).normalize(),
-            glm::vec3(-1.0, 0.0, 0.0).normalize(),
-            glm::vec3(0.0, 0.0, -1.0).normalize(),
-            glm::vec3(0.0, 0.0, -1.0).normalize(),
-            glm::vec3(0.0, 0.0, -1.0).normalize(),
-            glm::vec3(0.0, -1.0, 0.0).normalize(),
-            glm::vec3(0.0, -1.0, 0.0).normalize(),
-            glm::vec3(0.0, -1.0, 0.0).normalize(),
-            glm::vec3(0.0, 0.0, -1.0).normalize(),
-            glm::vec3(0.0, 0.0, -1.0).normalize(),
-            glm::vec3(0.0, 0.0, -1.0).normalize(),
-            glm::vec3(-1.0, 0.0, 0.0).normalize(),
-            glm::vec3(-1.0, 0.0, 0.0).normalize(),
-            glm::vec3(-1.0, 0.0, 0.0).normalize(),
-            glm::vec3(0.0, -1.0, 0.0).normalize(),
-            glm::vec3(0.0, -1.0, 0.0).normalize(),
-            glm::vec3(0.0, -1.0, 0.0).normalize(),
-            glm::vec3(0.0, 0.0, 1.0).normalize(),
-            glm::vec3(0.0, 0.0, 1.0).normalize(),
-            glm::vec3(0.0, 0.0, 1.0).normalize(),
-            glm::vec3(1.0, 0.0, 0.0).normalize(),
-            glm::vec3(1.0, 0.0, 0.0).normalize(),
-            glm::vec3(1.0, 0.0, 0.0).normalize(),
-            glm::vec3(1.0, 0.0, 0.0).normalize(),
-            glm::vec3(1.0, 0.0, 0.0).normalize(),
-            glm::vec3(1.0, 0.0, 0.0).normalize(),
-            glm::vec3(0.0, 1.0, 0.0).normalize(),
-            glm::vec3(0.0, 1.0, 0.0).normalize(),
-            glm::vec3(0.0, 1.0, 0.0).normalize(),
-            glm::vec3(0.0, 1.0, 0.0).normalize(),
-            glm::vec3(0.0, 1.0, 0.0).normalize(),
-            glm::vec3(0.0, 1.0, 0.0).normalize(),
-            glm::vec3(0.0, 0.0, 1.0).normalize(),
-            glm::vec3(0.0, 0.0, 1.0).normalize(),
-            glm::vec3(0.0, 0.0, 1.0).normalize(),
-        ],
+        indices: cube
+            .indexed_polygon_iter()
+            .triangulate()
+            .flat_map(|tr| vec![tr.x as u32, tr.y as u32, tr.z as u32])
+            .collect(),
+        pos: cube
+            .shared_vertex_iter()
+            .map(|v| na::Point3::from(na::Vector3::from(v.pos)))
+            .collect(),
+        normal: cube
+            .shared_vertex_iter()
+            .map(|v| na::Vector3::from(v.normal))
+            .collect(),
+    }
+}
+
+pub fn gen_sphere(center: &na::Point3<f32>, radius: f32) -> Mesh {
+    let transform = na::Similarity3::new(center.coords, na::Vector3::zeros(), radius);
+    let uv_sphere = genmesh::generators::SphereUv::new(10, 10);
+    Mesh {
+        indices: uv_sphere
+            .indexed_polygon_iter()
+            .triangulate()
+            .flat_map(|tr| vec![tr.x as u32, tr.y as u32, tr.z as u32])
+            .collect(),
+        pos: uv_sphere
+            .shared_vertex_iter()
+            .map(|v| transform.transform_point(&na::Point3::from(na::Vector3::from(v.pos))))
+            .collect(),
+        normal: uv_sphere
+            .shared_vertex_iter()
+            .map(|v| na::Vector3::from(v.normal))
+            .collect(),
     }
 }
 
 #[derive(Debug, Deserialize)]
-pub struct Floats {
-    name: String,
-    value: f32,
+pub struct Float {
+    pub name: String,
+    pub value: f32,
 }
 
 mod floats {
-    use super::Floats;
+    use super::Float;
 
     use serde::de::{Deserialize, Deserializer};
     use std::collections::HashMap;
@@ -131,7 +88,7 @@ mod floats {
         D: Deserializer<'de>,
     {
         let mut map = HashMap::new();
-        for item in Vec::<Floats>::deserialize(deserializer)? {
+        for item in Vec::<Float>::deserialize(deserializer)? {
             map.insert(item.name.clone(), item.value);
         }
         Ok(map)
@@ -255,6 +212,27 @@ pub struct Reference {
 }
 
 #[derive(Debug, Deserialize)]
+pub struct Point {
+    pub name: String,
+    pub x: f32,
+    pub y: f32,
+    pub z: f32,
+}
+
+mod point {
+    use super::Point;
+    use serde::de::{Deserialize, Deserializer};
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<na::Point3<f32>, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let p = Point::deserialize(deserializer)?;
+        Ok(na::Point3::new(p.x, p.y, p.z))
+    }
+}
+
+#[derive(Debug, Deserialize)]
 #[serde(tag = "type")]
 pub enum Shape {
     #[serde(rename = "rectangle")]
@@ -271,6 +249,19 @@ pub enum Shape {
     Cube {
         #[serde(with = "transform")]
         transform: na::Projective3<f32>,
+
+        #[serde(rename = "ref")]
+        material: Reference,
+
+        emitter: Option<Emitter>,
+    },
+    #[serde(rename = "sphere")]
+    Sphere {
+        #[serde(with = "point")]
+        point: na::Point3<f32>,
+
+        #[serde(rename = "float")]
+        radius: Float,
 
         #[serde(rename = "ref")]
         material: Reference,

@@ -33,7 +33,7 @@ fn parse_shape(
     primitives: &mut Vec<Arc<dyn SyncPrimitive>>,
     lights: &mut Vec<Arc<dyn SyncLight>>,
 ) {
-    let obj_to_world;
+    let mut obj_to_world = na::Projective3::identity();
     let world_mesh;
     let light_info;
     let material_id;
@@ -44,7 +44,7 @@ fn parse_shape(
             emitter,
         } => {
             let mesh = mitsuba::gen_rectangle();
-            obj_to_world = transform;
+            obj_to_world = *transform;
             light_info = emitter;
             material_id = material.id.clone();
             world_mesh = TriangleMesh {
@@ -63,7 +63,26 @@ fn parse_shape(
             emitter,
         } => {
             let mesh = mitsuba::gen_cube();
-            obj_to_world = transform;
+            obj_to_world = *transform;
+            light_info = emitter;
+            material_id = material.id.clone();
+            world_mesh = TriangleMesh {
+                indices: mesh.indices,
+                pos: mesh.pos,
+                normal: mesh.normal,
+                s: vec![],
+                uv: vec![],
+                colors: vec![],
+                alpha_mask: None,
+            };
+        }
+        mitsuba::Shape::Sphere {
+            point,
+            radius,
+            material,
+            emitter,
+        } => {
+            let mesh = mitsuba::gen_sphere(point, radius.value);
             light_info = emitter;
             material_id = material.id.clone();
             world_mesh = TriangleMesh {
