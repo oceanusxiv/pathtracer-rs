@@ -31,7 +31,6 @@ slog-async = "2.5.0"
 slog-atomic = "3.0.0"
 slog-kvfilter = "0.7.0"
 nalgebra-glm = "0.8.0"
-nalgebra = "0.22.0"
 genmesh = "^0.6"
 image = "^0.22"
 approx = "^0.3"
@@ -50,6 +49,10 @@ serde = "1.0.115"
 serde_derive = "1.0.115"
 serde-xml-rs = "0.4.0"
 maplit = "1.0.2"
+
+[dependencies.nalgebra]
+version = "0.22.0"
+features = ["mint"]
 
 [dependencies.slog]
 version = "2.5.2"

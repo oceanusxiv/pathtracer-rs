@@ -1345,6 +1345,7 @@ dependencies = [
  "approx 0.3.2",
  "generic-array",
  "matrixmultiply",
+ "mint",
  "num-complex 0.2.4",
  "num-rational 0.2.4",
  "num-traits 0.2.12",

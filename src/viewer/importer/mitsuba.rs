@@ -42,6 +42,12 @@ impl ViewerScene {
                         instances: vec![*transform],
                     })
                 }
+                mitsuba::Shape::Sphere {
+                    point,
+                    radius,
+                    material,
+                    emitter,
+                } => {}
             }
         }
 

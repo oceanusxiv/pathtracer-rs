@@ -277,17 +277,23 @@ fn populate_scene(
                 // only create area light if object material is emissive
                 if !emissive_factor.is_black() {
                     let ke = ke.as_ref().unwrap();
-                    let mut total_light = Spectrum::new(0.0);
+                    let mut has_emission = false;
 
-                    for x in 0..SAMPLE_COUNT {
+                    'outer: for x in 0..SAMPLE_COUNT {
                         for y in 0..SAMPLE_COUNT {
                             let x = x as f32 * SAMPLE_STEP;
                             let y = y as f32 * SAMPLE_STEP;
-                            total_light += ke.evaluate(&shape.sample(&na::Point2::new(x, y)));
+                            if !ke
+                                .evaluate(&shape.sample(&na::Point2::new(x, y)))
+                                .is_black()
+                            {
+                                has_emission = true;
+                                break 'outer;
+                            }
                         }
                     }
 
-                    if !total_light.is_black() {
+                    if has_emission {
                         let area_light =
                             Arc::new(DiffuseAreaLight::new(Arc::clone(ke), Arc::clone(&shape), 1));
                         lights.push(Arc::clone(&area_light) as Arc<dyn SyncLight>);
