@@ -364,9 +364,8 @@ fn get_camera(scene: &Scene, resolution: &na::Vector2<f32>) -> Camera {
     let fov = params["fov"].to_radians();
     // right to left hand coordinate conversion
     let rotation = na::Rotation3::new(na::Vector3::new(0.0, -std::f32::consts::PI, 0.0));
-    let mut cam_to_world: na::Isometry3<f32> =
-        na::try_convert(rotation * scene.sensor.transform).unwrap();
-    cam_to_world.translation.z *= -1.0;
+    let cam_to_world: na::Isometry3<f32> =
+        na::try_convert(scene.sensor.transform * rotation).unwrap();
     Camera::new(
         &cam_to_world,
         &na::Perspective3::new(
