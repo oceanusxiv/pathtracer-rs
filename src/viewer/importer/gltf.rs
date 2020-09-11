@@ -76,7 +76,6 @@ fn populate_scene(
 
 impl ViewerScene {
     pub fn from_gltf(
-        log: &slog::Logger,
         document: &gltf::Document,
         buffers: &[gltf::buffer::Data],
         _images: &[gltf::image::Data],

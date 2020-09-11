@@ -82,7 +82,6 @@ struct LinearBVHNode {
 pub struct BVH {
     primitives: Vec<Arc<dyn SyncPrimitive>>,
     nodes: Box<[LinearBVHNode]>,
-    log: slog::Logger,
 }
 
 impl BVH {
@@ -97,7 +96,6 @@ impl BVH {
 
         if primitives.is_empty() {
             return Self {
-                log,
                 primitives,
                 nodes: Box::new([]),
             };
@@ -130,7 +128,6 @@ impl BVH {
         debug!(log, "bvh tree took {:?} to construct", duration);
         let nodes = unsafe { nodes.assume_init() };
         Self {
-            log,
             primitives: ordered_prims,
             nodes,
         }

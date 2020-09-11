@@ -66,7 +66,7 @@ pub trait Light {
 
     fn pdf_le(&self, r: &Ray, n_light: &na::Vector3<f32>, pdf_pos: &mut f32, pdf_dir: &mut f32);
 
-    fn preprocess(&mut self, world_bound: &Bounds3) {}
+    fn preprocess(&mut self, _world_bound: &Bounds3) {}
 
     fn get_num_samples(&self) -> usize {
         1
@@ -79,21 +79,15 @@ pub trait SyncLight: Light + Send + Sync {}
 impl<T> SyncLight for T where T: Light + Send + Sync {}
 
 pub struct PointLight {
-    num_samples: u32,
-    light_to_world: na::Projective3<f32>,
-    world_to_light: na::Projective3<f32>,
     p_light: na::Point3<f32>,
-    I: Spectrum,
+    i: Spectrum,
 }
 
 impl PointLight {
-    pub fn new(light_to_world: &na::Projective3<f32>, I: Spectrum) -> Self {
+    pub fn new(light_to_world: &na::Projective3<f32>, i: Spectrum) -> Self {
         Self {
-            num_samples: 1,
-            light_to_world: *light_to_world,
-            world_to_light: light_to_world.inverse(),
             p_light: light_to_world * na::Point3::origin(),
-            I,
+            i,
         }
     }
 }
@@ -102,7 +96,7 @@ impl Light for PointLight {
     fn sample_li(
         &self,
         reference: &Interaction,
-        u: &na::Point2<f32>,
+        _u: &na::Point2<f32>,
         wi: &mut na::Vector3<f32>,
         pdf: &mut f32,
         vis: &mut Option<VisibilityTester>,
@@ -118,14 +112,14 @@ impl Light for PointLight {
             },
         });
 
-        self.I / (self.p_light - reference.p).norm_squared()
+        self.i / (self.p_light - reference.p).norm_squared()
     }
 
     fn power(&self) -> Spectrum {
-        4.0 * std::f32::consts::PI * self.I
+        4.0 * std::f32::consts::PI * self.i
     }
 
-    fn pdf_li(&self, reference: &Interaction, wi: &na::Vector3<f32>) -> f32 {
+    fn pdf_li(&self, _reference: &Interaction, _wi: &na::Vector3<f32>) -> f32 {
         0.0
     }
 
@@ -151,9 +145,7 @@ impl Light for PointLight {
 }
 
 pub struct DirectionalLight {
-    light_to_world: na::Projective3<f32>,
-    world_to_light: na::Projective3<f32>,
-    L: Spectrum,
+    l: Spectrum,
     w_light: na::Vector3<f32>,
     world_center: na::Point3<f32>,
     world_radius: f32,
@@ -162,13 +154,11 @@ pub struct DirectionalLight {
 impl DirectionalLight {
     pub fn new(
         light_to_world: &na::Projective3<f32>,
-        L: Spectrum,
+        l: Spectrum,
         w_light: na::Vector3<f32>,
     ) -> Self {
         Self {
-            light_to_world: *light_to_world,
-            world_to_light: light_to_world.inverse(),
-            L,
+            l,
             w_light: (light_to_world * w_light).normalize(),
             world_center: na::Point3::origin(),
             world_radius: 0.0,
@@ -180,7 +170,7 @@ impl Light for DirectionalLight {
     fn sample_li(
         &self,
         reference: &Interaction,
-        u: &na::Point2<f32>,
+        _u: &na::Point2<f32>,
         wi: &mut na::Vector3<f32>,
         pdf: &mut f32,
         vis: &mut Option<VisibilityTester>,
@@ -197,14 +187,14 @@ impl Light for DirectionalLight {
             },
         });
 
-        self.L
+        self.l
     }
 
     fn power(&self) -> Spectrum {
-        self.L * std::f32::consts::PI * self.world_radius * self.world_radius
+        self.l * std::f32::consts::PI * self.world_radius * self.world_radius
     }
 
-    fn pdf_li(&self, reference: &Interaction, wi: &na::Vector3<f32>) -> f32 {
+    fn pdf_li(&self, _reference: &Interaction, _wi: &na::Vector3<f32>) -> f32 {
         0.0
     }
 
@@ -254,7 +244,7 @@ impl DiffuseAreaLight {
         }
     }
 
-    pub fn L(&self, inter: &SurfaceMediumInteraction, w: &na::Vector3<f32>) -> Spectrum {
+    pub fn l(&self, inter: &SurfaceMediumInteraction, w: &na::Vector3<f32>) -> Spectrum {
         if inter.general.n.dot(&w) > 0.0 {
             self.ke.evaluate(&inter)
         } else {
@@ -281,7 +271,7 @@ impl Light for DiffuseAreaLight {
             p1: p_shape.general,
         });
 
-        self.L(&p_shape, &-*wi)
+        self.l(&p_shape, &-*wi)
     }
 
     fn power(&self) -> Spectrum {

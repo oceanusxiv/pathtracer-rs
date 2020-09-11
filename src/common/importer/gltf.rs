@@ -102,7 +102,7 @@ pub fn from_gltf(
         &images,
         default_lights,
     );
-    let viewer_scene = crate::viewer::ViewerScene::from_gltf(&log, &document, &buffers, &images);
+    let viewer_scene = crate::viewer::ViewerScene::from_gltf(&document, &buffers, &images);
 
     (camera, render_scene, viewer_scene)
 }

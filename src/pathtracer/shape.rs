@@ -19,12 +19,12 @@ pub trait Shape {
     fn sample(&self, u: &na::Point2<f32>) -> SurfaceMediumInteraction;
     fn sample_at_point(
         &self,
-        reference: &Interaction,
+        _reference: &Interaction,
         u: &na::Point2<f32>,
     ) -> SurfaceMediumInteraction {
         self.sample(&u)
     }
-    fn pdf(&self, it: &Interaction) -> f32 {
+    fn pdf(&self, _it: &Interaction) -> f32 {
         1.0 / self.area()
     }
     fn pdf_at_point(&self, reference: &Interaction, wi: &na::Vector3<f32>) -> f32 {

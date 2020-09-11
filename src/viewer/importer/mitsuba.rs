@@ -2,7 +2,7 @@ use crate::common::importer::mitsuba;
 use crate::viewer::{Mesh, ViewerScene};
 
 impl ViewerScene {
-    pub fn from_mitsuba(log: &slog::Logger, scene: &mitsuba::Scene) -> Self {
+    pub fn from_mitsuba(scene: &mitsuba::Scene) -> Self {
         let mut meshes = vec![];
 
         for shape in &scene.shapes {

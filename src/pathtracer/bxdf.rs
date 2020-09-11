@@ -347,18 +347,18 @@ impl BxDFInterface for SpecularTransmission {
 }
 
 pub struct FresnelSpecular {
-    R: Spectrum,
-    T: Spectrum,
+    r: Spectrum,
+    t: Spectrum,
     eta_a: f32,
     eta_b: f32,
     mode: TransportMode,
 }
 
 impl FresnelSpecular {
-    pub fn new(R: Spectrum, T: Spectrum, eta_a: f32, eta_b: f32, mode: TransportMode) -> Self {
+    pub fn new(r: Spectrum, t: Spectrum, eta_a: f32, eta_b: f32, mode: TransportMode) -> Self {
         Self {
-            R,
-            T,
+            r,
+            t,
             eta_a,
             eta_b,
             mode,
@@ -390,7 +390,7 @@ impl BxDFInterface for FresnelSpecular {
                 *sampled_type = BxDFType::BSDF_REFLECTION | BxDFType::BSDF_SPECULAR;
             }
             *pdf = f;
-            f * self.R / abs_cos_theta(&wi)
+            f * self.r / abs_cos_theta(&wi)
         } else {
             let entering = cos_theta(&wo) > 0.0;
             let eta_i = if entering { self.eta_a } else { self.eta_b };
@@ -405,7 +405,7 @@ impl BxDFInterface for FresnelSpecular {
                 return Spectrum::new(0.0);
             }
 
-            let mut ft = self.T * (Spectrum::new(1.0) - f);
+            let mut ft = self.t * (Spectrum::new(1.0) - f);
 
             if self.mode == TransportMode::Radiance {
                 ft *= (eta_i * eta_i) / (eta_t * eta_t);
