@@ -24,7 +24,7 @@ use winit::{
     window::WindowBuilder,
 };
 
-const MAX_DEPTH: u32 = 5;
+const MAX_DEPTH: i32 = 20;
 
 fn sample_arg_legal(val: String) -> Result<(), String> {
     if let Ok(val) = val.parse::<f64>() {
@@ -120,7 +120,7 @@ fn main() {
     let max_depth = matches
         .value_of("max_depth")
         .unwrap()
-        .parse::<u32>()
+        .parse::<i32>()
         .unwrap_or_else(|_| {
             warn!(
                 log,
@@ -163,7 +163,7 @@ fn main() {
         8,
     );
     let mut integrator =
-        pathtracer::integrator::DirectLightingIntegrator::new(&log, sampler, max_depth);
+        pathtracer::integrator::PathIntegrator::new(&log, sampler, max_depth);
     integrator.preprocess(&render_scene);
 
     debug!(log, "camera starting at: {:?}", camera.cam_to_world);
@@ -272,7 +272,7 @@ fn main() {
                                     "pixel sample count now {:?}",
                                     pixel_samples_sqrt * pixel_samples_sqrt
                                 );
-                                integrator = pathtracer::integrator::DirectLightingIntegrator::new(
+                                integrator = pathtracer::integrator::PathIntegrator::new(
                                     &log,
                                     pathtracer::sampling::SamplerBuilder::new(
                                         &log,
@@ -296,7 +296,7 @@ fn main() {
                                     "pixel sample count now {:?}",
                                     pixel_samples_sqrt * pixel_samples_sqrt
                                 );
-                                integrator = pathtracer::integrator::DirectLightingIntegrator::new(
+                                integrator = pathtracer::integrator::PathIntegrator::new(
                                     &log,
                                     pathtracer::sampling::SamplerBuilder::new(
                                         &log,

@@ -7,7 +7,7 @@ pub struct Ray {
     pub t_max: RefCell<f32>,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct RayDifferential {
     pub ray: Ray,
     pub has_differentials: bool,

@@ -186,6 +186,7 @@ fn uniform_sample_all_lights(
     l
 }
 
+// TODO: make better light sampling distribution
 fn uniform_sample_one_light(
     it: &SurfaceMediumInteraction,
     scene: &RenderScene,
@@ -213,22 +214,20 @@ fn uniform_sample_one_light(
         )
 }
 
-pub struct DirectLightingIntegrator {
+pub struct PathIntegrator {
     sampler_builder: SamplerBuilder,
-    max_depth: u32,
-    strategy: LightStrategy,
-    num_light_samples: Vec<usize>,
+    max_depth: i32,
+    rr_threshold: f32,
     log: slog::Logger,
 }
 
-impl DirectLightingIntegrator {
-    pub fn new(log: &slog::Logger, sampler_builder: SamplerBuilder, max_depth: u32) -> Self {
+impl PathIntegrator {
+    pub fn new(log: &slog::Logger, sampler_builder: SamplerBuilder, max_depth: i32) -> Self {
         let log = log.new(o!("module" => "integrator"));
         Self {
             sampler_builder,
             max_depth,
-            strategy: LightStrategy::UniformSampleOne,
-            num_light_samples: vec![],
+            rr_threshold: 1.0,
             log,
         }
     }
@@ -236,21 +235,12 @@ impl DirectLightingIntegrator {
     // this should be run once per scene change or sampler change
     // NOTE: sampler should be reset every scene change as well
     pub fn preprocess(&mut self, scene: &RenderScene) {
-        self.num_light_samples.clear();
-
-        if self.strategy == LightStrategy::UniformSampleAll {
-            for light in &scene.lights {
-                self.num_light_samples.push(light.get_num_samples());
-            }
-
-            for _ in 0..self.max_depth {
-                for j in 0..scene.lights.len() {
-                    self.sampler_builder
-                        .request_2d_array(self.num_light_samples[j]);
-                    self.sampler_builder
-                        .request_2d_array(self.num_light_samples[j]);
-                }
-            }
+        // TODO: create light sample distribution
+        if scene.lights.len() > 16 {
+            warn!(
+                self.log,
+                "scene contains too many lights for path integrator to handle well"
+            );
         }
     }
 
@@ -280,6 +270,7 @@ impl DirectLightingIntegrator {
         let l;
         if pdf > 0.0 && !f.is_black() && wi.dot(&ns).abs() != 0.0 {
             // Compute ray differential rd for specular reflection
+            // TODO: use these for path tracer as well
             let mut rd = RayDifferential::new(isect.general.spawn_ray(&wi));
             if r.has_differentials {
                 rd.has_differentials = true;
@@ -337,6 +328,7 @@ impl DirectLightingIntegrator {
             let mut rd = RayDifferential::new(isect.general.spawn_ray(&wi));
             if rd.has_differentials {
                 // Compute ray differential rd for specular transmission
+                // TODO: use these for path tracer as well
                 rd.has_differentials = true;
                 rd.rx_origin = isect.general.p + isect.dpdx;
                 rd.ry_origin = isect.general.p + isect.dpdy;
@@ -385,53 +377,102 @@ impl DirectLightingIntegrator {
         ray: &RayDifferential,
         scene: &RenderScene,
         mut sampler: &mut Sampler,
-        depth: u32,
+        _depth: u32,
     ) -> Spectrum {
         let mut l = Spectrum::new(0.0);
-        let mut isect = Default::default();
+        let mut beta = Spectrum::new(1.0);
+        let mut ray = ray.clone();
+        let mut specular_bounce = false;
+        let mut bounces: i32 = 0;
 
-        if !scene.intersect(&ray.ray, &mut isect) {
-            for light in &scene.lights {
-                l += light.le(&ray);
-            }
-            return l;
-        }
-        trace!(self.log, "intersected geometry at: {:?}", isect.general.p);
-
-        isect.compute_scattering_functions(ray, TransportMode::Radiance);
-        if isect.bsdf.is_none() {
-            return self.li(
-                &RayDifferential::new(isect.general.spawn_ray(&ray.ray.d)),
-                &scene,
-                &mut sampler,
-                depth,
+        let mut eta_scale = 1.0;
+        loop {
+            trace!(
+                self.log,
+                "path tracer bounce: {:?}, current L: {:?}, current beta: {:?}",
+                bounces,
+                l,
+                beta
             );
-        }
 
-        let wo = isect.general.wo;
+            let mut isect = Default::default();
+            let found_intersection = scene.intersect(&ray.ray, &mut isect);
 
-        l += isect.le(&wo);
-
-        trace!(self.log, "L: {:?}, before light rays", l);
-
-        if !scene.lights.is_empty() {
-            if self.strategy == LightStrategy::UniformSampleAll {
-                l += uniform_sample_all_lights(
-                    &isect,
-                    &scene,
-                    &mut sampler,
-                    &self.num_light_samples,
-                );
-            } else {
-                l += uniform_sample_one_light(&isect, &scene, &mut sampler);
+            if bounces == 0 || specular_bounce {
+                if found_intersection {
+                    l += beta * isect.le(&-ray.ray.d);
+                    trace!(self.log, "added le to l: {:?}", l);
+                } else {
+                    // TODO: support infinite lights
+                }
             }
-        }
 
-        trace!(self.log, "L: {:?}, after light rays", l);
+            if !found_intersection || bounces >= self.max_depth {
+                break;
+            }
 
-        if depth + 1 < self.max_depth {
-            l += self.specular_reflect(&ray, &isect, &scene, &mut sampler, depth);
-            l += self.specular_transmit(&ray, &isect, &scene, &mut sampler, depth);
+            isect.compute_scattering_functions(&ray, TransportMode::Radiance);
+            if isect.bsdf.is_none() {
+                trace!(self.log, "skipping intersection due to null bsdf");
+                ray = RayDifferential::new(isect.general.spawn_ray(&ray.ray.d));
+                bounces -= 1;
+                continue;
+            }
+
+            let bsdf = isect.bsdf.as_ref().unwrap();
+
+            if bsdf.num_components(BxDFType::BSDF_ALL - BxDFType::BSDF_SPECULAR) > 0 {
+                let ld = beta * uniform_sample_one_light(&isect, &scene, &mut sampler);
+                trace!(self.log, "sampled direct lighting ld: {:?}", ld);
+                l += ld;
+            }
+
+            let wo = -ray.ray.d;
+            let mut wi = na::Vector3::zeros();
+            let mut pdf = 0.0;
+            let mut flags = Some(BxDFType::empty());
+            let f = bsdf.sample_f(
+                &wo,
+                &mut wi,
+                &sampler.get_2d(),
+                &mut pdf,
+                BxDFType::BSDF_ALL,
+                &mut flags,
+            );
+            trace!(self.log, "sampled bsdf, f: {:?}, pdf: {:?}", f, pdf);
+
+            if f.is_black() || pdf == 0.0 {
+                break;
+            }
+
+            beta *= f * wi.dot(&isect.shading.n).abs() / pdf;
+            trace!(self.log, "updated beta: {:?}", beta);
+            let flags = flags.unwrap();
+            specular_bounce = flags.contains(BxDFType::BSDF_SPECULAR);
+            if flags.contains(BxDFType::BSDF_SPECULAR)
+                && flags.contains(BxDFType::BSDF_TRANSMISSION)
+            {
+                let eta = bsdf.eta;
+                eta_scale *= if wo.dot(&isect.general.n) > 0.0 {
+                    eta * eta
+                } else {
+                    1.0 / (eta * eta)
+                };
+            }
+            ray = RayDifferential::new(isect.general.spawn_ray(&wi));
+
+            // TODO: Account for subsurface scattering, if applicable
+
+            let rr_beta = beta * eta_scale;
+            if rr_beta.max_component_value() < self.rr_threshold && bounces > 3 {
+                let q = 0.05f32.max(1.0 - rr_beta.max_component_value());
+                if sampler.get_1d() < q {
+                    break;
+                }
+                beta /= 1.0 - q;
+            }
+
+            bounces += 1;
         }
 
         l

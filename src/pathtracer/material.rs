@@ -164,10 +164,9 @@ impl MaterialInterface for GlassMaterial {
             return;
         }
 
-        let is_specular = true;
+        let is_specular = true; // TODO: add roughness factors
 
-        // FIXME: enable fresnel specular when monte carlo is ready
-        if is_specular && false {
+        if is_specular {
             bsdf.add(BxDF::FresnelSpecular(FresnelSpecular::new(
                 r, t, 1.0, eta, mode,
             )));

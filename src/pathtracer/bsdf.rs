@@ -75,6 +75,9 @@ impl BSDF {
         let matching_comps = self.num_components(bxdf_type);
         if matching_comps == 0 {
             *pdf = 0.0;
+            if let Some(sampled_type) = sampled_type {
+                *sampled_type = BxDFType::empty();
+            }
             return Spectrum::new(0.0);
         }
         let comp = ((u[0] * matching_comps as f32).floor() as usize).min(matching_comps - 1);
@@ -103,6 +106,9 @@ impl BSDF {
         let mut f = bxdf.sample_f(&wo, &mut wi, &u_remapped, pdf, sampled_type);
 
         if *pdf == 0.0 {
+            if let Some(sampled_type) = sampled_type {
+                *sampled_type = BxDFType::empty();
+            }
             return Spectrum::new(0.0);
         }
 

@@ -1,5 +1,5 @@
 use super::math::{gamma_correct, inverse_gamma_correct};
-use std::ops::{Add, AddAssign, Div, Mul, MulAssign, Sub};
+use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub};
 
 #[derive(Clone, Debug, Copy)]
 pub struct RGBSpectrum {
@@ -74,6 +74,10 @@ impl RGBSpectrum {
         const Y_WEIGHT: [f32; 3] = [0.212671, 0.715160, 0.072169];
         self.r * Y_WEIGHT[0] + self.g * Y_WEIGHT[1] + self.b * Y_WEIGHT[2]
     }
+
+    pub fn max_component_value(&self) -> f32 {
+        self.r.max(self.g).max(self.b)
+    }
 }
 
 impl AddAssign for RGBSpectrum {
@@ -118,6 +122,12 @@ impl Mul for RGBSpectrum {
     }
 }
 
+impl MulAssign for RGBSpectrum {
+    fn mul_assign(&mut self, rhs: Self) {
+        *self = *self * rhs;
+    }
+}
+
 impl MulAssign<f32> for Spectrum {
     fn mul_assign(&mut self, rhs: f32) {
         *self = *self * rhs
@@ -153,6 +163,12 @@ impl Div<f32> for RGBSpectrum {
             g: self.g / rhs,
             b: self.b / rhs,
         }
+    }
+}
+
+impl DivAssign<f32> for RGBSpectrum {
+    fn div_assign(&mut self, rhs: f32) {
+        *self = *self / rhs
     }
 }
 

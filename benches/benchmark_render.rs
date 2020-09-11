@@ -22,7 +22,7 @@ fn bench(c: &mut Criterion) {
         true,
         8,
     );
-    let mut integrator = pathtracer::integrator::DirectLightingIntegrator::new(&log, sampler, 5);
+    let mut integrator = pathtracer::integrator::PathIntegrator::new(&log, sampler, 5);
     integrator.preprocess(&render_scene);
 
     group.sampling_mode(SamplingMode::Flat).sample_size(10);
