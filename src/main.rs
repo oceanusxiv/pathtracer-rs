@@ -162,8 +162,7 @@ fn main() {
         true,
         8,
     );
-    let mut integrator =
-        pathtracer::integrator::PathIntegrator::new(&log, sampler, max_depth);
+    let mut integrator = pathtracer::integrator::PathIntegrator::new(&log, sampler, max_depth);
     integrator.preprocess(&render_scene);
 
     debug!(log, "camera starting at: {:?}", camera.cam_to_world);
