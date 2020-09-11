@@ -408,6 +408,19 @@ mod string {
     }
 }
 
+mod bool {
+    use super::StringParam;
+    use serde::de::{Deserialize, Deserializer};
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<bool, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let b = StringParam::deserialize(deserializer)?;
+        Ok(b.value.parse().unwrap())
+    }
+}
+
 #[derive(Debug, Deserialize)]
 #[serde(tag = "type")]
 pub enum Shape {
@@ -448,6 +461,8 @@ pub enum Shape {
     Obj {
         #[serde(with = "transform")]
         transform: na::Projective3<f32>,
+        #[serde(rename = "boolean", default, with = "bool")]
+        face_normals: bool,
 
         #[serde(rename = "ref")]
         material: Reference,

@@ -95,9 +95,9 @@ impl Shape for Triangle {
         isect: &mut SurfaceMediumInteraction<'a>,
     ) -> bool {
         // get triangle vertices
-        let p0 = self.mesh.pos[self.indices[0] as usize];
-        let p1 = self.mesh.pos[self.indices[1] as usize];
-        let p2 = self.mesh.pos[self.indices[2] as usize];
+        let p0 = &self.mesh.pos[self.indices[0] as usize];
+        let p1 = &self.mesh.pos[self.indices[1] as usize];
+        let p2 = &self.mesh.pos[self.indices[2] as usize];
 
         // perform ray-triangle intersection test
 
@@ -277,6 +277,10 @@ impl Shape for Triangle {
         // Override surface normal in isect for triangle
         (*isect).general.n = glm::normalize(&glm::cross(&dp02, &dp12));
         (*isect).shading.n = (*isect).general.n;
+        if self.reverse_orientation ^ self.transform_swaps_handedness {
+            (*isect).general.n = -(*isect).general.n;
+            (*isect).shading.n = (*isect).general.n;
+        }
 
         if !self.mesh.normal.is_empty() || !self.mesh.s.is_empty() {
             // Initialize _Triangle_ shading geometry
@@ -284,9 +288,9 @@ impl Shape for Triangle {
             // Compute shading normal _ns_ for triangle
             let mut ns;
             if !self.mesh.normal.is_empty() {
-                let n0 = self.mesh.normal[self.indices[0] as usize];
-                let n1 = self.mesh.normal[self.indices[1] as usize];
-                let n2 = self.mesh.normal[self.indices[2] as usize];
+                let n0 = &self.mesh.normal[self.indices[0] as usize];
+                let n1 = &self.mesh.normal[self.indices[1] as usize];
+                let n2 = &self.mesh.normal[self.indices[2] as usize];
                 ns = b0 * n0 + b1 * n1 + b2 * n2;
                 if ns.norm_squared() > 0.0 {
                     ns = ns.normalize();
@@ -300,9 +304,9 @@ impl Shape for Triangle {
             // Compute shading tangent _ss_ for triangle
             let mut ss;
             if !self.mesh.s.is_empty() {
-                let s0 = self.mesh.s[self.indices[0] as usize];
-                let s1 = self.mesh.s[self.indices[1] as usize];
-                let s2 = self.mesh.s[self.indices[2] as usize];
+                let s0 = &self.mesh.s[self.indices[0] as usize];
+                let s1 = &self.mesh.s[self.indices[1] as usize];
+                let s2 = &self.mesh.s[self.indices[2] as usize];
 
                 ss = b0 * s0 + b1 * s1 + b2 * s2;
                 if ss.norm_squared() > 0.0 {
@@ -330,9 +334,9 @@ impl Shape for Triangle {
                 // Compute deltas for triangle partial derivatives of normal
                 let duv02 = uv[0] - uv[2];
                 let duv12 = uv[1] - uv[2];
-                let n0 = self.mesh.normal[self.indices[0] as usize];
-                let n1 = self.mesh.normal[self.indices[1] as usize];
-                let n2 = self.mesh.normal[self.indices[2] as usize];
+                let n0 = &self.mesh.normal[self.indices[0] as usize];
+                let n1 = &self.mesh.normal[self.indices[1] as usize];
+                let n2 = &self.mesh.normal[self.indices[2] as usize];
                 let dn1 = n0 - n2;
                 let dn2 = n1 - n2;
                 let determinant = duv02[0] * duv12[1] - duv02[1] * duv12[0];
@@ -374,9 +378,9 @@ impl Shape for Triangle {
 
     fn intersect_p(&self, r: &Ray) -> bool {
         // get triangle vertices
-        let p0 = self.mesh.pos[self.indices[0] as usize];
-        let p1 = self.mesh.pos[self.indices[1] as usize];
-        let p2 = self.mesh.pos[self.indices[2] as usize];
+        let p0 = &self.mesh.pos[self.indices[0] as usize];
+        let p1 = &self.mesh.pos[self.indices[1] as usize];
+        let p2 = &self.mesh.pos[self.indices[2] as usize];
 
         // perform ray-triangle intersection test
 
@@ -553,26 +557,24 @@ impl Shape for Triangle {
 
     fn sample(&self, u: &na::Point2<f32>) -> SurfaceMediumInteraction {
         let b = uniform_sample_triangle(&u);
-        let p0 = self.mesh.pos[self.indices[0] as usize];
-        let p1 = self.mesh.pos[self.indices[1] as usize];
-        let p2 = self.mesh.pos[self.indices[2] as usize];
+        let p0 = &self.mesh.pos[self.indices[0] as usize];
+        let p1 = &self.mesh.pos[self.indices[1] as usize];
+        let p2 = &self.mesh.pos[self.indices[2] as usize];
 
         let mut it = Interaction::default();
         it.p = na::Point3::from(
             (b[0] * p0.coords) + (b[1] * p1.coords) + (1.0 - b[0] - b[1]) * p2.coords,
         );
+        it.n = (p1 - p0).cross(&(p2 - p0)).normalize();
 
         if !self.mesh.normal.is_empty() {
-            let n0 = self.mesh.normal[self.indices[0] as usize];
-            let n1 = self.mesh.normal[self.indices[1] as usize];
-            let n2 = self.mesh.normal[self.indices[2] as usize];
+            let n0 = &self.mesh.normal[self.indices[0] as usize];
+            let n1 = &self.mesh.normal[self.indices[1] as usize];
+            let n2 = &self.mesh.normal[self.indices[2] as usize];
 
-            it.n = (b[0] * n0) + (b[1] * n1) + (1.0 - b[0] - b[1]) * n2;
-        } else {
-            it.n = (p1 - p0).cross(&(p2 - p0)).normalize();
-        }
-
-        if self.reverse_orientation {
+            let ns = (b[0] * n0) + (b[1] * n1) + (1.0 - b[0] - b[1]) * n2;
+            it.n = face_forward(&it.n, &ns);
+        } else if self.reverse_orientation ^ self.transform_swaps_handedness {
             it.n *= -1.0;
         }
 
@@ -606,6 +608,7 @@ pub struct TriangleMesh {
 pub fn shapes_from_mesh(
     mut mesh: TriangleMesh,
     obj_to_world: &na::Projective3<f32>,
+    transform_swaps_handedness: bool,
 ) -> Vec<Arc<dyn SyncShape>> {
     for pos in &mut mesh.pos {
         *pos = obj_to_world * *pos;
@@ -627,7 +630,7 @@ pub fn shapes_from_mesh(
             Arc::clone(&world_mesh),
             [chunk[0], chunk[1], chunk[2]],
             false,
-            false,
+            transform_swaps_handedness,
         )) as Arc<dyn SyncShape>)
     }
 

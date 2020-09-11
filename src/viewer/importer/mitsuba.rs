@@ -61,6 +61,7 @@ impl ViewerScene {
                 }
                 mitsuba::Shape::Obj {
                     transform,
+                    face_normals: _,
                     material: _,
                     emitter: _,
                     filename,

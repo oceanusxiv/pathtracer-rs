@@ -230,7 +230,7 @@ pub fn shapes_from_gltf_prim(
         alpha_mask: alpha_mask_texture,
     };
 
-    shapes_from_mesh(world_mesh, &obj_to_world)
+    shapes_from_mesh(world_mesh, &obj_to_world, false)
 }
 
 fn populate_scene(

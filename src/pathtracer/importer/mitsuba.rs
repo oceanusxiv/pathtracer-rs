@@ -47,6 +47,7 @@ fn material_from_bsdf(log: &slog::Logger, bsdf: &mitsuba::BSDF) -> Material {
 }
 
 fn parse_shape(
+    log: &slog::Logger,
     scene_path: &str,
     shape: &mitsuba::Shape,
     materials: &HashMap<String, Arc<Material>>,
@@ -117,6 +118,7 @@ fn parse_shape(
         }
         mitsuba::Shape::Obj {
             transform,
+            face_normals,
             material,
             emitter,
             filename,
@@ -125,10 +127,18 @@ fn parse_shape(
             obj_to_world = *transform;
             light_info = emitter;
             material_id = material.id.clone();
+
+            if *face_normals {
+                warn!(
+                    log,
+                    "face normals on for obj, vertex normals will be disregarded"
+                );
+            }
+
             world_mesh = TriangleMesh {
                 indices: mesh.indices,
                 pos: mesh.pos,
-                normal: mesh.normal,
+                normal: if *face_normals { vec![] } else { mesh.normal },
                 s: vec![],
                 uv: vec![],
                 colors: vec![],
@@ -137,7 +147,7 @@ fn parse_shape(
         }
     }
 
-    for shape in shapes_from_mesh(world_mesh, &obj_to_world) {
+    for shape in shapes_from_mesh(world_mesh, &obj_to_world, false) {
         let area_light = if let Some(light_info) = light_info {
             if let mitsuba::Emitter::Area { rgb } = light_info {
                 let ke = Arc::new(ConstantTexture::<Spectrum>::new(Spectrum {
@@ -175,6 +185,7 @@ impl RenderScene {
 
         for shape in &scene.shapes {
             parse_shape(
+                &log,
                 &scene.path,
                 &shape,
                 &materials,
