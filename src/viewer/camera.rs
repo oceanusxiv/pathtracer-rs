@@ -170,10 +170,7 @@ impl CameraControllerInterface for FirstPersonCameraController {
         let (curr_r, curr_p, _) = camera.cam_to_world.rotation.euler_angles();
         let next_r = curr_r + r * dt;
         let next_p = curr_p + p * dt;
-        if (r != 0.0 || p != 0.0)
-            && (next_r > -std::f32::consts::FRAC_PI_2)
-            && (next_r < std::f32::consts::FRAC_PI_2)
-        {
+        if r != 0.0 || p != 0.0 {
             let rotation = na::UnitQuaternion::from_euler_angles(next_r, next_p, 0.0);
             camera.cam_to_world.rotation = rotation;
         }

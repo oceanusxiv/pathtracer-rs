@@ -483,7 +483,10 @@ pub enum Shape {
         transform: na::Projective3<f32>,
 
         #[serde(rename = "ref")]
-        material: Reference,
+        material: Option<Reference>,
+
+        #[serde(rename = "bsdf")]
+        bsdf: Option<BSDF>,
 
         emitter: Option<Emitter>,
     },
@@ -493,7 +496,10 @@ pub enum Shape {
         transform: na::Projective3<f32>,
 
         #[serde(rename = "ref")]
-        material: Reference,
+        material: Option<Reference>,
+
+        #[serde(rename = "bsdf")]
+        bsdf: Option<BSDF>,
 
         emitter: Option<Emitter>,
     },
@@ -506,7 +512,10 @@ pub enum Shape {
         radius: Float,
 
         #[serde(rename = "ref")]
-        material: Reference,
+        material: Option<Reference>,
+
+        #[serde(rename = "bsdf")]
+        bsdf: Option<BSDF>,
 
         emitter: Option<Emitter>,
     },
@@ -518,7 +527,10 @@ pub enum Shape {
         face_normals: bool,
 
         #[serde(rename = "ref")]
-        material: Reference,
+        material: Option<Reference>,
+
+        #[serde(rename = "bsdf")]
+        bsdf: Option<BSDF>,
 
         emitter: Option<Emitter>,
 

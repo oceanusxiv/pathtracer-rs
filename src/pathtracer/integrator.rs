@@ -218,6 +218,7 @@ pub struct PathIntegrator {
     sampler_builder: SamplerBuilder,
     max_depth: i32,
     rr_threshold: f32,
+    rr_start_depth: i32,
     show_progress_bar: bool,
     log: slog::Logger,
 }
@@ -229,6 +230,7 @@ impl PathIntegrator {
             sampler_builder,
             max_depth,
             rr_threshold: 1.0,
+            rr_start_depth: 3,
             show_progress_bar: true,
             log,
         }
@@ -470,7 +472,7 @@ impl PathIntegrator {
             // TODO: Account for subsurface scattering, if applicable
 
             let rr_beta = beta * eta_scale;
-            if rr_beta.max_component_value() < self.rr_threshold && bounces > 3 {
+            if rr_beta.max_component_value() < self.rr_threshold && bounces > self.rr_start_depth {
                 let q = 0.05f32.max(1.0 - rr_beta.max_component_value());
                 if sampler.get_1d() < q {
                     break;

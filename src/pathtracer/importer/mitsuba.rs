@@ -57,17 +57,20 @@ fn parse_shape(
     let mut obj_to_world = na::Projective3::identity();
     let world_mesh;
     let light_info;
-    let material_id;
+    let material_ref;
+    let material_embed;
     match shape {
         mitsuba::Shape::Rectangle {
             transform,
             material,
+            bsdf,
             emitter,
         } => {
             let mesh = mitsuba::gen_rectangle();
             obj_to_world = *transform;
             light_info = emitter;
-            material_id = material.id.clone();
+            material_ref = material;
+            material_embed = bsdf;
             world_mesh = TriangleMesh {
                 indices: mesh.indices,
                 pos: mesh.pos,
@@ -81,12 +84,14 @@ fn parse_shape(
         mitsuba::Shape::Cube {
             transform,
             material,
+            bsdf,
             emitter,
         } => {
             let mesh = mitsuba::gen_cube();
             obj_to_world = *transform;
             light_info = emitter;
-            material_id = material.id.clone();
+            material_ref = material;
+            material_embed = bsdf;
             world_mesh = TriangleMesh {
                 indices: mesh.indices,
                 pos: mesh.pos,
@@ -101,11 +106,13 @@ fn parse_shape(
             point,
             radius,
             material,
+            bsdf,
             emitter,
         } => {
             let mesh = mitsuba::gen_sphere(point, radius.value);
             light_info = emitter;
-            material_id = material.id.clone();
+            material_ref = material;
+            material_embed = bsdf;
             world_mesh = TriangleMesh {
                 indices: mesh.indices,
                 pos: mesh.pos,
@@ -120,13 +127,15 @@ fn parse_shape(
             transform,
             face_normals,
             material,
+            bsdf,
             emitter,
             filename,
         } => {
             let mesh = mitsuba::load_obj(scene_path, filename);
             obj_to_world = *transform;
             light_info = emitter;
-            material_id = material.id.clone();
+            material_ref = material;
+            material_embed = bsdf;
 
             if *face_normals {
                 warn!(
@@ -145,6 +154,15 @@ fn parse_shape(
                 alpha_mask: None,
             };
         }
+    }
+
+    let material;
+    if let Some(material_ref) = material_ref {
+        material = Arc::clone(&materials[&material_ref.id]);
+    } else if let Some(material_embed) = material_embed {
+        material = Arc::new(material_from_bsdf(&log, material_embed));
+    } else {
+        panic!("either ref exists or embedded bsdf exists");
     }
 
     for shape in shapes_from_mesh(world_mesh, &obj_to_world, false) {
@@ -167,7 +185,7 @@ fn parse_shape(
 
         primitives.push(Arc::new(GeometricPrimitive::new(
             Arc::clone(&shape),
-            Arc::clone(&materials[&material_id]),
+            Arc::clone(&material),
             area_light,
         )) as Arc<dyn SyncPrimitive>);
     }

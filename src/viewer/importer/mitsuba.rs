@@ -10,6 +10,7 @@ impl ViewerScene {
                 mitsuba::Shape::Rectangle {
                     transform,
                     material: _,
+                    bsdf: _,
                     emitter: _,
                 } => {
                     let generated_mesh = mitsuba::gen_rectangle();
@@ -27,6 +28,7 @@ impl ViewerScene {
                 mitsuba::Shape::Cube {
                     transform,
                     material: _,
+                    bsdf: _,
                     emitter: _,
                 } => {
                     let generated_mesh = mitsuba::gen_cube();
@@ -45,6 +47,7 @@ impl ViewerScene {
                     point,
                     radius,
                     material: _,
+                    bsdf: _,
                     emitter: _,
                 } => {
                     let generated_mesh = mitsuba::gen_sphere(&point, radius.value);
@@ -63,6 +66,7 @@ impl ViewerScene {
                     transform,
                     face_normals: _,
                     material: _,
+                    bsdf: _,
                     emitter: _,
                     filename,
                 } => {
