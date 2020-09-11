@@ -7,6 +7,8 @@ use quick_xml::de::from_reader;
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::BufReader;
+use std::io::Read;
+use wavefront_obj::obj;
 
 pub struct Mesh {
     pub indices: Vec<u32>,
@@ -72,6 +74,65 @@ pub fn gen_sphere(center: &na::Point3<f32>, radius: f32) -> Mesh {
     }
 }
 
+pub fn load_obj(scene_path: &str, filename: &str) -> Mesh {
+    let file_path = std::path::Path::new(scene_path)
+        .parent()
+        .unwrap_or_else(|| std::path::Path::new(""))
+        .join(filename);
+    let file_path = file_path.to_str().unwrap();
+    let mut input = String::new();
+
+    // load the data directly into memory; no buffering nor streaming
+    {
+        let mut file = File::open(file_path).unwrap();
+        let _ = file.read_to_string(&mut input);
+    }
+    let obj_file = obj::parse(input).unwrap();
+
+    if obj_file.objects.len() > 1 {
+        panic!("only supporting one object right now!");
+    }
+
+    let object = &obj_file.objects[0];
+
+    if object.geometry.len() > 1 {
+        panic!("only support one set of geometry per object right now!");
+    }
+
+    let geometry = &object.geometry[0];
+
+    let mut indices = Vec::new();
+    for shape in &geometry.shapes {
+        if let obj::Primitive::Triangle((p0, _, n0), (p1, _, n1), (p2, _, n2)) = shape.primitive {
+            let n0 = n0.unwrap();
+            assert_eq!(p0, n0);
+            let n1 = n1.unwrap();
+            assert_eq!(p1, n1);
+            let n2 = n2.unwrap();
+            assert_eq!(p2, n2);
+            indices.push(p0 as u32);
+            indices.push(p1 as u32);
+            indices.push(p2 as u32);
+        } else {
+            panic!("only support triangle primitives right now!");
+        }
+    }
+
+    Mesh {
+        indices,
+        pos: object
+            .vertices
+            .iter()
+            .map(|v| na::Point3::new(v.x as f32, v.y as f32, v.z as f32))
+            .collect(),
+        normal: object
+            .normals
+            .iter()
+            .map(|n| na::Vector3::new(n.x as f32, n.y as f32, n.z as f32))
+            .collect(),
+    }
+}
+
 #[derive(Debug, Deserialize)]
 pub struct Float {
     pub name: String,
@@ -80,22 +141,37 @@ pub struct Float {
     pub value: f32,
 }
 
-mod floats {
-    use super::Float;
+fn de_floats<'de, D>(deserializer: D) -> Result<HashMap<String, f32>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    struct ChildVisitor;
+    impl<'de> serde::de::Visitor<'de> for ChildVisitor {
+        type Value = HashMap<String, f32>;
 
-    use serde::de::{Deserialize, Deserializer};
-    use std::collections::HashMap;
-
-    pub fn deserialize<'de, D>(deserializer: D) -> Result<HashMap<String, f32>, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let mut map = HashMap::new();
-        for item in Vec::<Float>::deserialize(deserializer)? {
-            map.insert(item.name.clone(), item.value);
+        fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+            formatter
+                .write_str("Map of children elements - filtering for fields with `float` suffix")
         }
-        Ok(map)
+
+        fn visit_map<M>(self, mut access: M) -> Result<Self::Value, M::Error>
+        where
+            M: serde::de::MapAccess<'de>,
+        {
+            let mut hm = HashMap::<String, f32>::new();
+
+            while let Some(key) = access.next_key::<String>()? {
+                if key.ends_with("float") {
+                    let float = access.next_value::<Float>().unwrap();
+                    hm.insert(float.name.to_snake_case(), float.value);
+                }
+            }
+
+            Ok(hm)
+        }
     }
+
+    deserializer.deserialize_any(ChildVisitor {})
 }
 
 mod float {
@@ -199,6 +275,14 @@ pub struct RoughConductor {
 }
 
 #[derive(Debug, Deserialize)]
+pub struct Dielectric {
+    pub id: Option<String>,
+
+    #[serde(flatten, rename = "float", deserialize_with = "de_floats")]
+    pub float_params: HashMap<String, f32>,
+}
+
+#[derive(Debug, Deserialize)]
 #[serde(tag = "type")]
 pub enum BSDF {
     #[serde(rename = "twosided")]
@@ -207,6 +291,8 @@ pub enum BSDF {
     Diffuse(Diffuse),
     #[serde(rename = "roughconductor")]
     RoughConductor(RoughConductor),
+    #[serde(rename = "dielectric")]
+    Dielectric(Dielectric),
 }
 
 mod bsdf {
@@ -233,6 +319,9 @@ mod bsdf {
                         item.id.as_ref().unwrap().clone(),
                         BSDF::RoughConductor(item),
                     );
+                }
+                BSDF::Dielectric(item) => {
+                    map.insert(item.id.as_ref().unwrap().clone(), BSDF::Dielectric(item));
                 }
             }
         }
@@ -301,6 +390,25 @@ mod point {
 }
 
 #[derive(Debug, Deserialize)]
+pub struct StringParam {
+    pub name: String,
+    pub value: String,
+}
+
+mod string {
+    use super::StringParam;
+    use serde::de::{Deserialize, Deserializer};
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<String, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let s = StringParam::deserialize(deserializer)?;
+        Ok(s.value)
+    }
+}
+
+#[derive(Debug, Deserialize)]
 #[serde(tag = "type")]
 pub enum Shape {
     #[serde(rename = "rectangle")]
@@ -336,13 +444,27 @@ pub enum Shape {
 
         emitter: Option<Emitter>,
     },
+    #[serde(rename = "obj")]
+    Obj {
+        #[serde(with = "transform")]
+        transform: na::Projective3<f32>,
+
+        #[serde(rename = "ref")]
+        material: Reference,
+
+        emitter: Option<Emitter>,
+
+        #[serde(rename = "string", with = "string")]
+        filename: String,
+    },
 }
 
 #[derive(Debug, Deserialize)]
 pub struct Sensor {
     #[serde(rename = "type")]
     pub kind: String,
-    #[serde(rename = "float", with = "floats")]
+
+    #[serde(flatten, rename = "float", deserialize_with = "de_floats")]
     pub float_params: HashMap<String, f32>,
 
     #[serde(with = "transform")]
@@ -357,6 +479,8 @@ pub struct Scene {
     pub bsdfs: HashMap<String, BSDF>,
     #[serde(rename = "shape")]
     pub shapes: Vec<Shape>,
+    #[serde(skip)]
+    pub path: String,
 }
 
 fn get_camera(scene: &Scene, resolution: &na::Vector2<f32>) -> Camera {
@@ -390,7 +514,8 @@ pub fn from_mitsuba(
     let file = File::open(path).unwrap();
     let file = BufReader::new(file);
 
-    let scene: Scene = from_reader(file).unwrap();
+    let mut scene: Scene = from_reader(file).unwrap();
+    scene.path = String::from(path);
 
     let camera = get_camera(&scene, &resolution);
     let render_scene = crate::pathtracer::RenderScene::from_mitsuba(&log, &scene);

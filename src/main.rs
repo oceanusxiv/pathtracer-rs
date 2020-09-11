@@ -229,11 +229,20 @@ fn main() {
                             } => viewer.state = viewer::ViewerState::RenderScene,
                             KeyboardInput {
                                 state: ElementState::Pressed,
-                                virtual_keycode: Some(VirtualKeyCode::W),
+                                virtual_keycode: Some(VirtualKeyCode::G),
                                 ..
                             } => {
                                 if crtl_clicked {
                                     viewer.draw_wireframe = !viewer.draw_wireframe;
+                                }
+                            }
+                            KeyboardInput {
+                                state: ElementState::Pressed,
+                                virtual_keycode: Some(VirtualKeyCode::H),
+                                ..
+                            } => {
+                                if crtl_clicked {
+                                    viewer.draw_mesh = !viewer.draw_mesh;
                                 }
                             }
                             KeyboardInput {
@@ -259,6 +268,13 @@ fn main() {
                                     ctrl.set(new_drain(slog::Level::Trace, &allowed_modules));
                                 }
                                 trace_mode = !trace_mode;
+                            }
+                            KeyboardInput {
+                                state: ElementState::Pressed,
+                                virtual_keycode: Some(VirtualKeyCode::P),
+                                ..
+                            } => {
+                                integrator.toggle_progress_bar();
                             }
                             KeyboardInput {
                                 state: ElementState::Pressed,

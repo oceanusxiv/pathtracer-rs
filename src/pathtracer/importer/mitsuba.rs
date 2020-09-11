@@ -1,5 +1,6 @@
 use crate::{
     common::{importer::mitsuba, spectrum::Spectrum},
+    pathtracer::material::GlassMaterial,
     pathtracer::{
         accelerator,
         light::{DiffuseAreaLight, SyncLight},
@@ -33,10 +34,20 @@ fn material_from_bsdf(log: &slog::Logger, bsdf: &mitsuba::BSDF) -> Material {
             })),
             None,
         )),
+        mitsuba::BSDF::Dielectric(bsdf) => Material::Glass(GlassMaterial::new(
+            &log,
+            Box::new(ConstantTexture::<Spectrum>::new(Spectrum::new(1.0)))
+                as Box<dyn SyncTexture<Spectrum>>,
+            Box::new(ConstantTexture::<Spectrum>::new(Spectrum::new(1.0)))
+                as Box<dyn SyncTexture<Spectrum>>,
+            Box::new(ConstantTexture::<f32>::new(bsdf.float_params["int_ior"]))
+                as Box<dyn SyncTexture<f32>>,
+        )),
     }
 }
 
 fn parse_shape(
+    scene_path: &str,
     shape: &mitsuba::Shape,
     materials: &HashMap<String, Arc<Material>>,
     primitives: &mut Vec<Arc<dyn SyncPrimitive>>,
@@ -104,6 +115,26 @@ fn parse_shape(
                 alpha_mask: None,
             };
         }
+        mitsuba::Shape::Obj {
+            transform,
+            material,
+            emitter,
+            filename,
+        } => {
+            let mesh = mitsuba::load_obj(scene_path, filename);
+            obj_to_world = *transform;
+            light_info = emitter;
+            material_id = material.id.clone();
+            world_mesh = TriangleMesh {
+                indices: mesh.indices,
+                pos: mesh.pos,
+                normal: mesh.normal,
+                s: vec![],
+                uv: vec![],
+                colors: vec![],
+                alpha_mask: None,
+            };
+        }
     }
 
     for shape in shapes_from_mesh(world_mesh, &obj_to_world) {
@@ -143,7 +174,13 @@ impl RenderScene {
         }
 
         for shape in &scene.shapes {
-            parse_shape(&shape, &materials, &mut primitives, &mut lights);
+            parse_shape(
+                &scene.path,
+                &shape,
+                &materials,
+                &mut primitives,
+                &mut lights,
+            );
         }
 
         let bvh = Box::new(accelerator::BVH::new(log, primitives, &4)) as Box<dyn SyncPrimitive>;

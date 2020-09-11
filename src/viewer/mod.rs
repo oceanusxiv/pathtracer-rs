@@ -124,6 +124,7 @@ pub struct Viewer {
     log: slog::Logger,
     pub state: ViewerState,
     pub draw_wireframe: bool,
+    pub draw_mesh: bool,
 }
 
 impl Viewer {
@@ -250,6 +251,7 @@ impl Viewer {
             log,
             state: ViewerState::RenderScene,
             draw_wireframe: false,
+            draw_mesh: true,
         }
     }
 
@@ -429,7 +431,9 @@ impl Viewer {
             });
 
             render_pass.set_bind_group(0, &self.uniform_bind_group, &[]);
-            render_pass.draw_all_mesh(&self.mesh_render_pass);
+            if self.draw_mesh {
+                render_pass.draw_all_mesh(&self.mesh_render_pass);
+            }
             render_pass.draw_all_bounds(&self.bounds_render_pass);
             if self.draw_wireframe {
                 render_pass.draw_all_wire_frame(&self.wireframe_render_pass);

@@ -351,7 +351,6 @@ pub struct FresnelSpecular {
     T: Spectrum,
     eta_a: f32,
     eta_b: f32,
-    fresnel: FresnelDielectric,
     mode: TransportMode,
 }
 
@@ -362,10 +361,6 @@ impl FresnelSpecular {
             T,
             eta_a,
             eta_b,
-            fresnel: FresnelDielectric {
-                eta_i: eta_a,
-                eta_t: eta_b,
-            },
             mode,
         }
     }
@@ -384,11 +379,46 @@ impl BxDFInterface for FresnelSpecular {
         &self,
         wo: &na::Vector3<f32>,
         mut wi: &mut na::Vector3<f32>,
-        _u: &na::Point2<f32>,
+        u: &na::Point2<f32>,
         pdf: &mut f32,
-        _sampled_type: &mut Option<BxDFType>,
+        sampled_type: &mut Option<BxDFType>,
     ) -> Spectrum {
-        todo!()
+        let f = fr_dielectric(cos_theta(&wo), self.eta_a, self.eta_b);
+        if u[0] < f {
+            *wi = na::Vector3::new(-wo.x, -wo.y, wo.z);
+            if let Some(sampled_type) = sampled_type {
+                *sampled_type = BxDFType::BSDF_REFLECTION | BxDFType::BSDF_SPECULAR;
+            }
+            *pdf = f;
+            f * self.R / abs_cos_theta(&wi)
+        } else {
+            let entering = cos_theta(&wo) > 0.0;
+            let eta_i = if entering { self.eta_a } else { self.eta_b };
+            let eta_t = if entering { self.eta_b } else { self.eta_a };
+
+            if !refract(
+                &wo,
+                &face_forward(&na::Vector3::new(0.0, 0.0, 1.0), &wo),
+                eta_i / eta_t,
+                &mut wi,
+            ) {
+                return Spectrum::new(0.0);
+            }
+
+            let mut ft = self.T * (Spectrum::new(1.0) - f);
+
+            if self.mode == TransportMode::Radiance {
+                ft *= (eta_i * eta_i) / (eta_t * eta_t);
+            }
+
+            if let Some(sampled_type) = sampled_type {
+                *sampled_type = BxDFType::BSDF_TRANSMISSION | BxDFType::BSDF_SPECULAR;
+            }
+
+            *pdf = 1.0 - f;
+
+            ft / abs_cos_theta(&wi)
+        }
     }
 
     fn pdf(&self, _wo: &na::Vector3<f32>, _wi: &na::Vector3<f32>) -> f32 {

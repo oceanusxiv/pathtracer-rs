@@ -1,6 +1,5 @@
 use crate::common::importer::mitsuba;
 use crate::viewer::{Mesh, ViewerScene};
-use mitsuba::{gen_cube, gen_rectangle, gen_sphere};
 
 impl ViewerScene {
     pub fn from_mitsuba(log: &slog::Logger, scene: &mitsuba::Scene) -> Self {
@@ -10,10 +9,10 @@ impl ViewerScene {
             match shape {
                 mitsuba::Shape::Rectangle {
                     transform,
-                    material,
-                    emitter,
+                    material: _,
+                    emitter: _,
                 } => {
-                    let generated_mesh = gen_rectangle();
+                    let generated_mesh = mitsuba::gen_rectangle();
                     meshes.push(Mesh {
                         id: 0,
                         indices: generated_mesh.indices,
@@ -27,10 +26,10 @@ impl ViewerScene {
                 }
                 mitsuba::Shape::Cube {
                     transform,
-                    material,
-                    emitter,
+                    material: _,
+                    emitter: _,
                 } => {
-                    let generated_mesh = gen_cube();
+                    let generated_mesh = mitsuba::gen_cube();
                     meshes.push(Mesh {
                         id: 0,
                         indices: generated_mesh.indices,
@@ -45,10 +44,10 @@ impl ViewerScene {
                 mitsuba::Shape::Sphere {
                     point,
                     radius,
-                    material,
-                    emitter,
+                    material: _,
+                    emitter: _,
                 } => {
-                    let generated_mesh = gen_sphere(&point, radius.value);
+                    let generated_mesh = mitsuba::gen_sphere(&point, radius.value);
                     meshes.push(Mesh {
                         id: 0,
                         indices: generated_mesh.indices,
@@ -58,6 +57,24 @@ impl ViewerScene {
                         uv: vec![],
                         colors: vec![],
                         instances: vec![na::Projective3::identity()],
+                    })
+                }
+                mitsuba::Shape::Obj {
+                    transform,
+                    material: _,
+                    emitter: _,
+                    filename,
+                } => {
+                    let obj_mesh = mitsuba::load_obj(&scene.path, filename);
+                    meshes.push(Mesh {
+                        id: 0,
+                        indices: obj_mesh.indices,
+                        pos: obj_mesh.pos,
+                        normal: obj_mesh.normal,
+                        s: vec![],
+                        uv: vec![],
+                        colors: vec![],
+                        instances: vec![*transform],
                     })
                 }
             }

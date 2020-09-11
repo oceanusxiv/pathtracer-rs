@@ -110,6 +110,18 @@ impl Sub for RGBSpectrum {
     }
 }
 
+impl Sub<f32> for RGBSpectrum {
+    type Output = Self;
+
+    fn sub(self, rhs: f32) -> Self::Output {
+        Self {
+            r: self.r - rhs,
+            g: self.g - rhs,
+            b: self.b - rhs,
+        }
+    }
+}
+
 impl Mul for RGBSpectrum {
     type Output = Self;
 

@@ -218,6 +218,7 @@ pub struct PathIntegrator {
     sampler_builder: SamplerBuilder,
     max_depth: i32,
     rr_threshold: f32,
+    show_progress_bar: bool,
     log: slog::Logger,
 }
 
@@ -228,6 +229,7 @@ impl PathIntegrator {
             sampler_builder,
             max_depth,
             rr_threshold: 1.0,
+            show_progress_bar: true,
             log,
         }
     }
@@ -242,6 +244,10 @@ impl PathIntegrator {
                 "scene contains too many lights for path integrator to handle well"
             );
         }
+    }
+
+    pub fn toggle_progress_bar(&mut self) {
+        self.show_progress_bar = !self.show_progress_bar;
     }
 
     fn specular_reflect(
@@ -531,85 +537,98 @@ impl PathIntegrator {
             (sample_extent.y + TILE_SIZE - 1) / TILE_SIZE,
         );
 
-        (0..num_tiles.x)
-            .cartesian_product(0..num_tiles.y)
-            .collect_vec()
-            .par_iter()
-            .progress_count((num_tiles.x * num_tiles.y) as u64)
-            .map(|(x, y)| {
-                let tile = na::Point2::new(*x, *y);
-                let seed = (tile.y * num_tiles.x + tile.x) as u64;
-                let mut tile_sampler = self.sampler_builder.clone().with_seed(seed).build();
+        let work_closure = |(x, y): &(i32, i32)| {
+            let tile = na::Point2::new(*x, *y);
+            let seed = (tile.y * num_tiles.x + tile.x) as u64;
+            let mut tile_sampler = self.sampler_builder.clone().with_seed(seed).build();
 
-                let x0 = sample_bounds.p_min.x + tile.x * TILE_SIZE;
-                let x1 = std::cmp::min(x0 + TILE_SIZE, sample_bounds.p_max.x);
-                let y0 = sample_bounds.p_min.y + tile.y * TILE_SIZE;
-                let y1 = std::cmp::min(y0 + TILE_SIZE, sample_bounds.p_max.y);
+            let x0 = sample_bounds.p_min.x + tile.x * TILE_SIZE;
+            let x1 = std::cmp::min(x0 + TILE_SIZE, sample_bounds.p_max.x);
+            let y0 = sample_bounds.p_min.y + tile.y * TILE_SIZE;
+            let y1 = std::cmp::min(y0 + TILE_SIZE, sample_bounds.p_max.y);
 
-                let tile_bounds = Bounds2i {
-                    p_min: na::Point2::new(x0, y0),
-                    p_max: na::Point2::new(x1, y1),
-                };
-                let mut film_tile = camera.film.get_film_tile(&tile_bounds);
+            let tile_bounds = Bounds2i {
+                p_min: na::Point2::new(x0, y0),
+                p_max: na::Point2::new(x1, y1),
+            };
+            let mut film_tile = camera.film.get_film_tile(&tile_bounds);
 
-                for (x, y) in (tile_bounds.p_min.x..tile_bounds.p_max.x)
-                    .cartesian_product(tile_bounds.p_min.y..tile_bounds.p_max.y)
-                {
-                    let pixel = na::Point2::new(x, y);
-                    tile_sampler.start_pixel(&pixel);
+            for (x, y) in (tile_bounds.p_min.x..tile_bounds.p_max.x)
+                .cartesian_product(tile_bounds.p_min.y..tile_bounds.p_max.y)
+            {
+                let pixel = na::Point2::new(x, y);
+                tile_sampler.start_pixel(&pixel);
 
-                    loop {
-                        let camera_sample = tile_sampler.get_camera_sample(&pixel);
+                loop {
+                    let camera_sample = tile_sampler.get_camera_sample(&pixel);
 
-                        let mut ray = camera.generate_ray_differential(&camera_sample);
-                        ray.scale_differentials(
-                            1.0 / (tile_sampler.samples_per_pixel() as f32).sqrt(),
+                    let mut ray = camera.generate_ray_differential(&camera_sample);
+                    ray.scale_differentials(1.0 / (tile_sampler.samples_per_pixel() as f32).sqrt());
+
+                    let mut l = Spectrum::new(0.0);
+                    l = self.li(&ray, &scene, &mut tile_sampler, 0);
+
+                    if l.has_nan() {
+                        error!(
+                            self.log,
+                            "radiance contains nan for pixel: {:?}, sample: {:?}",
+                            pixel,
+                            tile_sampler.get_current_sample_number()
                         );
+                    } else if l.y() < -1e-5 {
+                        error!(
+                            self.log,
+                            "negative luminance value: {:?} for pixel: {:?}, sampler: {:?}",
+                            l.y(),
+                            pixel,
+                            tile_sampler.get_current_sample_number()
+                        );
+                    } else if l.y().is_infinite() {
+                        error!(
+                            self.log,
+                            "infinite luminance value: {:?} for pixel: {:?}, sampler: {:?}",
+                            l.y(),
+                            pixel,
+                            tile_sampler.get_current_sample_number()
+                        );
+                    }
 
-                        let mut l = Spectrum::new(0.0);
-                        l = self.li(&ray, &scene, &mut tile_sampler, 0);
+                    film_tile.add_sample(&camera_sample.p_film, &l);
 
-                        if l.has_nan() {
-                            error!(
-                                self.log,
-                                "radiance contains nan for pixel: {:?}, sample: {:?}",
-                                pixel,
-                                tile_sampler.get_current_sample_number()
-                            );
-                        } else if l.y() < -1e-5 {
-                            error!(
-                                self.log,
-                                "negative luminance value: {:?} for pixel: {:?}, sampler: {:?}",
-                                l.y(),
-                                pixel,
-                                tile_sampler.get_current_sample_number()
-                            );
-                        } else if l.y().is_infinite() {
-                            error!(
-                                self.log,
-                                "infinite luminance value: {:?} for pixel: {:?}, sampler: {:?}",
-                                l.y(),
-                                pixel,
-                                tile_sampler.get_current_sample_number()
-                            );
-                        }
-
-                        film_tile.add_sample(&camera_sample.p_film, &l);
-
-                        if !tile_sampler.start_next_sample() {
-                            break;
-                        }
+                    if !tile_sampler.start_next_sample() {
+                        break;
                     }
                 }
+            }
 
-                film_tile
-            })
-            .collect::<Vec<Box<FilmTile>>>()
-            .drain(..)
-            .for_each(|film_tile| {
-                let film = &mut camera.film;
-                film.merge_film_tile(film_tile);
-            });
+            film_tile
+        };
+
+        let render_par_iter = (0..num_tiles.x)
+            .cartesian_product(0..num_tiles.y)
+            .collect_vec();
+        let render_par_iter = render_par_iter.par_iter();
+
+        if self.show_progress_bar {
+            render_par_iter
+                .progress_count((num_tiles.x * num_tiles.y) as u64)
+                .map(work_closure)
+                .collect::<Vec<Box<FilmTile>>>()
+                .drain(..)
+                .for_each(|film_tile| {
+                    let film = &mut camera.film;
+                    film.merge_film_tile(film_tile);
+                });
+        } else {
+            render_par_iter
+                .map(work_closure)
+                .collect::<Vec<Box<FilmTile>>>()
+                .drain(..)
+                .for_each(|film_tile| {
+                    let film = &mut camera.film;
+                    film.merge_film_tile(film_tile);
+                });
+        }
 
         let duration = start.elapsed();
 
