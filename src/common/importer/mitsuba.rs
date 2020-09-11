@@ -187,6 +187,59 @@ mod float {
 }
 
 #[derive(Debug, Deserialize)]
+pub struct Integer {
+    pub name: String,
+
+    #[serde(with = "integer")]
+    pub value: i32,
+}
+
+fn de_integers<'de, D>(deserializer: D) -> Result<HashMap<String, i32>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    struct ChildVisitor;
+    impl<'de> serde::de::Visitor<'de> for ChildVisitor {
+        type Value = HashMap<String, i32>;
+
+        fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+            formatter
+                .write_str("Map of children elements - filtering for fields with `integer` suffix")
+        }
+
+        fn visit_map<M>(self, mut access: M) -> Result<Self::Value, M::Error>
+        where
+            M: serde::de::MapAccess<'de>,
+        {
+            let mut hm = HashMap::<String, i32>::new();
+
+            while let Some(key) = access.next_key::<String>()? {
+                if key.ends_with("integer") {
+                    let integer = access.next_value::<Integer>().unwrap();
+                    hm.insert(integer.name.to_snake_case(), integer.value);
+                }
+            }
+
+            Ok(hm)
+        }
+    }
+
+    deserializer.deserialize_any(ChildVisitor {})
+}
+
+mod integer {
+    use serde::de::{Deserialize, Deserializer};
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<i32, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let integer = String::deserialize(deserializer)?;
+        Ok(integer.parse().unwrap())
+    }
+}
+
+#[derive(Debug, Deserialize)]
 pub struct Matrix {
     value: String,
 }
@@ -475,6 +528,12 @@ pub enum Shape {
 }
 
 #[derive(Debug, Deserialize)]
+pub struct Film {
+    #[serde(flatten, rename = "integer", deserialize_with = "de_integers")]
+    pub integer_params: HashMap<String, i32>,
+}
+
+#[derive(Debug, Deserialize)]
 pub struct Sensor {
     #[serde(rename = "type")]
     pub kind: String,
@@ -484,6 +543,8 @@ pub struct Sensor {
 
     #[serde(with = "transform")]
     pub transform: na::Projective3<f32>,
+
+    pub film: Film,
 }
 
 #[derive(Debug, Deserialize)]
@@ -500,6 +561,8 @@ pub struct Scene {
 
 fn get_camera(scene: &Scene, resolution: &na::Vector2<f32>) -> Camera {
     let params = &scene.sensor.float_params;
+    let width = scene.sensor.film.integer_params["width"];
+    let height = scene.sensor.film.integer_params["height"];
     let fov = params["fov"].to_radians();
     // right to left hand coordinate conversion
     let rotation = na::Rotation3::new(na::Vector3::new(0.0, -std::f32::consts::PI, 0.0));
@@ -509,7 +572,7 @@ fn get_camera(scene: &Scene, resolution: &na::Vector2<f32>) -> Camera {
         &cam_to_world,
         &na::Perspective3::new(
             resolution.x / resolution.y,
-            fov * (resolution.y / resolution.x),
+            fov * (height as f32 / width as f32),
             0.01,
             10000.0,
         ),
@@ -534,7 +597,7 @@ pub fn from_mitsuba(
 
     let camera = get_camera(&scene, &resolution);
     let render_scene = crate::pathtracer::RenderScene::from_mitsuba(&log, &scene);
-    let viewer_scene = crate::viewer::ViewerScene::from_mitsuba(&log, &scene);
+    let viewer_scene = crate::viewer::ViewerScene::from_mitsuba(&scene);
 
     (camera, render_scene, viewer_scene)
 }
