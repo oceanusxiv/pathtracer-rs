@@ -22,8 +22,8 @@ lazy_static::lazy_static! {
     static ref OPENGL_TO_WGPU_MATRIX: glm::Mat4 = glm::mat4(
         1.0, 0.0, 0.0, 0.0,
         0.0, 1.0, 0.0, 0.0,
-        0.0, 0.0, 0.5, 0.0,
-        0.0, 0.0, 0.5, 1.0,
+        0.0, 0.0, 0.5, 0.5,
+        0.0, 0.0, 0.0, 1.0,
     );
 }
 
@@ -305,7 +305,10 @@ impl Viewer {
                     if (self.camera_controller.require_mouse_press() && self.mouse_pressed)
                         || !self.camera_controller.require_mouse_press()
                     {
-                        self.camera_controller.process_mouse(*mouse_dx, *mouse_dy);
+                        self.camera_controller.process_mouse(
+                            mouse_dx / self.size.width as f64,
+                            mouse_dy / self.size.height as f64,
+                        );
                     }
                     true
                 }

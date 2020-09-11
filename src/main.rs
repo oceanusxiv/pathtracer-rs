@@ -136,12 +136,12 @@ fn main() {
             viewer::camera::CameraController::Orbit(viewer::camera::OrbitalCameraController::new(
                 &log,
                 na::Vector3::new(0.0, 0.0, 0.0),
-                50.0,
+                5000.0,
                 0.01,
             ));
     } else if camera_controller_type == "fp" {
         camera_controller = viewer::camera::CameraController::FirstPerson(
-            viewer::camera::FirstPersonCameraController::new(&log, 6.0, 2.5),
+            viewer::camera::FirstPersonCameraController::new(&log, 6000.0, 2.5),
         );
     } else {
         panic!(
