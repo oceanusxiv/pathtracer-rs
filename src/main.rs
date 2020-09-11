@@ -155,7 +155,7 @@ fn main() {
     let start = Instant::now();
     let (mut camera, render_scene, viewer_scene) =
         common::importer::import(&log, &scene_path, &resolution, default_lights);
-    let sampler = pathtracer::sampling::SamplerBuilder::new(
+    let sampler = pathtracer::sampler::SamplerBuilder::new(
         &log,
         pixel_samples_sqrt,
         pixel_samples_sqrt,
@@ -289,7 +289,7 @@ fn main() {
                                 );
                                 integrator = pathtracer::integrator::PathIntegrator::new(
                                     &log,
-                                    pathtracer::sampling::SamplerBuilder::new(
+                                    pathtracer::sampler::SamplerBuilder::new(
                                         &log,
                                         pixel_samples_sqrt,
                                         pixel_samples_sqrt,
@@ -313,7 +313,7 @@ fn main() {
                                 );
                                 integrator = pathtracer::integrator::PathIntegrator::new(
                                     &log,
-                                    pathtracer::sampling::SamplerBuilder::new(
+                                    pathtracer::sampler::SamplerBuilder::new(
                                         &log,
                                         pixel_samples_sqrt,
                                         pixel_samples_sqrt,

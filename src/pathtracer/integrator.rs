@@ -1,5 +1,5 @@
 use super::interaction::SurfaceMediumInteraction;
-use super::sampling::{Sampler, SamplerBuilder};
+use super::sampler::{Sampler, SamplerBuilder};
 use super::{bxdf::BxDFType, light::is_delta_light};
 use super::{light::SyncLight, RenderScene, TransportMode};
 use crate::common::film::FilmTile;

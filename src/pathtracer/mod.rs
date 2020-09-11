@@ -7,6 +7,7 @@ mod interaction;
 pub mod light;
 mod material;
 mod primitive;
+pub mod sampler;
 pub mod sampling;
 mod shape;
 mod texture;

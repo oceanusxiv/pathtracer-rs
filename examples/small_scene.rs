@@ -12,7 +12,7 @@ fn main() {
     let pixel_samples_sqrt = 5;
     let (mut camera, render_scene, _) =
         common::importer::import(&log, &scene_path, &common::DEFAULT_RESOLUTION, false);
-    let sampler = pathtracer::sampling::SamplerBuilder::new(
+    let sampler = pathtracer::sampler::SamplerBuilder::new(
         &log,
         pixel_samples_sqrt,
         pixel_samples_sqrt,
