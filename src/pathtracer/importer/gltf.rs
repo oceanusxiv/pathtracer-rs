@@ -2,7 +2,7 @@ use crate::{
     common::{importer::gltf::trans_from_gltf, spectrum::Spectrum, WrapMode},
     pathtracer::{
         accelerator,
-        light::{DiffuseAreaLight, DirectionalLight, PointLight, SyncLight},
+        light::{DiffuseAreaLight, DirectionalLight, LightFlags, PointLight, SyncLight},
         material::{GlassMaterial, Material, MatteMaterial, MirrorMaterial},
         primitive::{GeometricPrimitive, SyncPrimitive},
         shape::{shapes_from_mesh, SyncShape, TriangleMesh},
@@ -370,6 +370,7 @@ impl RenderScene {
         let mut materials = vec![Arc::new(default_material(log))];
         let mut lights: Vec<Arc<dyn SyncLight>> = Vec::new();
         let mut preprocess_lights: Vec<Arc<dyn SyncLight>> = Vec::new();
+        let mut infinite_lights: Vec<Arc<dyn SyncLight>> = Vec::new();
 
         for material in document.materials() {
             materials.push(Arc::new(material_from_gltf(log, &material, &images)));
@@ -412,8 +413,16 @@ impl RenderScene {
         for mut light in preprocess_lights.into_iter() {
             Arc::get_mut(&mut light).unwrap().preprocess(&world_bound);
             lights.push(Arc::clone(&light));
+
+            if light.flags().contains(LightFlags::INFINITE) {
+                infinite_lights.push(Arc::clone(&light))
+            }
         }
 
-        Self { scene: bvh, lights }
+        Self {
+            scene: bvh,
+            lights,
+            infinite_lights,
+        }
     }
 }

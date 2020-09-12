@@ -152,12 +152,12 @@ impl<T: na::Scalar + num::Zero> Texture<T> for ImageTexture<T> {
 pub struct MIPMap<T: na::Scalar + num::Zero> {
     pyramid: Vec<na::DMatrix<T>>,
     wrap_mode: WrapMode,
-    resolution: na::Point2<f32>,
+    resolution: na::Point2<i32>,
     log: slog::Logger,
 }
 
 impl<T: na::Scalar + num::Zero> MIPMap<T> {
-    fn new(
+    pub fn new(
         log: &slog::Logger,
         image: na::DMatrix<T>,
         do_trilinear: bool,
@@ -165,49 +165,53 @@ impl<T: na::Scalar + num::Zero> MIPMap<T> {
     ) -> Self {
         let log = log.new(o!());
         Self {
-            resolution: na::Point2::new(image.ncols() as f32, image.nrows() as f32),
+            resolution: na::Point2::new(image.ncols() as i32, image.nrows() as i32),
             pyramid: vec![image],
             wrap_mode,
             log,
         }
     }
 
-    fn lookup(
-        &self,
-        st: &na::Point2<f32>,
-        dst_dx: &na::Vector2<f32>,
-        dst_dy: &na::Vector2<f32>,
-    ) -> T {
+    fn texel(&self, level: usize, s: i32, t: i32) -> T {
         let ret;
+        let level = &self.pyramid[level];
         match self.wrap_mode {
             WrapMode::Repeat => {
-                let mut s = st[0] % self.resolution[0];
-                s = if s < 0.0 { s + self.resolution[0] } else { s };
-                let mut t = st[1] % self.resolution[1];
-                t = if t < 0.0 { t + self.resolution[1] } else { t };
-                trace!(
-                    self.log,
-                    "[Repeat] original: {:?}, {:?}, processed: {:?}, {:?}",
-                    st[0],
-                    st[1],
-                    s,
-                    t
-                );
-                ret = self.pyramid[0][(
-                    t.floor().clamp(0.0, self.resolution.y - 1.0) as usize,
-                    s.floor().clamp(0.0, self.resolution.x - 1.0) as usize,
-                )]
-                    .clone();
+                let mut s = s % level.ncols() as i32;
+                s = if s < 0 { s + level.ncols() as i32 } else { s };
+                let mut t = t % level.nrows() as i32;
+                t = if t < 0 { t + level.nrows() as i32 } else { t };
+                trace!(self.log, "[Repeat] processed: {:?}, {:?}", s, t);
+                ret = level[(t as usize, s as usize)].clone();
             }
-            WrapMode::Black => ret = num::zero(),
+            WrapMode::Black => {
+                if s < 0 || s >= level.ncols() as i32 || t < 0 || t >= level.nrows() as i32 {
+                    ret = num::zero()
+                } else {
+                    ret = level[(t as usize, s as usize)].clone();
+                }
+            }
             WrapMode::Clamp => {
-                let s = st[0].clamp(0.0, self.resolution[0]);
-                let t = st[1].clamp(0.0, self.resolution[1]);
-                ret = self.pyramid[0][(t.floor() as usize, s.floor() as usize)].clone();
+                let s = s.clamp(0, level.ncols() as i32 - 1);
+                let t = t.clamp(0, level.nrows() as i32 - 1);
+                ret = level[(t as usize, s as usize)].clone();
             }
         }
         trace!(self.log, "sampled value: {:?}", ret);
 
         ret
+    }
+
+    pub fn lookup(
+        &self,
+        st: &na::Point2<f32>,
+        dst_dx: &na::Vector2<f32>,
+        dst_dy: &na::Vector2<f32>,
+    ) -> T {
+        self.texel(0, st[0].floor() as i32, st[1].floor() as i32)
+    }
+
+    pub fn lookup_width(&self, st: &na::Point2<f32>, width: f32) -> T {
+        self.texel(0, st[0].floor() as i32, st[1].floor() as i32)
     }
 }

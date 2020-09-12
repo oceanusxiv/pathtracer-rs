@@ -1,5 +1,7 @@
 use crate::{
     common::{importer::mitsuba, spectrum::Spectrum},
+    pathtracer::light::InfiniteAreaLight,
+    pathtracer::light::Light,
     pathtracer::material::GlassMaterial,
     pathtracer::{
         accelerator,
@@ -42,6 +44,11 @@ fn material_from_bsdf(log: &slog::Logger, bsdf: &mitsuba::BSDF) -> Material {
                 as Box<dyn SyncTexture<Spectrum>>,
             Box::new(ConstantTexture::<f32>::new(bsdf.float_params["int_ior"]))
                 as Box<dyn SyncTexture<f32>>,
+        )),
+        _ => Material::Matte(MatteMaterial::new(
+            &log,
+            Box::new(ConstantTexture::<Spectrum>::new(Spectrum::new(1.0))),
+            None,
         )),
     }
 }
@@ -196,6 +203,7 @@ impl RenderScene {
         let mut materials = HashMap::new();
         let mut primitives: Vec<Arc<dyn SyncPrimitive>> = Vec::new();
         let mut lights: Vec<Arc<dyn SyncLight>> = Vec::new();
+        let mut infinite_lights: Vec<Arc<dyn SyncLight>> = Vec::new();
 
         for (id, bsdf) in &scene.bsdfs {
             materials.insert(id.clone(), Arc::new(material_from_bsdf(&log, &bsdf)));
@@ -213,7 +221,37 @@ impl RenderScene {
         }
 
         let bvh = Box::new(accelerator::BVH::new(log, primitives, &4)) as Box<dyn SyncPrimitive>;
+        let world_bound = bvh.world_bound();
 
-        Self { scene: bvh, lights }
+        for emitter in &scene.emitters {
+            match emitter {
+                mitsuba::Emitter::Area { rgb: _ } => {
+                    error!(log, "area lights should not be standalone!");
+                }
+                mitsuba::Emitter::Point => {}
+                mitsuba::Emitter::EnvMap {
+                    transform,
+                    filename,
+                } => {
+                    let file_path = std::path::Path::new(&scene.path)
+                        .parent()
+                        .unwrap_or_else(|| std::path::Path::new(""))
+                        .join(filename);
+                    let file_path = file_path.to_str().unwrap();
+                    let mut env_light =
+                        InfiniteAreaLight::new(&log, *transform, Spectrum::new(1.0), file_path);
+                    env_light.preprocess(&world_bound);
+                    let env_light = Arc::new(env_light) as Arc<dyn SyncLight>;
+                    lights.push(Arc::clone(&env_light));
+                    infinite_lights.push(Arc::clone(&env_light));
+                }
+            }
+        }
+
+        Self {
+            scene: bvh,
+            lights,
+            infinite_lights,
+        }
     }
 }

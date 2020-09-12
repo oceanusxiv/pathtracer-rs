@@ -1,5 +1,7 @@
 use rand::Rng;
 
+use crate::common::math::find_interval;
+
 pub const ONE_MINUS_EPSILON: f32 = hexf32!("0x1.fffffep-1");
 pub type Random = rand::rngs::SmallRng;
 
@@ -122,4 +124,108 @@ pub fn cosine_sample_hemisphere(u: &na::Point2<f32>) -> na::Vector3<f32> {
 
 pub fn cosine_hemisphere_pdf(cos_theta: f32) -> f32 {
     cos_theta * std::f32::consts::FRAC_1_PI
+}
+
+pub struct Distribution1D {
+    func: Vec<f32>,
+    cdf: Vec<f32>,
+    func_int: f32,
+}
+
+impl Distribution1D {
+    pub fn new(f: &[f32], n: usize) -> Self {
+        let mut cdf = vec![0.0; n + 1];
+        for i in 1..(n + 1) {
+            cdf[i] = cdf[i - 1] + f[i - 1] / n as f32;
+        }
+
+        let func_int = cdf[n];
+
+        if func_int == 0.0 {
+            for i in 1..(n + 1) {
+                cdf[i] = i as f32 / n as f32;
+            }
+        } else {
+            for i in 1..(n + 1) {
+                cdf[i] /= func_int;
+            }
+        }
+
+        Self {
+            func: f.to_vec(),
+            cdf,
+            func_int,
+        }
+    }
+
+    fn count(&self) -> usize {
+        self.func.len()
+    }
+
+    pub fn sample_continuous(&self, u: f32, pdf: &mut f32, off: &mut Option<usize>) -> f32 {
+        let offset = find_interval(self.cdf.len(), |index| self.cdf[index] <= u);
+        if let Some(off) = off {
+            *off = offset;
+        }
+
+        let mut du = u - self.cdf[offset];
+        if (self.cdf[offset + 1] - self.cdf[offset]) > 0.0 {
+            du /= self.cdf[offset + 1] - self.cdf[offset];
+        }
+
+        *pdf = if self.func_int > 0.0 {
+            self.func[offset] / self.func_int
+        } else {
+            0.0
+        };
+
+        (offset as f32 + du) / (self.count() as f32)
+    }
+}
+
+pub struct Distribution2D {
+    p_conditional_v: Vec<Box<Distribution1D>>,
+    p_marginal: Box<Distribution1D>,
+}
+
+impl Distribution2D {
+    pub fn new(func: &[f32], nu: usize, nv: usize) -> Self {
+        let mut p_conditional_v = Vec::with_capacity(nv);
+        for v in 0..nv {
+            p_conditional_v.push(Box::new(Distribution1D::new(
+                &func[v * nu..(v * (nu + 1))],
+                nu,
+            )));
+        }
+
+        let mut marginal_func = Vec::with_capacity(nv);
+        for v in 0..nv {
+            marginal_func.push(p_conditional_v[v].func_int);
+        }
+
+        Self {
+            p_conditional_v,
+            p_marginal: Box::new(Distribution1D::new(&marginal_func[..], nv)),
+        }
+    }
+
+    pub fn sample_continuous(&self, u: &na::Point2<f32>, pdf: &mut f32) -> na::Point2<f32> {
+        let mut pdfs = [0.0, 0.0];
+        let mut v = Some(1);
+        let d1 = self
+            .p_marginal
+            .sample_continuous(u[1], &mut pdfs[1], &mut v);
+        let v = v.unwrap();
+        let d0 = self.p_conditional_v[v].sample_continuous(u[0], &mut pdfs[0], &mut None);
+        *pdf = pdfs[0] * pdfs[1];
+        na::Point2::new(d0, d1)
+    }
+
+    pub fn pdf(&self, p: &na::Point2<f32>) -> f32 {
+        let iu = ((p[0] * self.p_conditional_v[0].count() as f32) as usize)
+            .clamp(0, self.p_conditional_v[0].count() - 1);
+        let iv = ((p[1] * self.p_marginal.count() as f32) as usize)
+            .clamp(0, self.p_marginal.count() - 1);
+        self.p_conditional_v[iv].func[iu] / self.p_marginal.func_int
+    }
 }

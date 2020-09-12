@@ -277,11 +277,15 @@ pub struct TwoSided {
     pub bsdf: Box<BSDF>,
 }
 
+fn default_rgb_one() -> [f32; 3] {
+    [1.0, 1.0, 1.0]
+}
+
 #[derive(Debug, Deserialize)]
 pub struct Diffuse {
     pub id: Option<String>,
 
-    #[serde(with = "rgb")]
+    #[serde(default = "default_rgb_one", with = "rgb")]
     pub rgb: [f32; 3],
 }
 
@@ -336,6 +340,11 @@ pub struct Dielectric {
 }
 
 #[derive(Debug, Deserialize)]
+pub struct Plastic {
+    pub id: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
 #[serde(tag = "type")]
 pub enum BSDF {
     #[serde(rename = "twosided")]
@@ -346,6 +355,21 @@ pub enum BSDF {
     RoughConductor(RoughConductor),
     #[serde(rename = "dielectric")]
     Dielectric(Dielectric),
+    #[serde(rename = "plastic")]
+    Plastic(Plastic),
+}
+
+#[macro_export]
+macro_rules! bsdf_to_map {
+    ($item:expr, $map:expr, $( $x:path ),* ) => {
+        match $item {
+            $(
+                $x(item) => {
+                    $map.insert(item.id.as_ref().unwrap().clone(), $x(item));
+                }
+            )*
+        }
+    };
 }
 
 mod bsdf {
@@ -360,23 +384,15 @@ mod bsdf {
     {
         let mut map = HashMap::new();
         for item in Vec::<BSDF>::deserialize(deserializer)? {
-            match item {
-                BSDF::TwoSided(item) => {
-                    map.insert(item.id.as_ref().unwrap().clone(), BSDF::TwoSided(item));
-                }
-                BSDF::Diffuse(item) => {
-                    map.insert(item.id.as_ref().unwrap().clone(), BSDF::Diffuse(item));
-                }
-                BSDF::RoughConductor(item) => {
-                    map.insert(
-                        item.id.as_ref().unwrap().clone(),
-                        BSDF::RoughConductor(item),
-                    );
-                }
-                BSDF::Dielectric(item) => {
-                    map.insert(item.id.as_ref().unwrap().clone(), BSDF::Dielectric(item));
-                }
-            }
+            bsdf_to_map!(
+                item,
+                map,
+                BSDF::TwoSided,
+                BSDF::Diffuse,
+                BSDF::RoughConductor,
+                BSDF::Dielectric,
+                BSDF::Plastic
+            )
         }
         Ok(map)
     }
@@ -411,6 +427,14 @@ pub enum Emitter {
         rgb: [f32; 3],
     },
     Point,
+    #[serde(rename = "envmap")]
+    EnvMap {
+        #[serde(with = "transform")]
+        transform: na::Projective3<f32>,
+
+        #[serde(rename = "string", with = "string")]
+        filename: String,
+    },
 }
 
 #[derive(Debug, Deserialize)]
@@ -567,6 +591,8 @@ pub struct Scene {
     pub bsdfs: HashMap<String, BSDF>,
     #[serde(rename = "shape")]
     pub shapes: Vec<Shape>,
+    #[serde(rename = "emitter")]
+    pub emitters: Vec<Emitter>,
     #[serde(skip)]
     pub path: String,
 }
@@ -578,8 +604,11 @@ fn get_camera(scene: &Scene, resolution: &na::Vector2<f32>) -> Camera {
     let fov = params["fov"].to_radians();
     // right to left hand coordinate conversion
     let rotation = na::Rotation3::new(na::Vector3::new(0.0, -std::f32::consts::PI, 0.0));
-    let cam_to_world: na::Isometry3<f32> =
+    // dunno why I need to do this, but sometimes convert to isometry fails even when scaling is 1.0
+    let sim_cam_to_world: na::Similarity3<f32> =
         na::try_convert(scene.sensor.transform * rotation).unwrap();
+    assert!(sim_cam_to_world.scaling() == 1.0);
+    let cam_to_world = sim_cam_to_world.isometry;
     Camera::new(
         &cam_to_world,
         &na::Perspective3::new(

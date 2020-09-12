@@ -411,7 +411,9 @@ impl PathIntegrator {
                     l += beta * isect.le(&-ray.ray.d);
                     trace!(self.log, "added le to l: {:?}", l);
                 } else {
-                    // TODO: support infinite lights
+                    for light in &scene.infinite_lights {
+                        l += beta * light.le(&ray);
+                    }
                 }
             }
 

@@ -1,4 +1,5 @@
-const MACHINE_EPSILON: f32 = std::f32::EPSILON * 0.5;
+const MACHINE_EPSILON: f32 = f32::EPSILON * 0.5;
+pub const INV_2_PI: f32 = std::f32::consts::FRAC_1_PI * 0.5;
 
 pub fn gamma(n: u32) -> f32 {
     (n as f32 * MACHINE_EPSILON) / (1.0 - n as f32 * MACHINE_EPSILON)
@@ -163,6 +164,37 @@ pub fn power_heuristic(nf: i32, f_pdf: f32, ng: i32, g_pdf: f32) -> f32 {
     let f = nf as f32 * f_pdf;
     let g = ng as f32 * g_pdf;
     (f * f) / (f * f + g * g)
+}
+
+pub fn spherical_theta(v: &na::Vector3<f32>) -> f32 {
+    v.z.clamp(-1.0, 1.0).acos()
+}
+
+pub fn spherical_phi(v: &na::Vector3<f32>) -> f32 {
+    let p = v.y.atan2(v.x);
+    if p < 0.0 {
+        p + 2.0 * std::f32::consts::PI
+    } else {
+        p
+    }
+}
+
+pub fn find_interval<T: Fn(usize) -> bool>(size: usize, pred: T) -> usize {
+    let mut first = 0;
+    let mut len = size;
+
+    while len > 0 {
+        let half = len >> 1;
+        let middle = first + half;
+        if pred(middle) {
+            first = middle + 1;
+            len -= half + 1;
+        } else {
+            len = half;
+        }
+    }
+
+    (first - 1).clamp(0, size - 2)
 }
 
 #[cfg(test)]

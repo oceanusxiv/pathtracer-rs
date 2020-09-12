@@ -77,6 +77,7 @@ impl Camera {
 pub struct RenderScene {
     scene: Box<dyn SyncPrimitive>,
     pub lights: Vec<Arc<dyn SyncLight>>,
+    pub infinite_lights: Vec<Arc<dyn SyncLight>>,
 }
 
 impl RenderScene {
