@@ -104,6 +104,7 @@ pub struct FirstPersonCameraController {
     move_sensitivity: f32,
     translation: na::Translation3<f32>,
     rotation: (f32, f32),
+    spin: f32,
     log: slog::Logger,
 }
 
@@ -115,6 +116,7 @@ impl FirstPersonCameraController {
             move_sensitivity,
             translation: na::Translation3::identity(),
             rotation: (0.0, 0.0),
+            spin: 0.0,
             log,
         }
     }
@@ -147,6 +149,14 @@ impl CameraControllerInterface for FirstPersonCameraController {
                 self.translation.y = -self.move_sensitivity;
                 true
             }
+            VirtualKeyCode::Q => {
+                self.spin = self.move_sensitivity;
+                true
+            }
+            VirtualKeyCode::E => {
+                self.spin = -self.move_sensitivity;
+                true
+            }
             _ => false,
         }
     }
@@ -167,12 +177,13 @@ impl CameraControllerInterface for FirstPersonCameraController {
             self.translation.z * dt,
         );
         let (r, p) = self.rotation;
-        let (curr_r, curr_p, _) = camera.cam_to_world.rotation.euler_angles();
-        let next_r = curr_r + r * dt;
-        let next_p = curr_p + p * dt;
-        if r != 0.0 || p != 0.0 {
-            let rotation = na::UnitQuaternion::from_euler_angles(next_r, next_p, 0.0);
-            camera.cam_to_world.rotation = rotation;
+        // let (curr_r, curr_p, curr_y) = camera.cam_to_world.rotation.euler_angles();
+        // let next_r = curr_r + r * dt;
+        // let next_p = curr_p + p * dt;
+        // let next_y = curr_y + self.spin * dt;
+        if r != 0.0 || p != 0.0 || self.spin != 0.0 {
+            let rotation = na::UnitQuaternion::from_euler_angles(r * dt, p * dt, self.spin * dt);
+            camera.cam_to_world.rotation *= rotation;
         }
 
         let translation = camera.cam_to_world.transform_vector(&translation);
@@ -188,6 +199,7 @@ impl CameraControllerInterface for FirstPersonCameraController {
 
         self.translation = na::Translation3::identity();
         self.rotation = (0.0, 0.0);
+        self.spin = 0.0;
     }
 
     fn require_mouse_press(&self) -> bool {
