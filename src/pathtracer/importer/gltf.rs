@@ -126,10 +126,17 @@ pub fn material_from_gltf(
         )) as Box<dyn SyncTexture<na::Vector3<f32>>>);
     }
 
-    // TODO: get gltf to work with transmission
-    let transmission_factor = 0.0;
-    let ior = 1.5;
-    if transmission_factor > 0.0 {
+    let mut transmission_factor = 0.0;
+    if let Some(transmission) = gltf_material.transmission().as_ref() {
+        transmission_factor = transmission.transmission_factor();
+    }
+
+    let mut ior = 1.5;
+    if let Some(index) = gltf_material.ior() {
+        ior = index;
+    }
+
+    if transmission_factor == 1.0 {
         let index = Box::new(ConstantTexture::<f32>::new(ior)) as Box<dyn SyncTexture<f32>>;
         let reflect_color = Box::new(ConstantTexture::<Spectrum>::new(Spectrum::new(1.0)))
             as Box<dyn SyncTexture<Spectrum>>;
@@ -408,7 +415,7 @@ impl RenderScene {
                     na::Translation3::identity(),
                     na::UnitQuaternion::from_euler_angles(-std::f32::consts::FRAC_PI_2, 0., 0.0),
                 )),
-                Spectrum::new(3.0),
+                Spectrum::new(10.0),
                 hdr_map_path,
             ));
             preprocess_lights.push(default_env_light as Arc<dyn SyncLight>);
