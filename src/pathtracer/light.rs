@@ -325,6 +325,7 @@ pub struct InfiniteAreaLight {
     world_center: na::Point3<f32>,
     world_radius: f32,
     distribution: Box<Distribution2D>,
+    log: slog::Logger,
 }
 
 fn read_hdr_image_to_mat(path: &str, l: Spectrum) -> anyhow::Result<na::DMatrix<Spectrum>> {
@@ -355,6 +356,7 @@ impl InfiniteAreaLight {
         l: Spectrum,
         hdr_map_path: &str,
     ) -> Self {
+        let log = log.new(o!());
         let mut texels: Option<na::DMatrix<Spectrum>> = None;
         if !hdr_map_path.is_empty() {
             match read_hdr_image_to_mat(hdr_map_path, l) {
@@ -395,6 +397,7 @@ impl InfiniteAreaLight {
             world_center: na::Point3::origin(),
             world_radius: 0.0,
             distribution: Box::new(Distribution2D::new(&img[..], width, height)),
+            log,
         }
     }
 }
@@ -492,6 +495,8 @@ impl Light for InfiniteAreaLight {
             spherical_phi(&w) * INV_2_PI,
             spherical_theta(&w) * std::f32::consts::FRAC_1_PI,
         );
+
+        trace!(self.log, "lookup env map with st: {:?}", st);
 
         self.l_map.lookup_width(&st, 0.0)
     }

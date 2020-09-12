@@ -1,5 +1,6 @@
 use crate::{
     common::{importer::gltf::trans_from_gltf, spectrum::Spectrum, WrapMode},
+    pathtracer::light::InfiniteAreaLight,
     pathtracer::{
         accelerator,
         light::{DiffuseAreaLight, DirectionalLight, LightFlags, PointLight, SyncLight},
@@ -397,17 +398,20 @@ impl RenderScene {
         let world_bound = bvh.world_bound();
 
         if default_lights {
-            let default_direction_light = Arc::new(DirectionalLight::new(
-                &na::convert(na::Translation3::new(1.0, 3.5, 0.0)),
-                Spectrum::new(10.0),
-                na::Vector3::new(0.0, 1.0, 0.5),
+            let hdr_map_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("data/abandoned_tank_farm_04_1k.hdr");
+            let hdr_map_path = hdr_map_path.to_str().unwrap();
+            // env light is z up by default, our default coordinate is y up
+            let default_env_light = Arc::new(InfiniteAreaLight::new(
+                &log,
+                na::convert(na::Isometry3::from_parts(
+                    na::Translation3::identity(),
+                    na::UnitQuaternion::from_euler_angles(-std::f32::consts::FRAC_PI_2, 0., 0.0),
+                )),
+                Spectrum::new(3.0),
+                hdr_map_path,
             ));
-            preprocess_lights.push(default_direction_light as Arc<dyn SyncLight>);
-            let default_point_light = Arc::new(PointLight::new(
-                &na::convert(na::Translation3::new(1.0, 3.5, 0.0)),
-                Spectrum::new(30.0),
-            ));
-            lights.push(default_point_light as Arc<dyn SyncLight>);
+            preprocess_lights.push(default_env_light as Arc<dyn SyncLight>);
         }
 
         // run preprocess for lights that need it
