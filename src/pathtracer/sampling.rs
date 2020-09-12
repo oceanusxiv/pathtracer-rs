@@ -193,7 +193,7 @@ impl Distribution2D {
         let mut p_conditional_v = Vec::with_capacity(nv);
         for v in 0..nv {
             p_conditional_v.push(Box::new(Distribution1D::new(
-                &func[v * nu..(v * (nu + 1))],
+                &func[v * nu..(nu * (v + 1))],
                 nu,
             )));
         }

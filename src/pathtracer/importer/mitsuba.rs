@@ -200,6 +200,7 @@ fn parse_shape(
 
 impl RenderScene {
     pub fn from_mitsuba(log: &slog::Logger, scene: &mitsuba::Scene) -> Self {
+        let log = log.new(o!("module" => "scene"));
         let mut materials = HashMap::new();
         let mut primitives: Vec<Arc<dyn SyncPrimitive>> = Vec::new();
         let mut lights: Vec<Arc<dyn SyncLight>> = Vec::new();
@@ -220,7 +221,7 @@ impl RenderScene {
             );
         }
 
-        let bvh = Box::new(accelerator::BVH::new(log, primitives, &4)) as Box<dyn SyncPrimitive>;
+        let bvh = Box::new(accelerator::BVH::new(&log, primitives, &4)) as Box<dyn SyncPrimitive>;
         let world_bound = bvh.world_bound();
 
         for emitter in &scene.emitters {

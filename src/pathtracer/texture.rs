@@ -152,6 +152,7 @@ impl<T: na::Scalar + num::Zero> Texture<T> for ImageTexture<T> {
 pub struct MIPMap<T: na::Scalar + num::Zero> {
     pyramid: Vec<na::DMatrix<T>>,
     wrap_mode: WrapMode,
+    do_trilinear: bool,
     resolution: na::Point2<i32>,
     log: slog::Logger,
 }
@@ -167,6 +168,7 @@ impl<T: na::Scalar + num::Zero> MIPMap<T> {
         Self {
             resolution: na::Point2::new(image.ncols() as i32, image.nrows() as i32),
             pyramid: vec![image],
+            do_trilinear,
             wrap_mode,
             log,
         }
@@ -202,16 +204,31 @@ impl<T: na::Scalar + num::Zero> MIPMap<T> {
         ret
     }
 
+    fn triangle(&self, level: usize, st: &na::Point2<f32>) -> T {
+        let level = level.clamp(0, self.pyramid.len() - 1);
+        let s = st[0] * self.pyramid[level].ncols() as f32 - 0.5;
+        let t = st[1] * self.pyramid[level].nrows() as f32 - 0.5;
+        let s0 = s.floor() as i32;
+        let t0 = t.floor() as i32;
+
+        self.texel(level, s0, t0)
+    }
+
     pub fn lookup(
         &self,
         st: &na::Point2<f32>,
         dst_dx: &na::Vector2<f32>,
         dst_dy: &na::Vector2<f32>,
     ) -> T {
-        self.texel(0, st[0].floor() as i32, st[1].floor() as i32)
+        // TODO: do more sophisticated texture handling
+        if self.do_trilinear {
+            self.triangle(0, &st)
+        } else {
+            self.triangle(0, &st)
+        }
     }
 
     pub fn lookup_width(&self, st: &na::Point2<f32>, width: f32) -> T {
-        self.texel(0, st[0].floor() as i32, st[1].floor() as i32)
+        self.triangle(0, &st)
     }
 }

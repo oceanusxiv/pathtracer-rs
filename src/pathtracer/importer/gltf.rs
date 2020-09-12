@@ -47,7 +47,7 @@ pub fn color_texture_from_gltf(
                     &image,
                     factor,
                     wrap_mode,
-                    UVMap::new(image.width() as f32, image.height() as f32, 0.0, 0.0),
+                    UVMap::new(1.0, 1.0, 0.0, 0.0),
                     true,
                 ))
             } else {
@@ -71,7 +71,7 @@ pub fn color_texture_from_gltf(
                     &image,
                     factor,
                     wrap_mode,
-                    UVMap::new(image.width() as f32, image.height() as f32, 0.0, 0.0),
+                    UVMap::new(1.0, 1.0, 0.0, 0.0),
                     true,
                 ))
             } else {
@@ -121,7 +121,7 @@ pub fn material_from_gltf(
             &image,
             na::Vector2::new(texture.scale(), texture.scale()),
             wrap_mode,
-            UVMap::new(image.width() as f32, image.height() as f32, 0.0, 0.0),
+            UVMap::new(1.0, 1.0, 0.0, 0.0),
         )) as Box<dyn SyncTexture<na::Vector3<f32>>>);
     }
 
@@ -189,7 +189,7 @@ pub fn shapes_from_gltf_prim(
                         &image,
                         1.0,
                         wrap_mode,
-                        UVMap::new(image.width() as f32, image.height() as f32, 0.0, 0.0),
+                        UVMap::new(1.0, 1.0, 0.0, 0.0),
                     )) as Arc<dyn SyncTexture<f32>>);
                 }
             }
@@ -366,20 +366,21 @@ impl RenderScene {
         images: &[gltf::image::Data],
         default_lights: bool,
     ) -> Self {
+        let log = log.new(o!("module" => "scene"));
         let mut primitives: Vec<Arc<dyn SyncPrimitive>> = Vec::new();
-        let mut materials = vec![Arc::new(default_material(log))];
+        let mut materials = vec![Arc::new(default_material(&log))];
         let mut lights: Vec<Arc<dyn SyncLight>> = Vec::new();
         let mut preprocess_lights: Vec<Arc<dyn SyncLight>> = Vec::new();
         let mut infinite_lights: Vec<Arc<dyn SyncLight>> = Vec::new();
 
         for material in document.materials() {
-            materials.push(Arc::new(material_from_gltf(log, &material, &images)));
+            materials.push(Arc::new(material_from_gltf(&log, &material, &images)));
         }
 
         for scene in document.scenes() {
             for node in scene.nodes() {
                 populate_scene(
-                    log,
+                    &log,
                     &na::Projective3::identity(),
                     &node,
                     &buffers,
@@ -392,7 +393,7 @@ impl RenderScene {
             }
         }
 
-        let bvh = Box::new(accelerator::BVH::new(log, primitives, &4)) as Box<dyn SyncPrimitive>;
+        let bvh = Box::new(accelerator::BVH::new(&log, primitives, &4)) as Box<dyn SyncPrimitive>;
         let world_bound = bvh.world_bound();
 
         if default_lights {
