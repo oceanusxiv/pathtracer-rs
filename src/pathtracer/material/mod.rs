@@ -1,3 +1,5 @@
+pub mod disney;
+
 use super::{
     bsdf::BSDF,
     bxdf::{
