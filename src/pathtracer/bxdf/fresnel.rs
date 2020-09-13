@@ -5,7 +5,7 @@ use ambassador::{delegatable_trait, Delegate};
 use super::{abs_cos_theta, cos_theta, BxDFInterface, BxDFType};
 
 #[delegatable_trait]
-trait FresnelInterface {
+pub trait FresnelInterface {
     fn evaluate(&self, cos_i: f32) -> Spectrum;
 }
 

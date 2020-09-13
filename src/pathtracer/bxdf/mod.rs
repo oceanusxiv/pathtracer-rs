@@ -8,16 +8,58 @@ use crate::common::spectrum::Spectrum;
 use ambassador::{delegatable_trait, Delegate};
 use fresnel::{FresnelSpecular, SpecularReflection, SpecularTransmission};
 
-fn cos_theta(w: &na::Vector3<f32>) -> f32 {
+pub fn cos_theta(w: &na::Vector3<f32>) -> f32 {
     w.z
 }
 
-fn cos_2_theta(w: &na::Vector3<f32>) -> f32 {
+pub fn cos_2_theta(w: &na::Vector3<f32>) -> f32 {
     w.z * w.z
 }
 
-fn abs_cos_theta(w: &na::Vector3<f32>) -> f32 {
+pub fn abs_cos_theta(w: &na::Vector3<f32>) -> f32 {
     w.z.abs()
+}
+
+pub fn sin_2_theta(w: &na::Vector3<f32>) -> f32 {
+    0.0f32.max(1.0 - cos_2_theta(&w))
+}
+
+pub fn sin_theta(w: &na::Vector3<f32>) -> f32 {
+    sin_2_theta(&w).sqrt()
+}
+
+pub fn tan_2_theta(w: &na::Vector3<f32>) -> f32 {
+    sin_2_theta(&w) / cos_2_theta(&w)
+}
+
+pub fn tan_theta(w: &na::Vector3<f32>) -> f32 {
+    sin_theta(&w) / cos_theta(&w)
+}
+
+pub fn cos_phi(w: &na::Vector3<f32>) -> f32 {
+    let sin_theta = sin_theta(&w);
+    if sin_theta == 0.0 {
+        1.0
+    } else {
+        (w.x / sin_theta).clamp(-1.0, 1.0)
+    }
+}
+
+pub fn sin_phi(w: &na::Vector3<f32>) -> f32 {
+    let sin_theta = sin_theta(&w);
+    if sin_theta == 0.0 {
+        1.0
+    } else {
+        (w.y / sin_theta).clamp(-1.0, 1.0)
+    }
+}
+
+pub fn cos_2_phi(w: &na::Vector3<f32>) -> f32 {
+    cos_phi(&w) * cos_phi(&w)
+}
+
+pub fn sin_2_phi(w: &na::Vector3<f32>) -> f32 {
+    sin_phi(&w) * sin_phi(&w)
 }
 
 fn same_hemisphere(w: &na::Vector3<f32>, wp: &na::Vector3<f32>) -> bool {
