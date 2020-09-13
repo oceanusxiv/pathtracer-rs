@@ -136,6 +136,7 @@ pub fn material_from_gltf(
         ior = index;
     }
 
+    // total transparency, pure glass
     if transmission_factor == 1.0 {
         let index = Box::new(ConstantTexture::<f32>::new(ior)) as Box<dyn SyncTexture<f32>>;
         let reflect_color = Box::new(ConstantTexture::<Spectrum>::new(Spectrum::new(1.0)))
@@ -147,6 +148,26 @@ pub fn material_from_gltf(
             reflect_color,
             transmit_color,
             index,
+            normal_map,
+        ));
+    }
+
+    // alpha below 1.0, use glass material
+    let alpha = pbr.base_color_factor()[3];
+    if gltf_material.alpha_mode() == gltf::material::AlphaMode::Blend && alpha < 1.0 {
+        // use glass ior as default, 1.33
+        let index = Box::new(ConstantTexture::<f32>::new(1.33)) as Box<dyn SyncTexture<f32>>;
+        let reflect_color = Box::new(ConstantTexture::<Spectrum>::new(Spectrum::new(1.0)))
+            as Box<dyn SyncTexture<Spectrum>>;
+        let transmit_color = Box::new(ConstantTexture::<Spectrum>::new(
+            Spectrum::new(1.0) - alpha * color_factor,
+        )) as Box<dyn SyncTexture<Spectrum>>;
+        return Material::Glass(GlassMaterial::new(
+            log,
+            reflect_color,
+            transmit_color,
+            index,
+            normal_map,
         ));
     }
 
@@ -415,7 +436,7 @@ impl RenderScene {
                     na::Translation3::identity(),
                     na::UnitQuaternion::from_euler_angles(-std::f32::consts::FRAC_PI_2, 0., 0.0),
                 )),
-                Spectrum::new(10.0),
+                Spectrum::new(1.0),
                 hdr_map_path,
             ));
             preprocess_lights.push(default_env_light as Arc<dyn SyncLight>);

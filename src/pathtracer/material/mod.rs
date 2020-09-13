@@ -143,6 +143,7 @@ pub struct GlassMaterial {
     kr: Box<dyn SyncTexture<Spectrum>>,
     kt: Box<dyn SyncTexture<Spectrum>>,
     index: Box<dyn SyncTexture<f32>>,
+    normal_map: Option<Box<dyn SyncTexture<na::Vector3<f32>>>>,
     log: slog::Logger,
 }
 
@@ -152,14 +153,29 @@ impl GlassMaterial {
         kr: Box<dyn SyncTexture<Spectrum>>,
         kt: Box<dyn SyncTexture<Spectrum>>,
         index: Box<dyn SyncTexture<f32>>,
+        normal_map: Option<Box<dyn SyncTexture<na::Vector3<f32>>>>,
     ) -> Self {
         let log = log.new(o!());
-        Self { kr, kt, index, log }
+        Self {
+            kr,
+            kt,
+            index,
+            normal_map,
+            log,
+        }
     }
 }
 
 impl MaterialInterface for GlassMaterial {
-    fn compute_scattering_functions(&self, si: &mut SurfaceMediumInteraction, mode: TransportMode) {
+    fn compute_scattering_functions(
+        &self,
+        mut si: &mut SurfaceMediumInteraction,
+        mode: TransportMode,
+    ) {
+        if let Some(normal_map) = self.normal_map.as_ref() {
+            normal_mapping(&self.log, normal_map, &mut si);
+        }
+
         let eta = self.index.evaluate(&si);
         let r = self.kr.evaluate(&si);
         let t = self.kt.evaluate(&si);

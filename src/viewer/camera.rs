@@ -171,10 +171,13 @@ impl CameraControllerInterface for FirstPersonCameraController {
     fn update_camera(&mut self, camera: &mut Camera, dt: std::time::Duration) {
         let dt = dt.as_secs_f32();
 
+        // the farther away the camera is, the faster you would move
+        const MOVE_FACTOR: f32 = 0.1;
+        let factor = camera.cam_to_world.translation.vector.norm() * MOVE_FACTOR;
         let translation = na::Vector3::new(
-            self.translation.x * dt,
-            self.translation.y * dt,
-            self.translation.z * dt,
+            self.translation.x * dt * factor,
+            self.translation.y * dt * factor,
+            self.translation.z * dt * factor,
         );
         let (r, p) = self.rotation;
         // let (curr_r, curr_p, curr_y) = camera.cam_to_world.rotation.euler_angles();

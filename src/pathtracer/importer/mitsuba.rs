@@ -44,6 +44,7 @@ fn material_from_bsdf(log: &slog::Logger, bsdf: &mitsuba::BSDF) -> Material {
                 as Box<dyn SyncTexture<Spectrum>>,
             Box::new(ConstantTexture::<f32>::new(bsdf.float_params["int_ior"]))
                 as Box<dyn SyncTexture<f32>>,
+            None,
         )),
         _ => Material::Matte(MatteMaterial::new(
             &log,
