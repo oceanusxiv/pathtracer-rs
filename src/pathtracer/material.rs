@@ -1,8 +1,11 @@
 use super::{
     bsdf::BSDF,
     bxdf::{
-        BxDF, Fresnel, FresnelDielectric, FresnelNoOp, FresnelSpecular, LambertianReflection,
-        SpecularReflection, SpecularTransmission,
+        fresnel::{
+            Fresnel, FresnelDielectric, FresnelNoOp, FresnelSpecular, SpecularReflection,
+            SpecularTransmission,
+        },
+        BxDF, LambertianReflection,
     },
     texture::SyncTexture,
     SurfaceMediumInteraction, TransportMode,
