@@ -1,4 +1,4 @@
-use crate::common::{Camera, DEFAULT_Z_FAR, DEFAULT_Z_NEAR};
+use crate::common::{bounds::Bounds3, Camera, DEFAULT_Z_FAR, DEFAULT_Z_NEAR};
 
 fn find_camera(
     parent_transform: &na::Transform3<f32>,
@@ -45,10 +45,28 @@ fn find_camera(
     }
 }
 
-pub fn get_camera(document: &gltf::Document, resolution: &glm::Vec2) -> Camera {
-    let mut camera = Camera::new(
+pub fn get_camera(
+    document: &gltf::Document,
+    world_bound: &Bounds3,
+    resolution: &glm::Vec2,
+) -> Camera {
+    let mut camera = get_default_camera(&world_bound, &resolution);
+    'scene: for scene in document.scenes() {
+        for node in scene.nodes() {
+            if let Some(curr_cam) = find_camera(&na::Transform3::identity(), &node, &resolution) {
+                camera = curr_cam;
+                break 'scene;
+            }
+        }
+    }
+
+    camera
+}
+
+pub fn get_default_camera(world_bound: &Bounds3, resolution: &glm::Vec2) -> Camera {
+    Camera::new(
         &na::Isometry3::look_at_rh(
-            &na::Point3::new(0.2, 0.05, 0.2),
+            &world_bound.p_max,
             &na::Point3::origin(),
             &na::Vector3::new(0.0, 1.0, 0.0),
         )
@@ -60,17 +78,7 @@ pub fn get_camera(document: &gltf::Document, resolution: &glm::Vec2) -> Camera {
             DEFAULT_Z_FAR,
         ),
         &resolution,
-    );
-
-    for scene in document.scenes() {
-        for node in scene.nodes() {
-            if let Some(curr_cam) = find_camera(&na::Transform3::identity(), &node, &resolution) {
-                camera = curr_cam;
-            }
-        }
-    }
-
-    camera
+    )
 }
 
 pub fn trans_from_gltf(transform: gltf::scene::Transform) -> na::Projective3<f32> {
@@ -94,7 +102,6 @@ pub fn from_gltf(
     crate::viewer::ViewerScene,
 ) {
     let (document, buffers, images) = gltf::import(path).unwrap();
-    let camera = get_camera(&document, &resolution);
     let render_scene = crate::pathtracer::RenderScene::from_gltf(
         &log,
         &document,
@@ -102,6 +109,7 @@ pub fn from_gltf(
         &images,
         default_lights,
     );
+    let camera = get_camera(&document, &render_scene.world_bound(), &resolution);
     let viewer_scene = crate::viewer::ViewerScene::from_gltf(&document, &buffers, &images);
 
     (camera, render_scene, viewer_scene)

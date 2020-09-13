@@ -12,7 +12,10 @@ pub mod sampling;
 mod shape;
 mod texture;
 
-use crate::common::ray::{Ray, RayDifferential};
+use crate::common::{
+    bounds::Bounds3,
+    ray::{Ray, RayDifferential},
+};
 
 use crate::common::Camera;
 use interaction::SurfaceMediumInteraction;
@@ -87,5 +90,9 @@ impl RenderScene {
 
     pub fn intersect_p(&self, r: &Ray) -> bool {
         self.scene.intersect_p(r)
+    }
+
+    pub fn world_bound(&self) -> Bounds3 {
+        self.scene.world_bound()
     }
 }
