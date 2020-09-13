@@ -1,4 +1,5 @@
 pub mod fresnel;
+pub mod microfacet;
 
 use super::sampling::{
     cosine_sample_hemisphere, uniform_hemisphere_pdf, uniform_sample_hemisphere,

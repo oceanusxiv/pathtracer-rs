@@ -478,7 +478,9 @@ impl PathIntegrator {
             // Only do Russian Roulette if it is enabled
             if self.rr_enable {
                 let rr_beta = beta * eta_scale;
-                if rr_beta.max_component_value() < self.rr_threshold && bounces > self.rr_start_depth {
+                if rr_beta.max_component_value() < self.rr_threshold
+                    && bounces > self.rr_start_depth
+                {
                     let q = 0.05f32.max(1.0 - rr_beta.max_component_value());
                     if sampler.get_1d() < q {
                         break;
