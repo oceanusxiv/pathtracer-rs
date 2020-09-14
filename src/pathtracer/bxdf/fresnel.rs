@@ -2,7 +2,7 @@ use crate::common::{math::face_forward, spectrum::Spectrum};
 use crate::pathtracer::TransportMode;
 use ambassador::{delegatable_trait, Delegate};
 
-use super::{abs_cos_theta, cos_theta, BxDFInterface, BxDFType};
+use super::{abs_cos_theta, cos_theta, refract, BxDFInterface, BxDFType};
 
 #[delegatable_trait]
 pub trait FresnelInterface {
@@ -131,24 +131,6 @@ impl SpecularTransmission {
             mode,
         }
     }
-}
-
-fn refract(
-    wi: &na::Vector3<f32>,
-    n: &na::Vector3<f32>,
-    eta: f32,
-    wt: &mut na::Vector3<f32>,
-) -> bool {
-    let cos_theta_i = n.dot(&wi);
-    let sin_2_theta_i = 0.0f32.max(1.0 - cos_theta_i * cos_theta_i);
-    let sin_2_theta_t = eta * eta * sin_2_theta_i;
-    if sin_2_theta_t > 1.0 {
-        return false;
-    }
-    let cos_theta_t = (1.0 - sin_2_theta_t).sqrt();
-    *wt = eta * -wi + (eta * cos_theta_i - cos_theta_t) * n;
-
-    true
 }
 
 impl BxDFInterface for SpecularTransmission {

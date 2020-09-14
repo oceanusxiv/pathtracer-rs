@@ -11,8 +11,14 @@ name = "small_scene"
 name = "benchmark_render"
 harness = false
 
+[profile.release.package."*"]
+debug=false
+debug-assertions=false
+
+# for debug purposes
 [profile.release]
 debug=true
+debug-assertions=true
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [dev-dependencies.cargo-husky]
