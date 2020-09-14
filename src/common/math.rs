@@ -197,9 +197,46 @@ pub fn find_interval<T: Fn(usize) -> bool>(size: usize, pred: T) -> usize {
     (first - 1).clamp(0, size - 2)
 }
 
+pub fn round_up_pow_2(mut v: i32) -> i32 {
+    v -= 1;
+    v |= v >> 1;
+    v |= v >> 2;
+    v |= v >> 4;
+    v |= v >> 8;
+    v |= v >> 16;
+    return v + 1;
+}
+
+pub fn abs_mod<T: num::Integer + Copy>(a: T, b: T) -> T {
+    let result = a - (a / b) * b;
+    if result < T::zero() {
+        result + b
+    } else {
+        result
+    }
+}
+
+#[inline]
+pub fn log2_int(i: usize) -> u32 {
+    1usize.leading_zeros() - i.leading_zeros()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_log2_int() {
+        for i in 0..(std::mem::size_of::<usize>() * 8 - 1) {
+            let ui = 1usize << i;
+            assert_eq!(i as u32, log2_int(ui));
+        }
+
+        for i in 1..(std::mem::size_of::<usize>() * 8 - 1) {
+            let ui = 1usize << i;
+            assert_eq!(i as u32, log2_int(ui + 1));
+        }
+    }
 
     #[test]
     fn test_solve_linear_system_2x2() {

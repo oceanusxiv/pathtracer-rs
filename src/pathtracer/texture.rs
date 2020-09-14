@@ -1,5 +1,9 @@
+use std::ops::{AddAssign, Mul};
+
 use super::interaction::SurfaceMediumInteraction;
-use crate::common::{spectrum::Spectrum, WrapMode};
+use crate::common::{
+    math::abs_mod, math::log2_int, math::round_up_pow_2, spectrum::Spectrum, WrapMode,
+};
 
 pub trait Texture<T> {
     fn evaluate(&self, it: &SurfaceMediumInteraction) -> T;
@@ -139,7 +143,10 @@ impl ImageTexture<na::Vector3<f32>> {
 
 pub type NormalMap = ImageTexture<na::Vector3<f32>>;
 
-impl<T: na::Scalar + num::Zero> Texture<T> for ImageTexture<T> {
+impl<T> Texture<T> for ImageTexture<T>
+where
+    T: na::Scalar + num::Zero + Copy + AddAssign<<T as Mul<f32>>::Output> + Mul<f32>,
+{
     fn evaluate(&self, it: &SurfaceMediumInteraction) -> T {
         let mut dst_dx = glm::zero();
         let mut dst_dy = glm::zero();
@@ -149,15 +156,61 @@ impl<T: na::Scalar + num::Zero> Texture<T> for ImageTexture<T> {
     }
 }
 
+struct ResampleWeight {
+    pub first_texel: usize,
+    pub weight: [f32; 4],
+}
+
+fn lanczos(mut x: f32, tau: f32) -> f32 {
+    x = x.abs();
+    if x < 1e-5 {
+        return 1.;
+    }
+    if x > 1. {
+        return 0.;
+    }
+    x *= std::f32::consts::PI;
+    let s = (x * tau).sin() / (x * tau);
+    let lanczos = x.sin() / x;
+    s * lanczos
+}
+
+fn resample_weights(old_res: usize, new_res: usize) -> Vec<ResampleWeight> {
+    let mut wt = Vec::with_capacity(new_res);
+    const FILTER_WIDTH: f32 = 2.;
+    for i in 0..new_res {
+        let center = (i as f32 + 0.5) * old_res as f32 / new_res as f32;
+        let first_texel = ((center - FILTER_WIDTH) + 0.5).floor();
+        let mut weight = [0.0; 4];
+        for j in 0..4 {
+            let pos = first_texel + j as f32 + 0.5;
+            weight[j] = lanczos((pos - center) / FILTER_WIDTH, 2.0);
+        }
+
+        let inv_sum_wts = 1. / (weight[0] + weight[1] + weight[2] + weight[3]);
+        for j in 0..4 {
+            weight[j] *= inv_sum_wts;
+        }
+
+        wt.push(ResampleWeight {
+            first_texel: first_texel as usize,
+            weight,
+        });
+    }
+    wt
+}
+
 pub struct MIPMap<T: na::Scalar + num::Zero> {
     pyramid: Vec<na::DMatrix<T>>,
     wrap_mode: WrapMode,
     do_trilinear: bool,
-    resolution: na::Point2<i32>,
     log: slog::Logger,
 }
 
-impl<T: na::Scalar + num::Zero> MIPMap<T> {
+impl<T> MIPMap<T>
+where
+    T: na::Scalar + num::Zero + Copy + AddAssign<<T as Mul<f32>>::Output> + Mul<f32>,
+{
     pub fn new(
         log: &slog::Logger,
         image: na::DMatrix<T>,
@@ -165,9 +218,90 @@ impl<T: na::Scalar + num::Zero> MIPMap<T> {
         wrap_mode: WrapMode,
     ) -> Self {
         let log = log.new(o!());
+        let mut resolution = na::Point2::new(image.ncols(), image.nrows());
+        let resampled_image = if !image.ncols().is_power_of_two()
+            || !image.nrows().is_power_of_two()
+        {
+            let res_pow_2 = na::Point2::new(
+                round_up_pow_2(image.ncols() as i32) as usize,
+                round_up_pow_2(image.nrows() as i32) as usize,
+            );
+
+            info!(
+                log,
+                "Resampling MIPMap from {:?} to {:?}, ratio = {:?}",
+                resolution,
+                res_pow_2,
+                ((res_pow_2.x * res_pow_2.y) / (resolution.x * resolution.y))
+            );
+
+            let s_weights = resample_weights(resolution[0], res_pow_2[0]);
+            let mut resampled_image = na::DMatrix::<T>::zeros(res_pow_2[1], res_pow_2[0]);
+
+            for t in 0..resolution[1] {
+                for s in 0..res_pow_2[0] {
+                    for j in 0..4 {
+                        let mut orig_s = s_weights[s].first_texel + j;
+                        match wrap_mode {
+                            WrapMode::Repeat => {
+                                orig_s = abs_mod(orig_s, resolution[0]);
+                            }
+                            WrapMode::Clamp => {
+                                orig_s = orig_s.clamp(0, resolution[0] - 1);
+                            }
+                            _ => {}
+                        }
+                        if orig_s > 0 && orig_s < resolution[0] {
+                            resampled_image[(t, s)] += image[(t, orig_s)] * s_weights[s].weight[j];
+                        }
+                    }
+                }
+            }
+
+            let t_weights = resample_weights(resolution[1], res_pow_2[1]);
+
+            for s in 0..res_pow_2[0] {
+                let mut work_data = vec![T::zero(); res_pow_2[1]];
+                for t in 0..res_pow_2[1] {
+                    for j in 0..4 {
+                        let mut offset = t_weights[t].first_texel + j;
+                        match wrap_mode {
+                            WrapMode::Repeat => {
+                                offset = abs_mod(offset, resolution[1]);
+                            }
+                            WrapMode::Clamp => {
+                                offset = offset.clamp(0, resolution[1] - 1);
+                            }
+                            _ => {}
+                        }
+                        if offset >= 0 && offset < resolution[1] {
+                            work_data[t] += resampled_image[(offset, s)] * t_weights[t].weight[j];
+                        }
+                    }
+                }
+                for t in 0..res_pow_2[1] {
+                    resampled_image[(t, s)] = work_data[t];
+                }
+            }
+
+            resolution = res_pow_2;
+
+            Some(resampled_image)
+        } else {
+            None
+        };
+
+        let n_levels = 1 + log2_int(resolution[0].max(resolution[1]));
+        let mut pyramid = Vec::with_capacity(n_levels as usize);
+
+        if let Some(resampled_image) = resampled_image {
+            pyramid.push(resampled_image);
+        } else {
+            pyramid.push(image);
+        }
+
         Self {
-            resolution: na::Point2::new(image.ncols() as i32, image.nrows() as i32),
-            pyramid: vec![image],
+            pyramid,
             do_trilinear,
             wrap_mode,
             log,
@@ -179,10 +313,8 @@ impl<T: na::Scalar + num::Zero> MIPMap<T> {
         let level = &self.pyramid[level];
         match self.wrap_mode {
             WrapMode::Repeat => {
-                let mut s = s % level.ncols() as i32;
-                s = if s < 0 { s + level.ncols() as i32 } else { s };
-                let mut t = t % level.nrows() as i32;
-                t = if t < 0 { t + level.nrows() as i32 } else { t };
+                let s = abs_mod(s, level.ncols() as i32);
+                let t = abs_mod(t, level.nrows() as i32);
                 trace!(self.log, "[Repeat] processed: {:?}, {:?}", s, t);
                 ret = level[(t as usize, s as usize)].clone();
             }
