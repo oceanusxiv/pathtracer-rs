@@ -331,7 +331,7 @@ pub struct InfiniteAreaLight {
 fn read_hdr_image_to_mat(path: &str, l: Spectrum) -> anyhow::Result<na::DMatrix<Spectrum>> {
     let file = File::open(path)?;
     let file = BufReader::new(file);
-    let decoder = image::hdr::HDRDecoder::new(file)?;
+    let decoder = image::hdr::HdrDecoder::new(file)?;
     let metadata = decoder.metadata();
     let image = decoder.read_image_hdr()?;
     Ok(na::DMatrix::from_fn(
