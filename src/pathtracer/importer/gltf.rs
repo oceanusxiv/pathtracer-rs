@@ -106,46 +106,61 @@ pub fn metallic_roughness_texture_from_gltf(
     let sampler = &texture.texture().sampler();
     assert_eq!(sampler.wrap_s(), sampler.wrap_t());
     let wrap_mode = wrap_mode_from_gtlf(sampler.wrap_s());
-
+    let metallic_image;
+    let roughness_image;
     match image.format {
         gltf::image::Format::R8G8B8 => {
-            let metallic_image = image::GrayImage::from_raw(
+            metallic_image = image::GrayImage::from_raw(
                 image.width,
                 image.height,
                 image.pixels.iter().skip(2).step_by(3).map(|v| *v).collect(),
             )
             .unwrap();
-            let roughness_image = image::GrayImage::from_raw(
+            roughness_image = image::GrayImage::from_raw(
                 image.width,
                 image.height,
                 image.pixels.iter().skip(1).step_by(3).map(|v| *v).collect(),
             )
             .unwrap();
-            Some((
-                ImageTexture::<f32>::new(
-                    log,
-                    &metallic_image,
-                    metallic_factor,
-                    wrap_mode,
-                    UVMap::new(1.0, 1.0, 0.0, 0.0),
-                ),
-                ImageTexture::<f32>::new(
-                    log,
-                    &roughness_image,
-                    roughness_factor,
-                    wrap_mode,
-                    UVMap::new(1.0, 1.0, 0.0, 0.0),
-                ),
-            ))
+        }
+        gltf::image::Format::R8G8B8A8 => {
+            metallic_image = image::GrayImage::from_raw(
+                image.width,
+                image.height,
+                image.pixels.iter().skip(2).step_by(4).map(|v| *v).collect(),
+            )
+            .unwrap();
+            roughness_image = image::GrayImage::from_raw(
+                image.width,
+                image.height,
+                image.pixels.iter().skip(1).step_by(4).map(|v| *v).collect(),
+            )
+            .unwrap();
         }
         _ => {
             error!(
                 log,
                 "unsupported image format {:?} for metallic roughness texture", image.format
             );
-            None
+            return None;
         }
     }
+    Some((
+        ImageTexture::<f32>::new(
+            log,
+            &metallic_image,
+            metallic_factor,
+            wrap_mode,
+            UVMap::new(1.0, 1.0, 0.0, 0.0),
+        ),
+        ImageTexture::<f32>::new(
+            log,
+            &roughness_image,
+            roughness_factor,
+            wrap_mode,
+            UVMap::new(1.0, 1.0, 0.0, 0.0),
+        ),
+    ))
 }
 
 pub fn material_from_gltf(
