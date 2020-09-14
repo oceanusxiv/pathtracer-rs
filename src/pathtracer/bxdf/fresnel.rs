@@ -14,10 +14,11 @@ pub trait FresnelInterface {
 pub enum Fresnel {
     Dielectric(FresnelDielectric),
     Conductor(FresnelConductor),
+    Disney(super::super::material::disney::DisneyFresnel),
     NoOp(FresnelNoOp),
 }
 
-fn fr_dielectric(cos_theta_i: f32, mut eta_i: f32, mut eta_t: f32) -> f32 {
+pub fn fr_dielectric(cos_theta_i: f32, mut eta_i: f32, mut eta_t: f32) -> f32 {
     let mut cos_theta_i = cos_theta_i.clamp(-1.0, 1.0);
     let entering = cos_theta_i > 0.0;
     if !entering {

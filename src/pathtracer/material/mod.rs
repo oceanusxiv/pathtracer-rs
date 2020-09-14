@@ -27,6 +27,7 @@ pub enum Material {
     Matte(MatteMaterial),
     Mirror(MirrorMaterial),
     Glass(GlassMaterial),
+    Disney(disney::DisneyMaterial),
 }
 
 // FIXME: definitely something wrong with the TBN calculations, normals not correct

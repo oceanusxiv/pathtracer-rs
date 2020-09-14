@@ -97,6 +97,7 @@ pub trait BxDFInterface {
         *pdf = self.pdf(&wo, &wi);
         self.f(&wo, &wi)
     }
+
     fn rho(
         &self,
         wo: &na::Vector3<f32>,
@@ -117,6 +118,7 @@ pub trait BxDFInterface {
 
         r / (n_samples as f32)
     }
+
     fn rho_no_wo(
         &self,
         n_samples: usize,
@@ -143,7 +145,9 @@ pub trait BxDFInterface {
     fn matches_flags(&self, t: BxDFType) -> bool {
         (self.get_type() & t) == self.get_type()
     }
+
     fn get_type(&self) -> BxDFType;
+
     fn pdf(&self, wo: &na::Vector3<f32>, wi: &na::Vector3<f32>) -> f32 {
         if same_hemisphere(&wo, &wi) {
             abs_cos_theta(&wi) * std::f32::consts::FRAC_1_PI
@@ -160,6 +164,9 @@ pub enum BxDF {
     SpecularReflection(SpecularReflection),
     SpecularTransmission(SpecularTransmission),
     FresnelSpecular(FresnelSpecular),
+    MicrofacetReflection(microfacet::MicrofacetReflection),
+    MicrofacetTransmission(microfacet::MicrofacetTransmission),
+    DisneyDiffuse(super::material::disney::DisneyDiffuse),
 }
 
 pub struct LambertianReflection {

@@ -1,6 +1,7 @@
 use super::math::{gamma_correct, inverse_gamma_correct};
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub};
 
+// TODO: think about making this use vectors inside
 #[derive(Clone, Debug, Copy)]
 pub struct RGBSpectrum {
     pub r: f32,
@@ -77,6 +78,14 @@ impl RGBSpectrum {
 
     pub fn max_component_value(&self) -> f32 {
         self.r.max(self.g).max(self.b)
+    }
+
+    pub fn sqrt(&self) -> Self {
+        Self {
+            r: self.r.sqrt(),
+            g: self.g.sqrt(),
+            b: self.b.sqrt(),
+        }
     }
 }
 
@@ -198,6 +207,10 @@ impl num::Zero for RGBSpectrum {
     fn is_zero(&self) -> bool {
         self.r == 0.0 && self.g == 0.0 && self.b == 0.0
     }
+}
+
+pub fn lerp_spectrum(x: &Spectrum, y: &Spectrum, a: f32) -> Spectrum {
+    *x * (Spectrum::new(1.) - a) + *y * a
 }
 
 pub type Spectrum = RGBSpectrum;

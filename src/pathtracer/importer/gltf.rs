@@ -4,7 +4,9 @@ use crate::{
     pathtracer::{
         accelerator,
         light::{DiffuseAreaLight, DirectionalLight, LightFlags, PointLight, SyncLight},
-        material::{GlassMaterial, Material, MatteMaterial, MirrorMaterial},
+        material::{
+            disney::DisneyMaterial, GlassMaterial, Material, MatteMaterial, MirrorMaterial,
+        },
         primitive::{GeometricPrimitive, SyncPrimitive},
         shape::{shapes_from_mesh, SyncShape, TriangleMesh},
         texture::{ConstantTexture, ImageTexture, NormalMap, SyncTexture, UVMap},
@@ -23,6 +25,14 @@ pub fn default_material(log: &slog::Logger) -> Material {
     Material::Matte(MatteMaterial::new(log, color_texture, None))
 }
 
+fn wrap_mode_from_gtlf(gltf_wrap: gltf::texture::WrappingMode) -> WrapMode {
+    match gltf_wrap {
+        gltf::texture::WrappingMode::ClampToEdge => WrapMode::Clamp,
+        gltf::texture::WrappingMode::MirroredRepeat => WrapMode::Repeat,
+        gltf::texture::WrappingMode::Repeat => WrapMode::Repeat,
+    }
+}
+
 pub fn color_texture_from_gltf(
     log: &slog::Logger,
     texture: &gltf::texture::Info,
@@ -32,11 +42,7 @@ pub fn color_texture_from_gltf(
     let image = &images[texture.texture().source().index()];
     let sampler = &texture.texture().sampler();
     assert_eq!(sampler.wrap_s(), sampler.wrap_t());
-    let wrap_mode = match sampler.wrap_s() {
-        gltf::texture::WrappingMode::ClampToEdge => WrapMode::Clamp,
-        gltf::texture::WrappingMode::MirroredRepeat => WrapMode::Repeat,
-        gltf::texture::WrappingMode::Repeat => WrapMode::Repeat,
-    };
+    let wrap_mode = wrap_mode_from_gtlf(sampler.wrap_s());
 
     match image.format {
         gltf::image::Format::R8G8B8 => {
@@ -89,6 +95,59 @@ pub fn color_texture_from_gltf(
     }
 }
 
+pub fn metallic_roughness_texture_from_gltf(
+    log: &slog::Logger,
+    texture: &gltf::texture::Info,
+    metallic_factor: f32,
+    roughness_factor: f32,
+    images: &[gltf::image::Data],
+) -> Option<(ImageTexture<f32>, ImageTexture<f32>)> {
+    let image = &images[texture.texture().source().index()];
+    let sampler = &texture.texture().sampler();
+    assert_eq!(sampler.wrap_s(), sampler.wrap_t());
+    let wrap_mode = wrap_mode_from_gtlf(sampler.wrap_s());
+
+    match image.format {
+        gltf::image::Format::R8G8B8 => {
+            let metallic_image = image::GrayImage::from_raw(
+                image.width,
+                image.height,
+                image.pixels.iter().skip(2).step_by(3).map(|v| *v).collect(),
+            )
+            .unwrap();
+            let roughness_image = image::GrayImage::from_raw(
+                image.width,
+                image.height,
+                image.pixels.iter().skip(1).step_by(3).map(|v| *v).collect(),
+            )
+            .unwrap();
+            Some((
+                ImageTexture::<f32>::new(
+                    log,
+                    &metallic_image,
+                    metallic_factor,
+                    wrap_mode,
+                    UVMap::new(1.0, 1.0, 0.0, 0.0),
+                ),
+                ImageTexture::<f32>::new(
+                    log,
+                    &roughness_image,
+                    roughness_factor,
+                    wrap_mode,
+                    UVMap::new(1.0, 1.0, 0.0, 0.0),
+                ),
+            ))
+        }
+        _ => {
+            error!(
+                log,
+                "unsupported image format {:?} for metallic roughness texture", image.format
+            );
+            None
+        }
+    }
+}
+
 pub fn material_from_gltf(
     log: &slog::Logger,
     gltf_material: &gltf::Material,
@@ -110,11 +169,8 @@ pub fn material_from_gltf(
         let image = &images[texture.texture().source().index()];
         let sampler = &texture.texture().sampler();
         assert_eq!(sampler.wrap_s(), sampler.wrap_t());
-        let wrap_mode = match sampler.wrap_s() {
-            gltf::texture::WrappingMode::ClampToEdge => WrapMode::Clamp,
-            gltf::texture::WrappingMode::MirroredRepeat => WrapMode::Repeat,
-            gltf::texture::WrappingMode::Repeat => WrapMode::Repeat,
-        };
+        let wrap_mode = wrap_mode_from_gtlf(sampler.wrap_s());
+
         let image =
             image::RgbImage::from_raw(image.width, image.height, image.pixels.clone()).unwrap();
         normal_map = Some(Box::new(NormalMap::new(
@@ -131,14 +187,15 @@ pub fn material_from_gltf(
         transmission_factor = transmission.transmission_factor();
     }
 
+    // default gltf ior is 1.5
     let mut ior = 1.5;
     if let Some(index) = gltf_material.ior() {
         ior = index;
     }
+    let index = Box::new(ConstantTexture::<f32>::new(ior)) as Box<dyn SyncTexture<f32>>;
 
     // total transparency, pure glass
     if transmission_factor == 1.0 {
-        let index = Box::new(ConstantTexture::<f32>::new(ior)) as Box<dyn SyncTexture<f32>>;
         let reflect_color = Box::new(ConstantTexture::<Spectrum>::new(Spectrum::new(1.0)))
             as Box<dyn SyncTexture<Spectrum>>;
         let transmit_color = Box::new(ConstantTexture::<Spectrum>::new(Spectrum::new(1.0)))
@@ -171,15 +228,39 @@ pub fn material_from_gltf(
         ));
     }
 
+    // perfect metallic, use mirror
     if pbr.metallic_factor() == 1.0 && pbr.roughness_factor() == 0.0 {
         return Material::Mirror(MirrorMaterial::new(log));
     }
 
-    if pbr.metallic_factor() == 0.0 && pbr.roughness_factor() == 0.0 {
-        return Material::Matte(MatteMaterial::new(log, color_texture, normal_map));
+    let metallic_factor = pbr.metallic_factor();
+    let mut metallic_texture =
+        Box::new(ConstantTexture::<f32>::new(metallic_factor)) as Box<dyn SyncTexture<f32>>;
+    let roughness_factor = pbr.roughness_factor();
+    let mut roughness_texture =
+        Box::new(ConstantTexture::<f32>::new(roughness_factor)) as Box<dyn SyncTexture<f32>>;
+
+    if let Some(info) = pbr.metallic_roughness_texture() {
+        if let Some((metallic, roughness)) = metallic_roughness_texture_from_gltf(
+            &log,
+            &info,
+            metallic_factor,
+            roughness_factor,
+            &images,
+        ) {
+            metallic_texture = Box::new(metallic) as Box<dyn SyncTexture<f32>>;
+            roughness_texture = Box::new(roughness) as Box<dyn SyncTexture<f32>>;
+        }
     }
 
-    Material::Matte(MatteMaterial::new(log, color_texture, normal_map))
+    Material::Disney(DisneyMaterial::new(
+        log,
+        color_texture,
+        metallic_texture,
+        index,
+        roughness_texture,
+        normal_map,
+    ))
 }
 
 pub fn shapes_from_gltf_prim(
@@ -199,11 +280,7 @@ pub fn shapes_from_gltf_prim(
         let image = &images[texture.texture().source().index()];
         let sampler = &texture.texture().sampler();
         assert_eq!(sampler.wrap_s(), sampler.wrap_t());
-        let wrap_mode = match sampler.wrap_s() {
-            gltf::texture::WrappingMode::ClampToEdge => WrapMode::Clamp,
-            gltf::texture::WrappingMode::MirroredRepeat => WrapMode::Repeat,
-            gltf::texture::WrappingMode::Repeat => WrapMode::Repeat,
-        };
+        let wrap_mode = wrap_mode_from_gtlf(sampler.wrap_s());
 
         match gltf_prim.material().alpha_mode() {
             gltf::material::AlphaMode::Mask => {

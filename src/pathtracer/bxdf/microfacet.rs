@@ -7,13 +7,52 @@ use super::{
     same_hemisphere, sin_2_phi, tan_2_theta, tan_theta, BxDFInterface, BxDFType,
 };
 
+pub trait MicrofacetDistribution {
+    fn d(&self, wh: &na::Vector3<f32>) -> f32;
+
+    fn lambda(&self, w: &na::Vector3<f32>) -> f32;
+
+    fn g1(&self, w: &na::Vector3<f32>) -> f32 {
+        1.0 / (1.0 + self.lambda(&w))
+    }
+
+    fn g(&self, wo: &na::Vector3<f32>, wi: &na::Vector3<f32>) -> f32 {
+        1.0 / (1.0 + self.lambda(&wo) + self.lambda(&wi))
+    }
+
+    fn sample_wh(&self, wo: &na::Vector3<f32>, u: &na::Point2<f32>) -> na::Vector3<f32>;
+
+    fn pdf(&self, wo: &na::Vector3<f32>, wh: &na::Vector3<f32>) -> f32;
+}
+
 pub struct TrowbridgeReitzDistribution {
     alpha_x: f32,
     alpha_y: f32,
+    sample_vis: bool,
 }
 
 impl TrowbridgeReitzDistribution {
-    pub fn d(&self, wh: &na::Vector3<f32>) -> f32 {
+    pub fn new(alpha_x: f32, alpha_y: f32) -> Self {
+        Self {
+            alpha_x: alpha_x.max(0.001),
+            alpha_y: alpha_y.max(0.001),
+            sample_vis: true,
+        }
+    }
+
+    pub fn roughness_to_alpha(roughness: f32) -> f32 {
+        let roughness = roughness.max(1e-3);
+        let x = roughness.ln();
+        1.62142
+            + 0.819955 * x
+            + 0.1734 * x * x
+            + 0.0171201 * x * x * x
+            + 0.000640711 * x * x * x * x
+    }
+}
+
+impl MicrofacetDistribution for TrowbridgeReitzDistribution {
+    fn d(&self, wh: &na::Vector3<f32>) -> f32 {
         let tan_2_theta = tan_2_theta(&wh);
         if tan_2_theta.is_infinite() {
             return 0.0;
@@ -42,39 +81,33 @@ impl TrowbridgeReitzDistribution {
         (-1.0 + (1.0 + alpha_2_tan_2_theta).sqrt()) / 2.0
     }
 
-    pub fn g1(&self, w: &na::Vector3<f32>) -> f32 {
-        1.0 / (1.0 + self.lambda(&w))
-    }
-
-    pub fn g(&self, wo: &na::Vector3<f32>, wi: &na::Vector3<f32>) -> f32 {
-        1.0 / (1.0 + self.lambda(&wo) + self.lambda(&wi))
-    }
-
-    pub fn sample_wh(&self, wo: &na::Vector3<f32>, u: &na::Point2<f32>) -> na::Vector3<f32> {
+    fn sample_wh(&self, wo: &na::Vector3<f32>, u: &na::Point2<f32>) -> na::Vector3<f32> {
         todo!()
     }
 
-    pub fn pdf(&self, wo: &na::Vector3<f32>, wh: &na::Vector3<f32>) -> f32 {
+    fn pdf(&self, wo: &na::Vector3<f32>, wh: &na::Vector3<f32>) -> f32 {
         todo!()
-    }
-
-    pub fn roughness_to_alpha(roughness: f32) -> f32 {
-        let roughness = roughness.max(1e-3);
-        let x = roughness.ln();
-        1.62142
-            + 0.819955 * x
-            + 0.1734 * x * x
-            + 0.0171201 * x * x * x
-            + 0.000640711 * x * x * x * x
     }
 }
 
-pub type MicrofacetDistribution = TrowbridgeReitzDistribution;
-
-struct MicrofacetReflection {
+pub struct MicrofacetReflection {
     r: Spectrum,
-    distribution: Box<MicrofacetDistribution>,
+    distribution: Box<dyn MicrofacetDistribution>,
     fresnel: Box<Fresnel>,
+}
+
+impl MicrofacetReflection {
+    pub fn new(
+        r: Spectrum,
+        distribution: Box<dyn MicrofacetDistribution>,
+        fresnel: Box<Fresnel>,
+    ) -> Self {
+        Self {
+            r,
+            distribution,
+            fresnel,
+        }
+    }
 }
 
 impl BxDFInterface for MicrofacetReflection {
@@ -115,13 +148,32 @@ impl BxDFInterface for MicrofacetReflection {
     }
 }
 
-struct MicrofacetTransmission {
+pub struct MicrofacetTransmission {
     t: Spectrum,
-    distribution: Box<MicrofacetDistribution>,
+    distribution: Box<dyn MicrofacetDistribution>,
     eta_a: f32,
     eta_b: f32,
     fresnel: FresnelDielectric,
     mode: TransportMode,
+}
+
+impl MicrofacetTransmission {
+    pub fn new(
+        t: Spectrum,
+        distribution: Box<dyn MicrofacetDistribution>,
+        eta_a: f32,
+        eta_b: f32,
+        mode: TransportMode,
+    ) -> Self {
+        Self {
+            t,
+            distribution,
+            eta_a,
+            eta_b,
+            fresnel: FresnelDielectric::new(eta_a, eta_b),
+            mode,
+        }
+    }
 }
 
 impl BxDFInterface for MicrofacetTransmission {
@@ -195,7 +247,7 @@ impl BxDFInterface for MicrofacetTransmission {
 pub struct FresnelBlend {
     rd: Spectrum,
     rs: Spectrum,
-    distribution: Box<MicrofacetDistribution>,
+    distribution: Box<dyn MicrofacetDistribution>,
 }
 
 impl FresnelBlend {
