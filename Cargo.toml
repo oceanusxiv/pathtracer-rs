@@ -11,6 +11,10 @@ name = "small_scene"
 name = "benchmark_render"
 harness = false
 
+[[bench]]
+name = "benchmark_bounds"
+harness = false
+
 [profile.release.package."*"]
 debug=false
 debug-assertions=false

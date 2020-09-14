@@ -591,7 +591,7 @@ pub struct Scene {
     pub bsdfs: HashMap<String, BSDF>,
     #[serde(rename = "shape")]
     pub shapes: Vec<Shape>,
-    #[serde(rename = "emitter")]
+    #[serde(default, rename = "emitter")]
     pub emitters: Vec<Emitter>,
     #[serde(skip)]
     pub path: String,
