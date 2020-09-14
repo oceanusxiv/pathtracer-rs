@@ -159,9 +159,9 @@ impl MicrofacetDistribution for TrowbridgeReitzDistribution {
         let wo = if flip { -wo } else { *wo };
         let wh = trowbridge_reitz_sample(&wo, self.alpha_x, self.alpha_y, u[0], u[1]);
         if flip {
-            wh
-        } else {
             -wh
+        } else {
+            wh
         }
     }
 
