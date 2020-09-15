@@ -340,11 +340,7 @@ fn read_hdr_image_to_mat(path: &str, l: Spectrum) -> anyhow::Result<na::DMatrix<
         |row, col| {
             let rgb = &image[row * metadata.width as usize + col];
 
-            l * Spectrum {
-                r: rgb[0],
-                g: rgb[1],
-                b: rgb[2],
-            }
+            l * Spectrum::from_image_rgb_f32(rgb)
         },
     ))
 }

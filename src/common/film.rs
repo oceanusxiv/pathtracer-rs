@@ -100,11 +100,7 @@ impl Film {
     pub fn get_pixel(&self, p: &na::Point2<i32>) -> Spectrum {
         let pixel = self.image.read().unwrap();
         let pixel = pixel.get_pixel(p.x as u32, p.y as u32);
-        Spectrum {
-            r: pixel.0[0] as f32 / 255.0,
-            g: pixel.0[1] as f32 / 255.0,
-            b: pixel.0[2] as f32 / 255.0,
-        }
+        Spectrum::from_image_rgba(pixel, false)
     }
 
     pub fn get_film_tile(&self, sample_bounds: &Bounds2i) -> Box<FilmTile> {

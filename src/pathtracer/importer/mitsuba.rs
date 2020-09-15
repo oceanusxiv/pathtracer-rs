@@ -20,20 +20,17 @@ fn material_from_bsdf(log: &slog::Logger, bsdf: &mitsuba::BSDF) -> Material {
         mitsuba::BSDF::TwoSided(bsdf) => material_from_bsdf(&log, &bsdf.bsdf),
         mitsuba::BSDF::Diffuse(bsdf) => Material::Matte(MatteMaterial::new(
             &log,
-            Box::new(ConstantTexture::<Spectrum>::new(Spectrum {
-                r: bsdf.rgb[0],
-                g: bsdf.rgb[1],
-                b: bsdf.rgb[2],
-            })),
+            Box::new(ConstantTexture::<Spectrum>::new(Spectrum::from_slice_3(
+                &bsdf.rgb, false,
+            ))),
             None,
         )),
         mitsuba::BSDF::RoughConductor(bsdf) => Material::Matte(MatteMaterial::new(
             &log,
-            Box::new(ConstantTexture::<Spectrum>::new(Spectrum {
-                r: bsdf.rgb_params["specular_reflectance"][0],
-                g: bsdf.rgb_params["specular_reflectance"][1],
-                b: bsdf.rgb_params["specular_reflectance"][2],
-            })),
+            Box::new(ConstantTexture::<Spectrum>::new(Spectrum::from_slice_3(
+                &bsdf.rgb_params["specular_reflectance"],
+                false,
+            ))),
             None,
         )),
         mitsuba::BSDF::Dielectric(bsdf) => Material::Glass(GlassMaterial::new(
@@ -176,11 +173,9 @@ fn parse_shape(
     for shape in shapes_from_mesh(world_mesh, &obj_to_world, false) {
         let area_light = if let Some(light_info) = light_info {
             if let mitsuba::Emitter::Area { rgb } = light_info {
-                let ke = Arc::new(ConstantTexture::<Spectrum>::new(Spectrum {
-                    r: rgb[0],
-                    g: rgb[1],
-                    b: rgb[2],
-                })) as Arc<dyn SyncTexture<Spectrum>>;
+                let ke = Arc::new(ConstantTexture::<Spectrum>::new(Spectrum::from_slice_3(
+                    rgb, false,
+                ))) as Arc<dyn SyncTexture<Spectrum>>;
                 let light = Arc::new(DiffuseAreaLight::new(ke, Arc::clone(&shape), 1));
                 lights.push(Arc::clone(&light) as Arc<dyn SyncLight>);
                 Some(light)

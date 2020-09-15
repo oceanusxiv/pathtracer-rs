@@ -169,7 +169,7 @@ pub fn material_from_gltf(
     images: &[gltf::image::Data],
 ) -> Material {
     let pbr = &gltf_material.pbr_metallic_roughness();
-    let color_factor = Spectrum::from_slice(&pbr.base_color_factor(), true);
+    let color_factor = Spectrum::from_slice_4(&pbr.base_color_factor(), true);
     let mut color_texture =
         Box::new(ConstantTexture::<Spectrum>::new(color_factor)) as Box<dyn SyncTexture<Spectrum>>;
     let mut normal_map = None;
@@ -372,11 +372,11 @@ fn populate_scene(
     if let Some(gltf_mesh) = current_node.mesh() {
         for gltf_prim in gltf_mesh.primitives() {
             let emissive_factor = gltf_prim.material().emissive_factor();
-            let emissive_factor = Spectrum {
-                r: EMISSIVE_SCALING_FACTOR * emissive_factor[0],
-                g: EMISSIVE_SCALING_FACTOR * emissive_factor[0],
-                b: EMISSIVE_SCALING_FACTOR * emissive_factor[0],
-            };
+            let emissive_factor = Spectrum::from_floats(
+                EMISSIVE_SCALING_FACTOR * emissive_factor[0],
+                EMISSIVE_SCALING_FACTOR * emissive_factor[0],
+                EMISSIVE_SCALING_FACTOR * emissive_factor[0],
+            );
             let mut ke = None;
 
             if !emissive_factor.is_black() {
@@ -436,11 +436,11 @@ fn populate_scene(
     }
 
     if let Some(light) = current_node.light() {
-        let light_color = Spectrum {
-            r: light.intensity() * light.color()[0],
-            g: light.intensity() * light.color()[0],
-            b: light.intensity() * light.color()[0],
-        };
+        let light_color = Spectrum::from_floats(
+            light.intensity() * light.color()[0],
+            light.intensity() * light.color()[0],
+            light.intensity() * light.color()[0],
+        );
         match light.kind() {
             gltf::khr_lights_punctual::Kind::Directional => {
                 preprocess_lights.push(Arc::new(DirectionalLight::new(
