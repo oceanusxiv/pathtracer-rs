@@ -372,5 +372,6 @@ impl StratifiedSampler {
     }
 }
 
+// TODO: add more samplers
 pub type Sampler = StratifiedSampler; // for now, since dealing with sampler inheritance is annoying
 pub type SamplerBuilder = StratifiedSamplerBuilder;

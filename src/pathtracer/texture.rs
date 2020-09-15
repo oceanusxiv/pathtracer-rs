@@ -396,7 +396,6 @@ where
         dst_dx: &na::Vector2<f32>,
         dst_dy: &na::Vector2<f32>,
     ) -> T {
-        // TODO: do more sophisticated texture handling
         if self.do_trilinear {
             let width = dst_dx[0]
                 .abs()

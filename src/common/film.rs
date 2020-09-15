@@ -45,6 +45,7 @@ impl FilmTile {
         return &mut self.tile[offset as usize];
     }
 
+    // TODO: use more sophisticated image reconstruction techniques
     pub fn add_sample(&mut self, p_film: &na::Point2<f32>, l: &Spectrum) {
         let discrete_x = p_film
             .x
