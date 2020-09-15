@@ -142,6 +142,14 @@ impl Add for RGBSpectrum {
     }
 }
 
+impl Add<f32> for RGBSpectrum {
+    type Output = Self;
+
+    fn add(self, rhs: f32) -> Self::Output {
+        Self::from_floats(self.r() + rhs, self.g() + rhs, self.b() + rhs)
+    }
+}
+
 impl Sub for RGBSpectrum {
     type Output = Self;
 
@@ -191,6 +199,14 @@ impl Mul<f32> for RGBSpectrum {
 
     fn mul(self, rhs: f32) -> Self::Output {
         Self::from_floats(self.r() * rhs, self.g() * rhs, self.b() * rhs)
+    }
+}
+
+impl Div for RGBSpectrum {
+    type Output = Self;
+
+    fn div(self, rhs: Self) -> Self::Output {
+        Self(self.0.component_div(&rhs.0))
     }
 }
 

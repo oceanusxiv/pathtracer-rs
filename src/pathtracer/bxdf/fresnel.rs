@@ -39,6 +39,30 @@ pub fn fr_dielectric(cos_theta_i: f32, mut eta_i: f32, mut eta_t: f32) -> f32 {
     return (r_parl * r_parl + r_perp * r_perp) / 2.0;
 }
 
+fn fr_conductor(cos_theta_i: f32, eta_i: Spectrum, eta_t: Spectrum, k: Spectrum) -> Spectrum {
+    let cos_theta_i = cos_theta_i.clamp(-1., 1.);
+    let eta = eta_t / eta_i;
+    let etak = k / eta_i;
+
+    let cos_theta_i2 = cos_theta_i * cos_theta_i;
+    let sin_theta_i2 = 1. - cos_theta_i2;
+    let eta2 = eta * eta;
+    let etak2 = etak * etak;
+
+    let t0 = eta2 - etak2 - sin_theta_i2;
+    let a2_plus_b2 = (t0 * t0 + 4. * eta2 * etak2).sqrt();
+    let t1 = a2_plus_b2 + cos_theta_i2;
+    let a = (0.5 * (a2_plus_b2 + t0)).sqrt();
+    let t2 = 2. * cos_theta_i * a;
+    let rs = (t1 - t2) / (t1 + t2);
+
+    let t3 = cos_theta_i2 * a2_plus_b2 + sin_theta_i2 * sin_theta_i2;
+    let t4 = t2 * sin_theta_i2;
+    let rp = rs * (t3 - t4) / (t3 + t4);
+
+    0.5 * (rp + rs)
+}
+
 pub struct FresnelDielectric {
     eta_i: f32,
     eta_t: f32,
@@ -56,7 +80,11 @@ impl FresnelInterface for FresnelDielectric {
     }
 }
 
-pub struct FresnelConductor {}
+pub struct FresnelConductor {
+    eta_i: f32,
+    eta_t: f32,
+    k: f32,
+}
 
 impl FresnelInterface for FresnelConductor {
     fn evaluate(&self, cos_i: f32) -> Spectrum {
