@@ -1,6 +1,5 @@
 use crate::{
-    common::spectrum::lerp_spectrum,
-    common::spectrum::Spectrum,
+    common::{math::lerp, spectrum::Spectrum},
     pathtracer::bsdf::BSDF,
     pathtracer::bxdf::{
         abs_cos_theta,
@@ -71,11 +70,11 @@ fn schlick_weight(cos_theta: f32) -> f32 {
 }
 
 fn fr_schlick(r0: f32, cos_theta: f32) -> f32 {
-    glm::lerp_scalar(r0, 1.0, schlick_weight(cos_theta))
+    lerp(r0, 1.0, schlick_weight(cos_theta))
 }
 
 fn fr_schlick_spectrum(r0: &Spectrum, cos_theta: f32) -> Spectrum {
-    lerp_spectrum(&r0, &Spectrum::new(1.), schlick_weight(cos_theta))
+    lerp(*r0, Spectrum::new(1.), schlick_weight(cos_theta))
 }
 
 fn schlick_r0_from_eta(eta: f32) -> f32 {
@@ -139,9 +138,9 @@ impl DisneyFresnel {
 
 impl FresnelInterface for DisneyFresnel {
     fn evaluate(&self, cos_i: f32) -> Spectrum {
-        lerp_spectrum(
-            &Spectrum::new(fr_dielectric(cos_i, 1., self.eta)),
-            &fr_schlick_spectrum(&self.r0, cos_i),
+        lerp(
+            Spectrum::new(fr_dielectric(cos_i, 1., self.eta)),
+            fr_schlick_spectrum(&self.r0, cos_i),
             self.metallic,
         )
     }
@@ -210,7 +209,7 @@ impl MaterialInterface for DisneyMaterial {
         let sheen_weight = 0.0;
         let c_sheen = if sheen_weight > 0.0 {
             let stint = 0.0;
-            lerp_spectrum(&Spectrum::new(1.), &c_tint, stint)
+            lerp(Spectrum::new(1.), c_tint, stint)
         } else {
             Spectrum::new(0.0)
         };
@@ -244,9 +243,9 @@ impl MaterialInterface for DisneyMaterial {
 
         // TODO: specular tint
         let spec_tint = 0.0;
-        let c_spec_0 = lerp_spectrum(
-            &(schlick_r0_from_eta(e) * lerp_spectrum(&Spectrum::new(1.), &c_tint, spec_tint)),
-            &c,
+        let c_spec_0 = lerp(
+            schlick_r0_from_eta(e) * lerp(Spectrum::new(1.), c_tint, spec_tint),
+            c,
             metallic_weight,
         );
         bsdf.add(BxDF::MicrofacetReflection(MicrofacetReflection::new(

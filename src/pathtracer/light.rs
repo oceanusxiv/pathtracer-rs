@@ -380,7 +380,7 @@ impl InfiniteAreaLight {
         let height = 2 * texels.nrows();
         let f_width = 0.5 / width.min(height) as f32;
         let mut img = Vec::with_capacity(width * height);
-        let l_map = Box::new(MIPMap::new(&log, texels, false, WrapMode::Repeat));
+        let l_map = Box::new(MIPMap::new(&log, texels, true, WrapMode::Repeat));
         for v in 0..height {
             let vp = (v as f32 + 0.5) / (height as f32);
             let sin_theta = (std::f32::consts::PI * vp).sin();

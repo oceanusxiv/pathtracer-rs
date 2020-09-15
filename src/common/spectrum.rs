@@ -149,13 +149,13 @@ impl MulAssign for RGBSpectrum {
     }
 }
 
-impl MulAssign<f32> for Spectrum {
+impl MulAssign<f32> for RGBSpectrum {
     fn mul_assign(&mut self, rhs: f32) {
         *self = *self * rhs
     }
 }
 
-impl Mul<Spectrum> for f32 {
+impl Mul<RGBSpectrum> for f32 {
     type Output = Spectrum;
 
     fn mul(self, rhs: Spectrum) -> Self::Output {
@@ -209,8 +209,10 @@ impl num::Zero for RGBSpectrum {
     }
 }
 
-pub fn lerp_spectrum(x: &Spectrum, y: &Spectrum, a: f32) -> Spectrum {
-    *x * (Spectrum::new(1.) - a) + *y * a
+impl num::One for RGBSpectrum {
+    fn one() -> Self {
+        Self::new(1.0)
+    }
 }
 
 pub type Spectrum = RGBSpectrum;

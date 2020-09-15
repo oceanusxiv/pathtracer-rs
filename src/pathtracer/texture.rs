@@ -2,7 +2,7 @@ use std::ops::{AddAssign, Mul};
 
 use super::interaction::SurfaceMediumInteraction;
 use crate::common::{
-    math::abs_mod, math::log2_int, math::round_up_pow_2, spectrum::Spectrum, WrapMode,
+    math::abs_mod, math::lerp, math::log2_int, math::round_up_pow_2, spectrum::Spectrum, WrapMode,
 };
 
 pub trait Texture<T> {
@@ -76,7 +76,7 @@ impl ImageTexture<f32> {
         let log = log.new(o!());
 
         Self {
-            mip_map: MIPMap::new(&log, matrix, false, wrap_mode),
+            mip_map: MIPMap::new(&log, matrix, true, wrap_mode),
             mapping,
             log,
         }
@@ -103,7 +103,7 @@ impl ImageTexture<Spectrum> {
         let log = log.new(o!());
 
         Self {
-            mip_map: MIPMap::new(&log, matrix, false, wrap_mode),
+            mip_map: MIPMap::new(&log, matrix, true, wrap_mode),
             mapping,
             log,
         }
@@ -134,7 +134,7 @@ impl ImageTexture<na::Vector3<f32>> {
         let log = log.new(o!());
 
         Self {
-            mip_map: MIPMap::new(&log, matrix, false, wrap_mode),
+            mip_map: MIPMap::new(&log, matrix, true, wrap_mode),
             mapping,
             log,
         }
@@ -145,7 +145,7 @@ pub type NormalMap = ImageTexture<na::Vector3<f32>>;
 
 impl<T> Texture<T> for ImageTexture<T>
 where
-    T: na::Scalar + num::Zero + Copy + AddAssign<<T as Mul<f32>>::Output> + Mul<f32>,
+    T: na::Scalar + num::Zero + Copy + AddAssign + Mul<f32, Output = T>,
 {
     fn evaluate(&self, it: &SurfaceMediumInteraction) -> T {
         let mut dst_dx = glm::zero();
@@ -207,9 +207,39 @@ pub struct MIPMap<T: na::Scalar + num::Zero> {
     log: slog::Logger,
 }
 
+fn texel<T: na::Scalar + num::Zero>(
+    level: &na::DMatrix<T>,
+    s: i32,
+    t: i32,
+    wrap_mode: &WrapMode,
+) -> T {
+    let ret;
+    match wrap_mode {
+        WrapMode::Repeat => {
+            let s = abs_mod(s, level.ncols() as i32);
+            let t = abs_mod(t, level.nrows() as i32);
+            ret = level[(t as usize, s as usize)].clone();
+        }
+        WrapMode::Black => {
+            if s < 0 || s >= level.ncols() as i32 || t < 0 || t >= level.nrows() as i32 {
+                ret = num::zero()
+            } else {
+                ret = level[(t as usize, s as usize)].clone();
+            }
+        }
+        WrapMode::Clamp => {
+            let s = s.clamp(0, level.ncols() as i32 - 1);
+            let t = t.clamp(0, level.nrows() as i32 - 1);
+            ret = level[(t as usize, s as usize)].clone();
+        }
+    }
+
+    ret
+}
+
 impl<T> MIPMap<T>
 where
-    T: na::Scalar + num::Zero + Copy + AddAssign<<T as Mul<f32>>::Output> + Mul<f32>,
+    T: na::Scalar + num::Zero + Copy + AddAssign + Mul<f32, Output = T>,
 {
     pub fn new(
         log: &slog::Logger,
@@ -291,7 +321,7 @@ where
             None
         };
 
-        let n_levels = 1 + log2_int(resolution[0].max(resolution[1]));
+        let n_levels = 1 + log2_int(resolution[0].max(resolution[1])) as usize;
         let mut pyramid = Vec::with_capacity(n_levels as usize);
 
         if let Some(resampled_image) = resampled_image {
@@ -299,6 +329,35 @@ where
         } else {
             pyramid.push(image);
         }
+
+        for i in 1..n_levels {
+            let s_res = 1usize.max(pyramid[i - 1].ncols() / 2);
+            let t_res = 1usize.max(pyramid[i - 1].nrows() / 2);
+
+            pyramid.push(na::DMatrix::from_fn(t_res, s_res, |t, s| {
+                texel(&pyramid[i - 1], (2 * s) as i32, (2 * t) as i32, &wrap_mode)
+                    + texel(
+                        &pyramid[i - 1],
+                        (2 * s + 1) as i32,
+                        (2 * t) as i32,
+                        &wrap_mode,
+                    )
+                    + texel(
+                        &pyramid[i - 1],
+                        (2 * s) as i32,
+                        (2 * t + 1) as i32,
+                        &wrap_mode,
+                    )
+                    + texel(
+                        &pyramid[i - 1],
+                        (2 * s + 1) as i32,
+                        (2 * t + 1) as i32,
+                        &wrap_mode,
+                    ) * 0.25
+            }));
+        }
+
+        // TODO: EWA filters
 
         Self {
             pyramid,
@@ -309,30 +368,8 @@ where
     }
 
     fn texel(&self, level: usize, s: i32, t: i32) -> T {
-        let ret;
-        let level = &self.pyramid[level];
-        match self.wrap_mode {
-            WrapMode::Repeat => {
-                let s = abs_mod(s, level.ncols() as i32);
-                let t = abs_mod(t, level.nrows() as i32);
-                trace!(self.log, "[Repeat] processed: {:?}, {:?}", s, t);
-                ret = level[(t as usize, s as usize)].clone();
-            }
-            WrapMode::Black => {
-                if s < 0 || s >= level.ncols() as i32 || t < 0 || t >= level.nrows() as i32 {
-                    ret = num::zero()
-                } else {
-                    ret = level[(t as usize, s as usize)].clone();
-                }
-            }
-            WrapMode::Clamp => {
-                let s = s.clamp(0, level.ncols() as i32 - 1);
-                let t = t.clamp(0, level.nrows() as i32 - 1);
-                ret = level[(t as usize, s as usize)].clone();
-            }
-        }
+        let ret = texel(&self.pyramid[level], s, t, &self.wrap_mode);
         trace!(self.log, "sampled value: {:?}", ret);
-
         ret
     }
 
@@ -340,10 +377,17 @@ where
         let level = level.clamp(0, self.pyramid.len() - 1);
         let s = st[0] * self.pyramid[level].ncols() as f32 - 0.5;
         let t = st[1] * self.pyramid[level].nrows() as f32 - 0.5;
-        let s0 = s.floor() as i32;
-        let t0 = t.floor() as i32;
+        let s0 = s.floor();
+        let t0 = t.floor();
+        let ds = s - s0;
+        let dt = t - t0;
+        let s0 = s0 as i32;
+        let t0 = t0 as i32;
 
-        self.texel(level, s0, t0)
+        self.texel(level, s0, t0) * (1.0 - ds) * (1.0 - dt)
+            + self.texel(level, s0, t0 + 1) * (1.0 - ds) * dt
+            + self.texel(level, s0 + 1, t0) * ds * (1.0 - dt)
+            + self.texel(level, s0 + 1, t0 + 1) * ds * dt
     }
 
     pub fn lookup(
@@ -354,13 +398,32 @@ where
     ) -> T {
         // TODO: do more sophisticated texture handling
         if self.do_trilinear {
-            self.triangle(0, &st)
+            let width = dst_dx[0]
+                .abs()
+                .max(dst_dx[1].abs())
+                .max(dst_dy[0].abs().max(dst_dy[1].abs()));
+            self.lookup_width(&st, width)
         } else {
-            self.triangle(0, &st)
+            panic!("ewa not supported yet!");
         }
     }
 
     pub fn lookup_width(&self, st: &na::Point2<f32>, width: f32) -> T {
-        self.triangle(0, &st)
+        let level = self.pyramid.len() as f32 - 1.0 + width.max(1e-8).log2();
+
+        if level < 0.0 {
+            self.triangle(0, &st)
+        } else if level >= (self.pyramid.len() - 1) as f32 {
+            self.triangle(self.pyramid.len() - 1, &st)
+        } else {
+            let i_level = level.floor();
+            let delta = level - i_level;
+            let i_level = i_level as usize;
+            lerp(
+                self.triangle(i_level, st),
+                self.triangle(i_level + 1, st),
+                delta,
+            )
+        }
     }
 }

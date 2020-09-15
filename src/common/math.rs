@@ -1,3 +1,5 @@
+use std::ops::Mul;
+
 const MACHINE_EPSILON: f32 = f32::EPSILON * 0.5;
 pub const INV_2_PI: f32 = std::f32::consts::FRAC_1_PI * 0.5;
 
@@ -216,9 +218,16 @@ pub fn abs_mod<T: num::Integer + Copy>(a: T, b: T) -> T {
     }
 }
 
-#[inline]
 pub fn log2_int(i: usize) -> u32 {
     1usize.leading_zeros() - i.leading_zeros()
+}
+
+pub fn lerp<N, T>(x: N, y: N, a: T) -> N
+where
+    N: na::ClosedAdd + Mul<T, Output = N>,
+    T: Copy + num::One + na::ClosedSub,
+{
+    x * (T::one() - a) + y * a
 }
 
 #[cfg(test)]
