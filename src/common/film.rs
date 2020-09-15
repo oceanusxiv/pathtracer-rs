@@ -5,7 +5,7 @@ use itertools::Itertools;
 use std::{path::Path, sync::RwLock};
 
 #[derive(Clone, Debug)]
-pub struct FilmTilePixel {
+struct FilmTilePixel {
     contrib_sum: Spectrum,
     filter_wight_sum: f32,
 }
@@ -32,7 +32,7 @@ impl FilmTile {
         }
     }
 
-    pub fn get_pixel(&self, p: &na::Point2<i32>) -> &FilmTilePixel {
+    fn get_pixel(&self, p: &na::Point2<i32>) -> &FilmTilePixel {
         let width = self.pixel_bounds.p_max.x - self.pixel_bounds.p_min.x;
         let offset = (p.x - self.pixel_bounds.p_min.x) + (p.y - self.pixel_bounds.p_min.y) * width;
         return &self.tile[offset as usize];
@@ -66,6 +66,13 @@ impl FilmTile {
     pub fn get_pixel_bounds(&self) -> Bounds2i {
         self.pixel_bounds
     }
+}
+
+#[repr(C, align(32))]
+struct FilmPixel {
+    xyz: [f32; 3],
+    filter_weight_sum: f32,
+    splat_xyz: f32, // TODO: atomic?
 }
 
 pub struct Film {
@@ -107,7 +114,7 @@ impl Film {
         Box::new(FilmTile::new(*sample_bounds))
     }
 
-    pub fn merge_film_tile(&mut self, tile: Box<FilmTile>) {
+    pub fn merge_film_tile(&self, tile: Box<FilmTile>) {
         let mut image = self.image.write().unwrap();
         let pixel_bounds = tile.get_pixel_bounds();
         for (x, y) in (pixel_bounds.p_min.x..pixel_bounds.p_max.x)

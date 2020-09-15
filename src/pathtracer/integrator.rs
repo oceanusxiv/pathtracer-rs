@@ -612,7 +612,7 @@ impl PathIntegrator {
                 }
             }
 
-            film_tile
+            camera.film.merge_film_tile(film_tile)
         };
 
         let render_par_iter = (0..num_tiles.x)
@@ -623,22 +623,9 @@ impl PathIntegrator {
         if self.show_progress_bar {
             render_par_iter
                 .progress_count((num_tiles.x * num_tiles.y) as u64)
-                .map(work_closure)
-                .collect::<Vec<Box<FilmTile>>>()
-                .drain(..)
-                .for_each(|film_tile| {
-                    let film = &mut camera.film;
-                    film.merge_film_tile(film_tile);
-                });
+                .for_each(work_closure);
         } else {
-            render_par_iter
-                .map(work_closure)
-                .collect::<Vec<Box<FilmTile>>>()
-                .drain(..)
-                .for_each(|film_tile| {
-                    let film = &mut camera.film;
-                    film.merge_film_tile(film_tile);
-                });
+            render_par_iter.for_each(work_closure);
         }
 
         let duration = start.elapsed();
