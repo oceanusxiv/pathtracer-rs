@@ -1,5 +1,3 @@
-use crate::{common::spectrum::Spectrum, pathtracer::TransportMode};
-
 use super::{
     abs_cos_theta, cos_2_phi, cos_2_theta, cos_phi, cos_theta,
     fresnel::FresnelDielectric,
@@ -7,6 +5,11 @@ use super::{
     reflect, refract, same_hemisphere, sin_2_phi, sin_phi, tan_2_theta, tan_theta, BxDFInterface,
     BxDFType,
 };
+use crate::{
+    common::spectrum::Spectrum, pathtracer::sampling::cosine_sample_hemisphere,
+    pathtracer::sampling::ONE_MINUS_EPSILON, pathtracer::TransportMode,
+};
+use num::Zero;
 
 pub trait MicrofacetDistribution {
     fn d(&self, wh: &na::Vector3<f32>) -> f32;
@@ -402,27 +405,66 @@ impl FresnelBlend {
 }
 
 impl BxDFInterface for FresnelBlend {
-    fn f(&self, _wo: &na::Vector3<f32>, _wi: &na::Vector3<f32>) -> Spectrum {
+    fn f(&self, wo: &na::Vector3<f32>, wi: &na::Vector3<f32>) -> Spectrum {
         let pow5 = |v: f32| (v * v) * (v * v) * v;
-        todo!()
+        let diffuse = (28. / (23. * std::f32::consts::PI))
+            * self.rd
+            * (Spectrum::new(1.) - self.rs)
+            * (1. - pow5(1. - 0.5 * abs_cos_theta(wi)))
+            * (1. - pow5(1. - 0.5 * abs_cos_theta(wo)));
+
+        let wh = wi + wo;
+        if wh.is_zero() {
+            return Spectrum::zero();
+        }
+
+        let wh = wh.normalize();
+        let specular = self.distribution.d(&wh)
+            / (4. * wi.dot(&wh).abs() * abs_cos_theta(wi).max(abs_cos_theta(wo)))
+            * self.schlick_fresnel(wi.dot(&wh));
+
+        diffuse + specular
     }
 
     fn get_type(&self) -> BxDFType {
-        BxDFType::BSDF_REFLECTION | BxDFType::BSDF_SPECULAR
+        BxDFType::BSDF_REFLECTION | BxDFType::BSDF_GLOSSY
     }
 
     fn sample_f(
         &self,
         wo: &na::Vector3<f32>,
-        mut wi: &mut na::Vector3<f32>,
+        wi: &mut na::Vector3<f32>,
         u: &na::Point2<f32>,
         pdf: &mut f32,
-        sampled_type: &mut Option<BxDFType>,
+        _sampled_type: &mut Option<BxDFType>,
     ) -> Spectrum {
-        todo!()
+        let mut u = *u;
+        if u[0] < 0.5 {
+            u[0] = (2. * u[0]).min(ONE_MINUS_EPSILON);
+            *wi = cosine_sample_hemisphere(&u);
+            if wo.z < 0. {
+                wi.z *= -1.;
+            }
+        } else {
+            u[0] = (2. * (u[0] - 0.5)).min(ONE_MINUS_EPSILON);
+            let wh = self.distribution.sample_wh(wo, &u);
+            *wi = reflect(wo, &wh);
+            if !same_hemisphere(wo, wi) {
+                return Spectrum::zero();
+            }
+        }
+
+        *pdf = self.pdf(wo, wi);
+        self.f(wo, wi)
     }
 
-    fn pdf(&self, _wo: &na::Vector3<f32>, _wi: &na::Vector3<f32>) -> f32 {
-        todo!()
+    fn pdf(&self, wo: &na::Vector3<f32>, wi: &na::Vector3<f32>) -> f32 {
+        if !same_hemisphere(wo, wi) {
+            return 0.;
+        }
+
+        let wh = (wo + wi).normalize();
+        let pdf_wh = self.distribution.pdf(wo, &wh);
+        0.5 * (abs_cos_theta(wi) * std::f32::consts::FRAC_1_PI + pdf_wh / (4. * wo.dot(&wh)))
     }
 }

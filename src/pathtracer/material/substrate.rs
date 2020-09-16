@@ -3,7 +3,6 @@ use crate::common::spectrum::Spectrum;
 use crate::pathtracer::{
     bsdf::BSDF,
     bxdf::{
-        fresnel::Fresnel,
         microfacet::{FresnelBlend, TrowbridgeReitzDistribution},
         BxDF,
     },

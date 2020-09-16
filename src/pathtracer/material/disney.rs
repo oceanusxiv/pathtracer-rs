@@ -15,7 +15,7 @@ use crate::{
     pathtracer::TransportMode,
 };
 
-use super::MaterialInterface;
+use super::{schlick_r0_from_eta, sqr, MaterialInterface};
 
 pub struct DisneyMaterial {
     color: Box<dyn SyncTexture<Spectrum>>,
@@ -57,10 +57,6 @@ impl DisneyMaterial {
     }
 }
 
-fn sqr(x: f32) -> f32 {
-    x * x
-}
-
 fn schlick_weight(cos_theta: f32) -> f32 {
     let m = (1.0 - cos_theta).clamp(0.0, 1.0);
     (m * m) * (m * m) * m
@@ -72,10 +68,6 @@ fn fr_schlick(r0: f32, cos_theta: f32) -> f32 {
 
 fn fr_schlick_spectrum(r0: &Spectrum, cos_theta: f32) -> Spectrum {
     lerp(*r0, Spectrum::new(1.), schlick_weight(cos_theta))
-}
-
-fn schlick_r0_from_eta(eta: f32) -> f32 {
-    sqr(eta - 1.0) / sqr(eta + 1.0)
 }
 
 pub struct DisneyDiffuse {

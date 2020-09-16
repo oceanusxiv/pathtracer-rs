@@ -7,7 +7,10 @@ use crate::{
     pathtracer::{
         accelerator,
         light::{DiffuseAreaLight, SyncLight},
-        material::{metal::MetalMaterial, Material, MatteMaterial, MirrorMaterial},
+        material::{
+            metal::MetalMaterial, schlick_r0_from_eta, substrate::SubstrateMaterial, Material,
+            MatteMaterial, MirrorMaterial,
+        },
         primitive::{GeometricPrimitive, SyncPrimitive},
         shape::{shapes_from_mesh, TriangleMesh},
         texture::{CheckerTexture, ConstantTexture, SyncTexture},
@@ -83,9 +86,19 @@ fn material_from_bsdf(log: &slog::Logger, bsdf: &mitsuba::BSDF) -> Material {
             Box::new(ConstantTexture::new(Spectrum::new(1.0))),
             Box::new(ConstantTexture::new(bsdf.float_params["int_ior"])),
         )),
-        _ => Material::Matte(MatteMaterial::new(
-            &log,
-            Box::new(ConstantTexture::new(Spectrum::new(1.0))),
+        // plastic -> substrate is not a perfect match
+        mitsuba::BSDF::Plastic(bsdf) => Material::Substrate(SubstrateMaterial::new(
+            log,
+            Box::new(ConstantTexture::new(Spectrum::from_slice_3(
+                &bsdf.diffuse_reflectance,
+                false,
+            ))),
+            Box::new(ConstantTexture::new(Spectrum::new(schlick_r0_from_eta(
+                bsdf.float_params["int_ior"],
+            )))),
+            Box::new(ConstantTexture::new(0.001)),
+            Box::new(ConstantTexture::new(0.001)),
+            false,
         )),
     }
 }

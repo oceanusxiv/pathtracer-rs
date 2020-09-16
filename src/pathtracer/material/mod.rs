@@ -31,6 +31,7 @@ pub enum Material {
     Mirror(MirrorMaterial),
     Glass(GlassMaterial),
     Disney(disney::DisneyMaterial),
+    Substrate(substrate::SubstrateMaterial),
     Normal(NormalMaterial),
 }
 
@@ -75,6 +76,14 @@ pub fn normal_mapping(
         si.shading.n,
         si.shading.n.norm(),
     );
+}
+
+fn sqr(x: f32) -> f32 {
+    x * x
+}
+
+pub fn schlick_r0_from_eta(eta: f32) -> f32 {
+    sqr(eta - 1.0) / sqr(eta + 1.0)
 }
 
 pub struct NormalMaterial {

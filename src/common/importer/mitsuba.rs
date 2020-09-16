@@ -347,6 +347,12 @@ pub struct Dielectric {
 #[derive(Debug, Deserialize)]
 pub struct Plastic {
     pub id: Option<String>,
+
+    #[serde(flatten, rename = "float", deserialize_with = "de_floats")]
+    pub float_params: HashMap<String, f32>,
+
+    #[serde(rename = "rgb", with = "rgb")]
+    pub diffuse_reflectance: [f32; 3],
 }
 
 #[derive(Debug, Deserialize)]
