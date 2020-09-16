@@ -252,6 +252,7 @@ where
         let resampled_image = if !image.ncols().is_power_of_two()
             || !image.nrows().is_power_of_two()
         {
+            debug!(log, "image size not power of two, resampling");
             let res_pow_2 = na::Point2::new(
                 round_up_pow_2(image.ncols() as i32) as usize,
                 round_up_pow_2(image.nrows() as i32) as usize,
@@ -335,7 +336,7 @@ where
             let t_res = 1usize.max(pyramid[i - 1].nrows() / 2);
 
             pyramid.push(na::DMatrix::from_fn(t_res, s_res, |t, s| {
-                texel(&pyramid[i - 1], (2 * s) as i32, (2 * t) as i32, &wrap_mode)
+                (texel(&pyramid[i - 1], (2 * s) as i32, (2 * t) as i32, &wrap_mode)
                     + texel(
                         &pyramid[i - 1],
                         (2 * s + 1) as i32,
@@ -353,7 +354,8 @@ where
                         (2 * s + 1) as i32,
                         (2 * t + 1) as i32,
                         &wrap_mode,
-                    ) * 0.25
+                    ))
+                    * 0.25
             }));
         }
 
