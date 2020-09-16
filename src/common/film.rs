@@ -1,5 +1,6 @@
-use super::bounds::Bounds2i;
 use super::spectrum::Spectrum;
+use super::{bounds::Bounds2i, filter::Filter};
+use crate::common::filter::FilterInterface;
 use image::RgbaImage;
 use itertools::Itertools;
 use std::{path::Path, sync::RwLock};
@@ -69,20 +70,48 @@ impl FilmTile {
 }
 
 #[repr(C, align(32))]
+#[derive(Debug, Clone)]
 struct FilmPixel {
     xyz: [f32; 3],
     filter_weight_sum: f32,
     splat_xyz: f32, // TODO: atomic?
 }
 
+const FILTER_TABLE_WIDTH: usize = 16;
+
 pub struct Film {
     image: RwLock<RgbaImage>,
+    pixels: RwLock<Vec<FilmPixel>>,
+    filter_table: [f32; FILTER_TABLE_WIDTH * FILTER_TABLE_WIDTH],
+    filter: Box<Filter>,
 }
 
 impl Film {
-    pub fn new(resolution: &glm::UVec2) -> Self {
+    pub fn new(resolution: &glm::UVec2, filter: Box<Filter>) -> Self {
+        let mut offset = 0;
+        let mut filter_table = [0.0; FILTER_TABLE_WIDTH * FILTER_TABLE_WIDTH];
+        for y in 0..FILTER_TABLE_WIDTH {
+            for x in 0..FILTER_TABLE_WIDTH {
+                let p = na::Point2::new(
+                    (x as f32 + 0.5) * filter.radius().x / FILTER_TABLE_WIDTH as f32,
+                    (y as f32 + 0.5) * filter.radius().y / FILTER_TABLE_WIDTH as f32,
+                );
+                filter_table[offset] = filter.evaluate(&p);
+                offset += 1;
+            }
+        }
         Self {
             image: RwLock::new(RgbaImage::new(resolution.x, resolution.y)),
+            pixels: RwLock::new(vec![
+                FilmPixel {
+                    xyz: [0.0, 0.0, 0.0],
+                    filter_weight_sum: 0.0,
+                    splat_xyz: 0.0
+                };
+                (resolution.x * resolution.y) as usize
+            ]),
+            filter_table,
+            filter,
         }
     }
 
