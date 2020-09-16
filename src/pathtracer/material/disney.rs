@@ -15,7 +15,7 @@ use crate::{
     pathtracer::TransportMode,
 };
 
-use super::{normal_mapping, MaterialInterface};
+use super::MaterialInterface;
 
 pub struct DisneyMaterial {
     color: Box<dyn SyncTexture<Spectrum>>,
@@ -23,7 +23,6 @@ pub struct DisneyMaterial {
     eta: Box<dyn SyncTexture<f32>>,
     roughness: Box<dyn SyncTexture<f32>>,
     thin: bool,
-    normal_map: Option<Box<dyn SyncTexture<na::Vector3<f32>>>>,
     log: slog::Logger,
 }
 
@@ -45,7 +44,6 @@ impl DisneyMaterial {
         metallic: Box<dyn SyncTexture<f32>>,
         eta: Box<dyn SyncTexture<f32>>,
         roughness: Box<dyn SyncTexture<f32>>,
-        normal_map: Option<Box<dyn SyncTexture<na::Vector3<f32>>>>,
     ) -> Self {
         let log = log.new(o!());
         Self {
@@ -54,7 +52,6 @@ impl DisneyMaterial {
             eta,
             roughness,
             thin: false,
-            normal_map,
             log,
         }
     }
@@ -186,10 +183,6 @@ impl MaterialInterface for DisneyMaterial {
         mut si: &mut SurfaceMediumInteraction,
         mode: TransportMode,
     ) {
-        if let Some(normal_map) = self.normal_map.as_ref() {
-            normal_mapping(&self.log, normal_map, &mut si);
-        }
-
         let mut bsdf = BSDF::new(&self.log, &si, 1.0);
 
         let c = self.color.evaluate(&si);

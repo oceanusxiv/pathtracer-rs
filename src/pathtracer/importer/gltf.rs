@@ -5,7 +5,8 @@ use crate::{
         accelerator,
         light::{DiffuseAreaLight, DirectionalLight, LightFlags, PointLight, SyncLight},
         material::{
-            disney::DisneyMaterial, GlassMaterial, Material, MatteMaterial, MirrorMaterial,
+            disney::DisneyMaterial, with_normal, GlassMaterial, Material, MatteMaterial,
+            MirrorMaterial,
         },
         primitive::{GeometricPrimitive, SyncPrimitive},
         shape::{shapes_from_mesh, SyncShape, TriangleMesh},
@@ -22,7 +23,7 @@ pub fn default_material(log: &slog::Logger) -> Material {
     let color_texture =
         Box::new(ConstantTexture::<Spectrum>::new(color_factor)) as Box<dyn SyncTexture<Spectrum>>;
 
-    Material::Matte(MatteMaterial::new(log, color_texture, None))
+    Material::Matte(MatteMaterial::new(log, color_texture))
 }
 
 fn wrap_mode_from_gtlf(gltf_wrap: gltf::texture::WrappingMode) -> WrapMode {
@@ -215,13 +216,16 @@ pub fn material_from_gltf(
             as Box<dyn SyncTexture<Spectrum>>;
         let transmit_color = Box::new(ConstantTexture::<Spectrum>::new(Spectrum::new(1.0)))
             as Box<dyn SyncTexture<Spectrum>>;
-        return Material::Glass(GlassMaterial::new(
+        return with_normal(
             log,
-            reflect_color,
-            transmit_color,
-            index,
+            Material::Glass(GlassMaterial::new(
+                log,
+                reflect_color,
+                transmit_color,
+                index,
+            )),
             normal_map,
-        ));
+        );
     }
 
     // alpha below 1.0, use glass material
@@ -234,13 +238,16 @@ pub fn material_from_gltf(
         let transmit_color = Box::new(ConstantTexture::<Spectrum>::new(
             Spectrum::new(1.0) - alpha * color_factor,
         )) as Box<dyn SyncTexture<Spectrum>>;
-        return Material::Glass(GlassMaterial::new(
+        return with_normal(
             log,
-            reflect_color,
-            transmit_color,
-            index,
+            Material::Glass(GlassMaterial::new(
+                log,
+                reflect_color,
+                transmit_color,
+                index,
+            )),
             normal_map,
-        ));
+        );
     }
 
     // perfect metallic, use mirror
@@ -268,14 +275,17 @@ pub fn material_from_gltf(
         }
     }
 
-    Material::Disney(DisneyMaterial::new(
+    with_normal(
         log,
-        color_texture,
-        metallic_texture,
-        index,
-        roughness_texture,
+        Material::Disney(DisneyMaterial::new(
+            log,
+            color_texture,
+            metallic_texture,
+            index,
+            roughness_texture,
+        )),
         normal_map,
-    ))
+    )
 }
 
 pub fn shapes_from_gltf_prim(

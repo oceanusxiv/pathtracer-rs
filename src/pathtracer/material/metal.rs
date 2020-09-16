@@ -1,4 +1,4 @@
-use super::{normal_mapping, MaterialInterface};
+use super::MaterialInterface;
 use crate::common::spectrum::Spectrum;
 use crate::pathtracer::{
     bsdf::BSDF,
@@ -16,7 +16,6 @@ pub struct MetalMaterial {
     roughness: Option<Box<dyn SyncTexture<f32>>>,
     u_roughness: Option<Box<dyn SyncTexture<f32>>>,
     v_roughness: Option<Box<dyn SyncTexture<f32>>>,
-    normal_map: Option<Box<dyn SyncTexture<na::Vector3<f32>>>>,
     remap_roughness: bool,
     log: slog::Logger,
 }
@@ -29,7 +28,6 @@ impl MetalMaterial {
         roughness: Option<Box<dyn SyncTexture<f32>>>,
         u_roughness: Option<Box<dyn SyncTexture<f32>>>,
         v_roughness: Option<Box<dyn SyncTexture<f32>>>,
-        normal_map: Option<Box<dyn SyncTexture<na::Vector3<f32>>>>,
         remap_roughness: bool,
     ) -> Self {
         let log = log.new(o!());
@@ -39,7 +37,6 @@ impl MetalMaterial {
             roughness,
             u_roughness,
             v_roughness,
-            normal_map,
             remap_roughness,
             log,
         }
@@ -50,12 +47,8 @@ impl MaterialInterface for MetalMaterial {
     fn compute_scattering_functions(
         &self,
         mut si: &mut SurfaceMediumInteraction,
-        mode: TransportMode,
+        _mode: TransportMode,
     ) {
-        if let Some(normal_map) = self.normal_map.as_ref() {
-            normal_mapping(&self.log, normal_map, &mut si);
-        }
-
         let mut bsdf = BSDF::new(&self.log, &si, 1.0);
 
         let mut u_rough = if let Some(u_roughness) = self.u_roughness.as_ref() {

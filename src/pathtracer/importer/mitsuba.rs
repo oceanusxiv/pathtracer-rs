@@ -23,7 +23,6 @@ fn material_from_bsdf(log: &slog::Logger, bsdf: &mitsuba::BSDF) -> Material {
             Box::new(ConstantTexture::new(Spectrum::from_slice_3(
                 &bsdf.rgb, false,
             ))),
-            None,
         )),
         mitsuba::BSDF::RoughConductor(bsdf) => Material::Metal(MetalMaterial::new(
             &log,
@@ -38,7 +37,6 @@ fn material_from_bsdf(log: &slog::Logger, bsdf: &mitsuba::BSDF) -> Material {
             Some(Box::new(ConstantTexture::new(bsdf.float_params["alpha"]))),
             None,
             None,
-            None,
             false,
         )),
         mitsuba::BSDF::Dielectric(bsdf) => Material::Glass(GlassMaterial::new(
@@ -46,12 +44,10 @@ fn material_from_bsdf(log: &slog::Logger, bsdf: &mitsuba::BSDF) -> Material {
             Box::new(ConstantTexture::new(Spectrum::new(1.0))),
             Box::new(ConstantTexture::new(Spectrum::new(1.0))),
             Box::new(ConstantTexture::new(bsdf.float_params["int_ior"])),
-            None,
         )),
         _ => Material::Matte(MatteMaterial::new(
             &log,
             Box::new(ConstantTexture::new(Spectrum::new(1.0))),
-            None,
         )),
     }
 }

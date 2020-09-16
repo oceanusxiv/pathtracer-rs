@@ -2,7 +2,6 @@ use super::interaction::SurfaceMediumInteraction;
 use super::sampler::{Sampler, SamplerBuilder};
 use super::{bxdf::BxDFType, light::is_delta_light};
 use super::{light::SyncLight, RenderScene, TransportMode};
-use crate::common::film::FilmTile;
 use crate::common::ray::RayDifferential;
 use crate::common::spectrum::Spectrum;
 use crate::common::Camera;

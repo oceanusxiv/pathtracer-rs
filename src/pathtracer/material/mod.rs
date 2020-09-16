@@ -30,6 +30,7 @@ pub enum Material {
     Mirror(MirrorMaterial),
     Glass(GlassMaterial),
     Disney(disney::DisneyMaterial),
+    Normal(NormalMaterial),
 }
 
 // FIXME: definitely something wrong with the TBN calculations, normals not correct
@@ -75,24 +76,59 @@ pub fn normal_mapping(
     );
 }
 
+pub struct NormalMaterial {
+    normal_map: Box<dyn SyncTexture<na::Vector3<f32>>>,
+    material: Box<Material>,
+    log: slog::Logger,
+}
+
+impl NormalMaterial {
+    pub fn new(
+        log: &slog::Logger,
+        normal_map: Box<dyn SyncTexture<na::Vector3<f32>>>,
+        material: Box<Material>,
+    ) -> Self {
+        let log = log.new(o!());
+        Self {
+            normal_map,
+            material,
+            log,
+        }
+    }
+}
+
+pub fn with_normal(
+    log: &slog::Logger,
+    material: Material,
+    normal_map: Option<Box<dyn SyncTexture<na::Vector3<f32>>>>,
+) -> Material {
+    if let Some(normal_map) = normal_map {
+        Material::Normal(NormalMaterial::new(log, normal_map, Box::new(material)))
+    } else {
+        material
+    }
+}
+
+impl MaterialInterface for NormalMaterial {
+    fn compute_scattering_functions(
+        &self,
+        mut si: &mut SurfaceMediumInteraction,
+        mode: TransportMode,
+    ) {
+        normal_mapping(&self.log, &self.normal_map, &mut si);
+        self.material.compute_scattering_functions(&mut si, mode);
+    }
+}
+
 pub struct MatteMaterial {
     kd: Box<dyn SyncTexture<Spectrum>>,
-    normal_map: Option<Box<dyn SyncTexture<na::Vector3<f32>>>>,
     log: slog::Logger,
 }
 
 impl MatteMaterial {
-    pub fn new(
-        log: &slog::Logger,
-        kd: Box<dyn SyncTexture<Spectrum>>,
-        normal_map: Option<Box<dyn SyncTexture<na::Vector3<f32>>>>,
-    ) -> Self {
+    pub fn new(log: &slog::Logger, kd: Box<dyn SyncTexture<Spectrum>>) -> Self {
         let log = log.new(o!());
-        Self {
-            kd,
-            normal_map,
-            log,
-        }
+        Self { kd, log }
     }
 }
 
@@ -102,10 +138,6 @@ impl MaterialInterface for MatteMaterial {
         mut si: &mut SurfaceMediumInteraction,
         _mode: TransportMode,
     ) {
-        if let Some(normal_map) = self.normal_map.as_ref() {
-            normal_mapping(&self.log, normal_map, &mut si);
-        }
-
         let mut bsdf = BSDF::new(&self.log, &si, 1.0);
         let r = self.kd.evaluate(&si);
         bsdf.add(BxDF::Lambertian(LambertianReflection::new(r)));
@@ -146,7 +178,6 @@ pub struct GlassMaterial {
     kr: Box<dyn SyncTexture<Spectrum>>,
     kt: Box<dyn SyncTexture<Spectrum>>,
     index: Box<dyn SyncTexture<f32>>,
-    normal_map: Option<Box<dyn SyncTexture<na::Vector3<f32>>>>,
     log: slog::Logger,
 }
 
@@ -156,16 +187,9 @@ impl GlassMaterial {
         kr: Box<dyn SyncTexture<Spectrum>>,
         kt: Box<dyn SyncTexture<Spectrum>>,
         index: Box<dyn SyncTexture<f32>>,
-        normal_map: Option<Box<dyn SyncTexture<na::Vector3<f32>>>>,
     ) -> Self {
         let log = log.new(o!());
-        Self {
-            kr,
-            kt,
-            index,
-            normal_map,
-            log,
-        }
+        Self { kr, kt, index, log }
     }
 }
 
@@ -175,10 +199,6 @@ impl MaterialInterface for GlassMaterial {
         mut si: &mut SurfaceMediumInteraction,
         mode: TransportMode,
     ) {
-        if let Some(normal_map) = self.normal_map.as_ref() {
-            normal_mapping(&self.log, normal_map, &mut si);
-        }
-
         let eta = self.index.evaluate(&si);
         let r = self.kr.evaluate(&si);
         let t = self.kt.evaluate(&si);
