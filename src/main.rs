@@ -169,6 +169,7 @@ fn main() {
 
     let event_loop = EventLoop::new();
     let window = WindowBuilder::new()
+        .with_title("pathtracer-rs")
         .with_inner_size(Size::Logical(LogicalSize::new(
             resolution.x as f64,
             resolution.y as f64,
