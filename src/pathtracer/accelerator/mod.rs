@@ -334,7 +334,7 @@ impl BVH {
 }
 
 impl Primitive for BVH {
-    fn intersect<'a>(&'a self, r: &Ray, mut isect: &mut SurfaceMediumInteraction<'a>) -> bool {
+    fn intersect<'a>(&'a self, r: &mut Ray, mut isect: &mut SurfaceMediumInteraction<'a>) -> bool {
         if self.nodes.is_empty() {
             return false;
         }

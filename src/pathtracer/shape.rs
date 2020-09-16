@@ -164,9 +164,9 @@ impl Shape for Triangle {
         p1t.z *= sz;
         p2t.z *= sz;
         let t_scaled = e0 * p0t.z + e1 * p1t.z + e2 * p2t.z;
-        if det < 0.0 && (t_scaled >= 0.0 || t_scaled < *r.t_max.borrow() * det) {
+        if det < 0.0 && (t_scaled >= 0.0 || t_scaled < r.t_max * det) {
             return false;
-        } else if det > 0.0 && (t_scaled <= 0.0 || t_scaled > *r.t_max.borrow() * det) {
+        } else if det > 0.0 && (t_scaled <= 0.0 || t_scaled > r.t_max * det) {
             return false;
         }
 
@@ -447,9 +447,9 @@ impl Shape for Triangle {
         p1t.z *= sz;
         p2t.z *= sz;
         let t_scaled = e0 * p0t.z + e1 * p1t.z + e2 * p2t.z;
-        if det < 0.0 && (t_scaled >= 0.0 || t_scaled < *r.t_max.borrow() * det) {
+        if det < 0.0 && (t_scaled >= 0.0 || t_scaled < r.t_max * det) {
             return false;
-        } else if det > 0.0 && (t_scaled <= 0.0 || t_scaled > *r.t_max.borrow() * det) {
+        } else if det > 0.0 && (t_scaled <= 0.0 || t_scaled > r.t_max * det) {
             return false;
         }
 

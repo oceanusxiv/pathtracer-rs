@@ -1,8 +1,6 @@
 #[macro_use]
 extern crate slog;
 
-use std::cell::RefCell;
-
 use criterion::*;
 use pathtracer_rs::*;
 
@@ -12,7 +10,7 @@ fn bench(c: &mut Criterion) {
     let r = common::ray::Ray {
         o: nalgebra::Point3::origin(),
         d: nalgebra::Vector3::new(1.0, 1.0, 1.0),
-        t_max: RefCell::new(f32::INFINITY),
+        t_max: f32::INFINITY,
     };
     let inv_dir = nalgebra::Vector3::new(1.0f32 / r.d.x, 1.0f32 / r.d.y, 1.0f32 / r.d.z);
     let dir_is_neg = [inv_dir.x < 0.0, inv_dir.y < 0.0, inv_dir.z < 0.0];

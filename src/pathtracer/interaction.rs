@@ -4,7 +4,6 @@ use crate::common::{
     ray::{Ray, RayDifferential},
     spectrum::Spectrum,
 };
-use std::cell::RefCell;
 
 #[derive(Clone, Copy, Debug)]
 pub struct Interaction {
@@ -35,7 +34,7 @@ impl Interaction {
         Ray {
             o,
             d: *d,
-            t_max: RefCell::new(f32::INFINITY),
+            t_max: f32::INFINITY,
         }
     }
     pub fn spawn_ray_to(&self, p2: &na::Point3<f32>) -> Ray {
@@ -44,7 +43,7 @@ impl Interaction {
         Ray {
             o: origin,
             d: d,
-            t_max: RefCell::new(1.0 - SHADOW_EPSILON),
+            t_max: 1.0 - SHADOW_EPSILON,
         }
     }
 
@@ -55,7 +54,7 @@ impl Interaction {
         return Ray {
             o: origin,
             d,
-            t_max: RefCell::new(1.0 - SHADOW_EPSILON),
+            t_max: 1.0 - SHADOW_EPSILON,
         };
     }
 }

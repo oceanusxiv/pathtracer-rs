@@ -1,10 +1,8 @@
-use std::cell::RefCell;
-
 #[derive(Clone, Debug)]
 pub struct Ray {
     pub o: na::Point3<f32>,
     pub d: na::Vector3<f32>,
-    pub t_max: RefCell<f32>,
+    pub t_max: f32,
 }
 
 #[derive(Clone, Debug)]

@@ -22,7 +22,6 @@ use interaction::SurfaceMediumInteraction;
 use light::SyncLight;
 use material::{Material, MaterialInterface};
 use primitive::SyncPrimitive;
-use std::cell::RefCell;
 use std::sync::Arc;
 
 #[derive(PartialEq, Eq)]
@@ -48,7 +47,7 @@ impl Camera {
         Ray {
             o: world_orig,
             d: world_dir.normalize(),
-            t_max: RefCell::new(f32::INFINITY),
+            t_max: f32::INFINITY,
         }
     }
 
@@ -66,7 +65,7 @@ impl Camera {
             ray: Ray {
                 o: world_orig,
                 d: world_dir.normalize(),
-                t_max: RefCell::new(f32::INFINITY),
+                t_max: f32::INFINITY,
             },
             has_differentials: true,
             rx_origin: world_orig,
@@ -84,7 +83,7 @@ pub struct RenderScene {
 }
 
 impl RenderScene {
-    pub fn intersect<'a>(&'a self, r: &Ray, isect: &mut SurfaceMediumInteraction<'a>) -> bool {
+    pub fn intersect<'a>(&'a self, r: &mut Ray, isect: &mut SurfaceMediumInteraction<'a>) -> bool {
         self.scene.intersect(r, isect)
     }
 

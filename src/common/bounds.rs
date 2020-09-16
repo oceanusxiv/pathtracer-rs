@@ -143,7 +143,7 @@ impl<T: na::RealField> TBounds3<T> {
 impl Bounds3 {
     pub fn intersect_p(&self, r: &Ray) -> Option<(f32, f32)> {
         let mut t0 = 0.0;
-        let mut t1 = *r.t_max.borrow();
+        let mut t1 = r.t_max;
 
         for i in 0..3usize {
             let inv_ray_dir: f32 = 1.0 / r.d[i];
@@ -206,6 +206,6 @@ impl Bounds3 {
             t_max = tz_max
         };
 
-        (t_min < *r.t_max.borrow()) && (t_max > 0.0)
+        (t_min < r.t_max) && (t_max > 0.0)
     }
 }

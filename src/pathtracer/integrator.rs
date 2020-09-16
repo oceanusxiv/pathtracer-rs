@@ -7,6 +7,7 @@ use crate::common::spectrum::Spectrum;
 use crate::common::Camera;
 use crate::common::{bounds::Bounds2i, math::power_heuristic};
 use indicatif::ParallelProgressIterator;
+use indicatif::ProgressIterator;
 use itertools::Itertools;
 use rayon::prelude::*;
 use std::time::Instant;
@@ -108,12 +109,12 @@ fn estimate_direct(
             }
 
             let mut light_isect = SurfaceMediumInteraction::default();
-            let ray = it.general.spawn_ray(&wi);
+            let mut ray = it.general.spawn_ray(&wi);
             let tr = Spectrum::new(1.0);
             let found_surface_interaction = if handle_media {
                 panic!("medium interaction not supported!")
             } else {
-                scene.intersect(&ray, &mut light_isect)
+                scene.intersect(&mut ray, &mut light_isect)
             };
 
             let mut li = Spectrum::new(0.0);
@@ -405,7 +406,7 @@ impl PathIntegrator {
             );
 
             let mut isect = Default::default();
-            let found_intersection = scene.intersect(&ray.ray, &mut isect);
+            let found_intersection = scene.intersect(&mut ray.ray, &mut isect);
 
             if bounces == 0 || specular_bounce {
                 if found_intersection {
