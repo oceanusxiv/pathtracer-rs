@@ -112,14 +112,14 @@ impl<T: na::RealField + na::ClosedSub> TBounds3<T> {
     }
 }
 
-impl<T: na::RealField> std::ops::Index<usize> for TBounds3<T> {
+impl<T: na::RealField> std::ops::Index<bool> for TBounds3<T> {
     type Output = na::Point3<T>;
 
-    fn index(&self, i: usize) -> &Self::Output {
-        if i == 0 {
-            &self.p_min
-        } else {
+    fn index(&self, i: bool) -> &Self::Output {
+        if i {
             &self.p_max
+        } else {
+            &self.p_min
         }
     }
 }
@@ -172,10 +172,10 @@ impl Bounds3 {
         dir_is_neg: &[bool; 3],
     ) -> bool {
         // Check for ray intersection against $x$ and $y$ slabs
-        let mut t_min = (self[dir_is_neg[0] as usize].x - r.o.x) * inv_dir.x;
-        let mut t_max = (self[1 - dir_is_neg[0] as usize].x - r.o.x) * inv_dir.x;
-        let ty_min = (self[dir_is_neg[1] as usize].y - r.o.y) * inv_dir.y;
-        let mut ty_max = (self[1 - dir_is_neg[1] as usize].y - r.o.y) * inv_dir.y;
+        let mut t_min = (self[dir_is_neg[0]].x - r.o.x) * inv_dir.x;
+        let mut t_max = (self[!dir_is_neg[0]].x - r.o.x) * inv_dir.x;
+        let ty_min = (self[dir_is_neg[1]].y - r.o.y) * inv_dir.y;
+        let mut ty_max = (self[!dir_is_neg[1]].y - r.o.y) * inv_dir.y;
 
         // Update _tMax_ and _tyMax_ to ensure robust bounds intersection
         t_max *= 1.0 + 2.0 * gamma(3);
@@ -191,8 +191,8 @@ impl Bounds3 {
         };
 
         // Check for ray intersection against $z$ slab
-        let tz_min = (self[dir_is_neg[2] as usize].z - r.o.z) * inv_dir.z;
-        let mut tz_max = (self[1 - dir_is_neg[2] as usize].z - r.o.z) * inv_dir.z;
+        let tz_min = (self[dir_is_neg[2]].z - r.o.z) * inv_dir.z;
+        let mut tz_max = (self[!dir_is_neg[2]].z - r.o.z) * inv_dir.z;
 
         // Update _tzMax_ to ensure robust bounds intersection
         tz_max *= 1.0 + 2.0 * gamma(3);
