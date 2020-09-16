@@ -259,6 +259,16 @@ impl RenderScene {
         let bvh = Box::new(accelerator::BVH::new(&log, primitives, &4)) as Box<dyn SyncPrimitive>;
         let world_bound = bvh.world_bound();
 
+        // FIXME: should probably figure out what's wrong with the overall transformation
+        let env_light_to_world = na::Projective3::from_matrix_unchecked(
+            na::Matrix4::from_euler_angles(
+                -std::f32::consts::FRAC_PI_2,
+                -std::f32::consts::FRAC_PI_2,
+                0.0,
+            )
+            .append_nonuniform_scaling(&na::Vector3::new(1.0, 1.0, -1.0)),
+        );
+
         for emitter in &scene.emitters {
             match emitter {
                 mitsuba::Emitter::Area { rgb: _ } => {
@@ -274,8 +284,12 @@ impl RenderScene {
                         .unwrap_or_else(|| std::path::Path::new(""))
                         .join(filename);
                     let file_path = file_path.to_str().unwrap();
-                    let mut env_light =
-                        InfiniteAreaLight::new(&log, *transform, Spectrum::new(1.0), file_path);
+                    let mut env_light = InfiniteAreaLight::new(
+                        &log,
+                        transform * env_light_to_world,
+                        Spectrum::new(1.0),
+                        file_path,
+                    );
                     env_light.preprocess(&world_bound);
                     let env_light = Arc::new(env_light) as Arc<dyn SyncLight>;
                     lights.push(Arc::clone(&env_light));

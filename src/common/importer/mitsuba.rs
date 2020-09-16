@@ -632,6 +632,7 @@ fn get_camera(scene: &Scene, resolution: &na::Vector2<f32>) -> Camera {
     let height = scene.sensor.film.integer_params["height"];
     let fov = params["fov"].to_radians();
     // right to left hand coordinate conversion
+    // FIXME: should probably figure out what's wrong with the overall transformation
     let rotation = na::Rotation3::new(na::Vector3::new(0.0, -std::f32::consts::PI, 0.0));
     // dunno why I need to do this, but sometimes convert to isometry fails even when scaling is 1.0
     let sim_cam_to_world: na::Similarity3<f32> =

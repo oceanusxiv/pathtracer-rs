@@ -2,7 +2,6 @@ use super::math::{gamma_correct, inverse_gamma_correct};
 use num::Zero;
 use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Sub};
 
-// TODO: think about making this use vectors inside
 #[derive(Clone, Debug, Copy)]
 pub struct RGBSpectrum(na::Vector3<f32>);
 
