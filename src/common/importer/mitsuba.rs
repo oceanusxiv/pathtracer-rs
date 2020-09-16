@@ -350,12 +350,22 @@ pub struct Plastic {
 }
 
 #[derive(Debug, Deserialize)]
+pub struct Conductor {
+    pub id: Option<String>,
+
+    #[serde(rename = "string")]
+    pub material: Option<StringParam>,
+}
+
+#[derive(Debug, Deserialize)]
 #[serde(tag = "type")]
 pub enum BSDF {
     #[serde(rename = "twosided")]
     TwoSided(TwoSided),
     #[serde(rename = "diffuse")]
     Diffuse(Diffuse),
+    #[serde(rename = "conductor")]
+    Conductor(Conductor),
     #[serde(rename = "roughconductor")]
     RoughConductor(RoughConductor),
     #[serde(rename = "dielectric")]
@@ -394,6 +404,7 @@ mod bsdf {
                 map,
                 BSDF::TwoSided,
                 BSDF::Diffuse,
+                BSDF::Conductor,
                 BSDF::RoughConductor,
                 BSDF::Dielectric,
                 BSDF::Plastic

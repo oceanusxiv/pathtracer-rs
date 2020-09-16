@@ -7,7 +7,7 @@ use crate::{
     pathtracer::{
         accelerator,
         light::{DiffuseAreaLight, SyncLight},
-        material::{metal::MetalMaterial, Material, MatteMaterial},
+        material::{metal::MetalMaterial, Material, MatteMaterial, MirrorMaterial},
         primitive::{GeometricPrimitive, SyncPrimitive},
         shape::{shapes_from_mesh, TriangleMesh},
         texture::{CheckerTexture, ConstantTexture, SyncTexture},
@@ -51,6 +51,17 @@ fn material_from_bsdf(log: &slog::Logger, bsdf: &mitsuba::BSDF) -> Material {
                 )))
             },
         )),
+        mitsuba::BSDF::Conductor(bsdf) => {
+            if let Some(material) = bsdf.material.as_ref() {
+                if material.value == "none" {
+                    Material::Mirror(MirrorMaterial::new(log))
+                } else {
+                    panic!("other material values not supported yet!");
+                }
+            } else {
+                panic!("other smooth conductors not supported yet!");
+            }
+        }
         mitsuba::BSDF::RoughConductor(bsdf) => Material::Metal(MetalMaterial::new(
             &log,
             Box::new(ConstantTexture::new(Spectrum::from_slice_3(
