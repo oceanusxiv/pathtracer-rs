@@ -387,6 +387,14 @@ pub struct FresnelBlend {
 }
 
 impl FresnelBlend {
+    pub fn new(rd: Spectrum, rs: Spectrum, distribution: Box<dyn MicrofacetDistribution>) -> Self {
+        Self {
+            rd,
+            rs,
+            distribution,
+        }
+    }
+
     pub fn schlick_fresnel(&self, cos_theta: f32) -> Spectrum {
         let pow5 = |v: f32| (v * v) * (v * v) * v;
         self.rs + pow5(1.0 - cos_theta) * (Spectrum::new(1.) - self.rs)

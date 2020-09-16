@@ -188,6 +188,7 @@ pub enum BxDF {
     FresnelSpecular(FresnelSpecular),
     MicrofacetReflection(microfacet::MicrofacetReflection),
     MicrofacetTransmission(microfacet::MicrofacetTransmission),
+    FresnelBlend(microfacet::FresnelBlend),
     DisneyDiffuse(super::material::disney::DisneyDiffuse),
 }
 
