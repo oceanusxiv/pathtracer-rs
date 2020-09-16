@@ -3,26 +3,53 @@ use crate::{
     pathtracer::light::InfiniteAreaLight,
     pathtracer::light::Light,
     pathtracer::material::GlassMaterial,
+    pathtracer::texture::UVMap,
     pathtracer::{
         accelerator,
         light::{DiffuseAreaLight, SyncLight},
         material::{metal::MetalMaterial, Material, MatteMaterial},
         primitive::{GeometricPrimitive, SyncPrimitive},
         shape::{shapes_from_mesh, TriangleMesh},
-        texture::{ConstantTexture, SyncTexture},
+        texture::{CheckerTexture, ConstantTexture, SyncTexture},
         RenderScene,
     },
 };
 use std::{collections::HashMap, sync::Arc};
+
+fn texture_from_mitsuba(
+    log: &slog::Logger,
+    texture: &mitsuba::Texture,
+) -> Box<dyn SyncTexture<Spectrum>> {
+    match texture {
+        mitsuba::Texture::Checkerboard {
+            rgb_params,
+            float_params,
+        } => Box::new(CheckerTexture::new(
+            log,
+            Spectrum::from_slice_3(&rgb_params["color0"], false),
+            Spectrum::from_slice_3(&rgb_params["color1"], false),
+            UVMap::new(
+                float_params["uscale"],
+                float_params["vscale"],
+                float_params["uoffset"],
+                float_params["voffset"],
+            ),
+        )),
+    }
+}
 
 fn material_from_bsdf(log: &slog::Logger, bsdf: &mitsuba::BSDF) -> Material {
     match bsdf {
         mitsuba::BSDF::TwoSided(bsdf) => material_from_bsdf(&log, &bsdf.bsdf),
         mitsuba::BSDF::Diffuse(bsdf) => Material::Matte(MatteMaterial::new(
             &log,
-            Box::new(ConstantTexture::new(Spectrum::from_slice_3(
-                &bsdf.rgb, false,
-            ))),
+            if let Some(texture) = bsdf.texture.as_ref() {
+                texture_from_mitsuba(log, texture)
+            } else {
+                Box::new(ConstantTexture::new(Spectrum::from_slice_3(
+                    &bsdf.rgb, false,
+                )))
+            },
         )),
         mitsuba::BSDF::RoughConductor(bsdf) => Material::Metal(MetalMaterial::new(
             &log,

@@ -53,6 +53,41 @@ impl UVMap {
     }
 }
 
+pub struct CheckerTexture<T> {
+    v1: T,
+    v2: T,
+    mapping: UVMap,
+    log: slog::Logger,
+}
+
+impl<T> CheckerTexture<T> {
+    pub fn new(log: &slog::Logger, v1: T, v2: T, mapping: UVMap) -> Self {
+        let log = log.new(o!());
+        Self {
+            v1,
+            v2,
+            mapping,
+            log,
+        }
+    }
+}
+
+impl<T: Copy> Texture<T> for CheckerTexture<T> {
+    fn evaluate(&self, it: &SurfaceMediumInteraction) -> T {
+        let mut dst_dx = glm::zero();
+        let mut dst_dy = glm::zero();
+        trace!(self.log, "current mesh uv: {:?}", it.uv);
+        let st = self.mapping.map(&it, &mut dst_dx, &mut dst_dy);
+        let s_idx = st[0] - st[0].floor();
+        let t_idx = st[1] - st[1].floor();
+        if (s_idx <= 0.5 && t_idx <= 0.5) || (s_idx >= 0.5 && t_idx >= 0.5) {
+            self.v2
+        } else {
+            self.v1
+        }
+    }
+}
+
 pub struct ImageTexture<T: na::Scalar + num::Zero> {
     mip_map: MIPMap<T>,
     mapping: UVMap,

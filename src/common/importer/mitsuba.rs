@@ -287,6 +287,8 @@ pub struct Diffuse {
 
     #[serde(default = "default_rgb_one", with = "rgb")]
     pub rgb: [f32; 3],
+
+    pub texture: Option<Texture>,
 }
 
 fn de_rgbs<'de, D>(deserializer: D) -> Result<HashMap<String, [f32; 3]>, D::Error>
@@ -584,6 +586,19 @@ pub struct Sensor {
     pub transform: na::Projective3<f32>,
 
     pub film: Film,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(tag = "type")]
+pub enum Texture {
+    #[serde(rename = "checkerboard")]
+    Checkerboard {
+        #[serde(flatten, rename = "rgb", deserialize_with = "de_rgbs")]
+        rgb_params: HashMap<String, [f32; 3]>,
+
+        #[serde(flatten, rename = "float", deserialize_with = "de_floats")]
+        float_params: HashMap<String, f32>,
+    },
 }
 
 #[derive(Debug, Deserialize)]
