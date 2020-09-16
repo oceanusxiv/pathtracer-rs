@@ -329,6 +329,9 @@ pub struct RoughConductor {
 
     #[serde(flatten, rename = "rgb", deserialize_with = "de_rgbs")]
     pub rgb_params: HashMap<String, [f32; 3]>,
+
+    #[serde(flatten, rename = "float", deserialize_with = "de_floats")]
+    pub float_params: HashMap<String, f32>,
 }
 
 #[derive(Debug, Deserialize)]

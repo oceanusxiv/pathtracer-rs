@@ -81,14 +81,20 @@ impl FresnelInterface for FresnelDielectric {
 }
 
 pub struct FresnelConductor {
-    eta_i: f32,
-    eta_t: f32,
-    k: f32,
+    eta_i: Spectrum,
+    eta_t: Spectrum,
+    k: Spectrum,
+}
+
+impl FresnelConductor {
+    pub fn new(eta_i: Spectrum, eta_t: Spectrum, k: Spectrum) -> Self {
+        Self { eta_i, eta_t, k }
+    }
 }
 
 impl FresnelInterface for FresnelConductor {
     fn evaluate(&self, cos_i: f32) -> Spectrum {
-        todo!()
+        fr_conductor(cos_i.abs(), self.eta_i, self.eta_t, self.k)
     }
 }
 

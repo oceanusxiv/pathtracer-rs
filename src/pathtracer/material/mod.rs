@@ -1,4 +1,5 @@
 pub mod disney;
+pub mod metal;
 
 use super::{
     bsdf::BSDF,
@@ -25,6 +26,7 @@ pub trait MaterialInterface {
 #[delegate(MaterialInterface)]
 pub enum Material {
     Matte(MatteMaterial),
+    Metal(metal::MetalMaterial),
     Mirror(MirrorMaterial),
     Glass(GlassMaterial),
     Disney(disney::DisneyMaterial),

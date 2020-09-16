@@ -6,7 +6,7 @@ use crate::{
     pathtracer::{
         accelerator,
         light::{DiffuseAreaLight, SyncLight},
-        material::{Material, MatteMaterial},
+        material::{metal::MetalMaterial, Material, MatteMaterial},
         primitive::{GeometricPrimitive, SyncPrimitive},
         shape::{shapes_from_mesh, TriangleMesh},
         texture::{ConstantTexture, SyncTexture},
@@ -20,32 +20,37 @@ fn material_from_bsdf(log: &slog::Logger, bsdf: &mitsuba::BSDF) -> Material {
         mitsuba::BSDF::TwoSided(bsdf) => material_from_bsdf(&log, &bsdf.bsdf),
         mitsuba::BSDF::Diffuse(bsdf) => Material::Matte(MatteMaterial::new(
             &log,
-            Box::new(ConstantTexture::<Spectrum>::new(Spectrum::from_slice_3(
+            Box::new(ConstantTexture::new(Spectrum::from_slice_3(
                 &bsdf.rgb, false,
             ))),
             None,
         )),
-        mitsuba::BSDF::RoughConductor(bsdf) => Material::Matte(MatteMaterial::new(
+        mitsuba::BSDF::RoughConductor(bsdf) => Material::Metal(MetalMaterial::new(
             &log,
-            Box::new(ConstantTexture::<Spectrum>::new(Spectrum::from_slice_3(
-                &bsdf.rgb_params["specular_reflectance"],
+            Box::new(ConstantTexture::new(Spectrum::from_slice_3(
+                &bsdf.rgb_params["eta"],
                 false,
             ))),
+            Box::new(ConstantTexture::new(Spectrum::from_slice_3(
+                &bsdf.rgb_params["k"],
+                false,
+            ))),
+            Some(Box::new(ConstantTexture::new(bsdf.float_params["alpha"]))),
             None,
+            None,
+            None,
+            false,
         )),
         mitsuba::BSDF::Dielectric(bsdf) => Material::Glass(GlassMaterial::new(
             &log,
-            Box::new(ConstantTexture::<Spectrum>::new(Spectrum::new(1.0)))
-                as Box<dyn SyncTexture<Spectrum>>,
-            Box::new(ConstantTexture::<Spectrum>::new(Spectrum::new(1.0)))
-                as Box<dyn SyncTexture<Spectrum>>,
-            Box::new(ConstantTexture::<f32>::new(bsdf.float_params["int_ior"]))
-                as Box<dyn SyncTexture<f32>>,
+            Box::new(ConstantTexture::new(Spectrum::new(1.0))),
+            Box::new(ConstantTexture::new(Spectrum::new(1.0))),
+            Box::new(ConstantTexture::new(bsdf.float_params["int_ior"])),
             None,
         )),
         _ => Material::Matte(MatteMaterial::new(
             &log,
-            Box::new(ConstantTexture::<Spectrum>::new(Spectrum::new(1.0))),
+            Box::new(ConstantTexture::new(Spectrum::new(1.0))),
             None,
         )),
     }
