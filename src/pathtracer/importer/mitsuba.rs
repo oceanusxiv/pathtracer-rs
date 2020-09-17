@@ -106,10 +106,14 @@ fn material_from_bsdf(log: &slog::Logger, bsdf: &mitsuba::BSDF) -> Material {
         // plastic -> substrate is not a perfect match
         mitsuba::BSDF::Plastic(bsdf) => Material::Substrate(SubstrateMaterial::new(
             log,
-            Box::new(ConstantTexture::new(Spectrum::from_slice_3(
-                &bsdf.rgb_params["diffuse_reflectance"],
-                false,
-            ))),
+            if let Some(texture) = bsdf.texture.as_ref() {
+                texture_from_mitsuba(log, texture)
+            } else {
+                Box::new(ConstantTexture::new(Spectrum::from_slice_3(
+                    &bsdf.rgb_params["diffuse_reflectance"],
+                    false,
+                )))
+            },
             Box::new(ConstantTexture::new(Spectrum::new(schlick_r0_from_eta(
                 bsdf.float_params["int_ior"],
             )))),
@@ -119,10 +123,14 @@ fn material_from_bsdf(log: &slog::Logger, bsdf: &mitsuba::BSDF) -> Material {
         )),
         mitsuba::BSDF::RoughPlastic(bsdf) => Material::Substrate(SubstrateMaterial::new(
             log,
-            Box::new(ConstantTexture::new(Spectrum::from_slice_3(
-                &bsdf.rgb_params["diffuse_reflectance"],
-                false,
-            ))),
+            if let Some(texture) = bsdf.texture.as_ref() {
+                texture_from_mitsuba(log, texture)
+            } else {
+                Box::new(ConstantTexture::new(Spectrum::from_slice_3(
+                    &bsdf.rgb_params["diffuse_reflectance"],
+                    false,
+                )))
+            },
             Box::new(ConstantTexture::new(Spectrum::new(schlick_r0_from_eta(
                 bsdf.float_params["int_ior"],
             )))),
