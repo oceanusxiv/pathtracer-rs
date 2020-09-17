@@ -107,7 +107,7 @@ impl BVH {
     ) -> Self {
         let start = Instant::now();
 
-        let log = log.new(o!());
+        let log = log.new(o!("module" => "bvh"));
 
         if primitives.is_empty() {
             return Self {
@@ -227,7 +227,7 @@ impl BVH {
                         let mut count0 = 0;
                         let mut count1 = 0;
 
-                        for j in 0..i {
+                        for j in 0..=i {
                             b0 = Bounds3::union(&b0, &buckets[j].bounds);
                             count0 += buckets[j].count;
                         }
