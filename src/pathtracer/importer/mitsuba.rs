@@ -1,8 +1,10 @@
 use crate::{
+    common::WrapMode,
     common::{importer::mitsuba, spectrum::Spectrum},
     pathtracer::light::InfiniteAreaLight,
     pathtracer::light::Light,
     pathtracer::material::GlassMaterial,
+    pathtracer::texture::ImageTexture,
     pathtracer::texture::UVMap,
     pathtracer::{
         accelerator,
@@ -21,6 +23,7 @@ use std::{collections::HashMap, sync::Arc};
 
 fn texture_from_mitsuba(
     log: &slog::Logger,
+    scene_path: &str,
     texture: &mitsuba::Texture,
 ) -> Box<dyn SyncTexture<Spectrum>> {
     match texture {
@@ -39,18 +42,36 @@ fn texture_from_mitsuba(
             ),
         )),
         mitsuba::Texture::BitMap { string_params } => {
-            Box::new(ConstantTexture::new(Spectrum::new(0.0)))
+            let file_path = std::path::Path::new(scene_path)
+                .parent()
+                .unwrap_or_else(|| std::path::Path::new(""))
+                .join(&string_params["filename"]);
+            let file_path = file_path.to_str().unwrap();
+            let image = image::open(file_path).unwrap();
+            match image {
+                image::DynamicImage::ImageRgb8(image) => Box::new(ImageTexture::<Spectrum>::new(
+                    log,
+                    &image,
+                    Spectrum::new(1.),
+                    WrapMode::Repeat,
+                    UVMap::new(1., 1., 0., 0.),
+                    true,
+                )),
+                _ => {
+                    panic!("unsupported image format for texture");
+                }
+            }
         }
     }
 }
 
-fn material_from_bsdf(log: &slog::Logger, bsdf: &mitsuba::BSDF) -> Material {
+fn material_from_bsdf(log: &slog::Logger, scene_path: &str, bsdf: &mitsuba::BSDF) -> Material {
     match bsdf {
-        mitsuba::BSDF::TwoSided(bsdf) => material_from_bsdf(&log, &bsdf.bsdf),
+        mitsuba::BSDF::TwoSided(bsdf) => material_from_bsdf(&log, scene_path, &bsdf.bsdf),
         mitsuba::BSDF::Diffuse(bsdf) => Material::Matte(MatteMaterial::new(
             &log,
             if let Some(texture) = bsdf.texture.as_ref() {
-                texture_from_mitsuba(log, texture)
+                texture_from_mitsuba(log, scene_path, texture)
             } else {
                 Box::new(ConstantTexture::new(Spectrum::from_slice_3(
                     &bsdf.rgb, false,
@@ -107,7 +128,7 @@ fn material_from_bsdf(log: &slog::Logger, bsdf: &mitsuba::BSDF) -> Material {
         mitsuba::BSDF::Plastic(bsdf) => Material::Substrate(SubstrateMaterial::new(
             log,
             if let Some(texture) = bsdf.texture.as_ref() {
-                texture_from_mitsuba(log, texture)
+                texture_from_mitsuba(log, scene_path, texture)
             } else {
                 Box::new(ConstantTexture::new(Spectrum::from_slice_3(
                     &bsdf.rgb_params["diffuse_reflectance"],
@@ -124,7 +145,7 @@ fn material_from_bsdf(log: &slog::Logger, bsdf: &mitsuba::BSDF) -> Material {
         mitsuba::BSDF::RoughPlastic(bsdf) => Material::Substrate(SubstrateMaterial::new(
             log,
             if let Some(texture) = bsdf.texture.as_ref() {
-                texture_from_mitsuba(log, texture)
+                texture_from_mitsuba(log, scene_path, texture)
             } else {
                 Box::new(ConstantTexture::new(Spectrum::from_slice_3(
                     &bsdf.rgb_params["diffuse_reflectance"],
@@ -255,7 +276,7 @@ fn parse_shape(
     if let Some(material_ref) = material_ref {
         material = Arc::clone(&materials[&material_ref.id]);
     } else if let Some(material_embed) = material_embed {
-        material = Arc::new(material_from_bsdf(&log, material_embed));
+        material = Arc::new(material_from_bsdf(&log, scene_path, material_embed));
     } else {
         panic!("either ref exists or embedded bsdf exists");
     }
@@ -293,7 +314,10 @@ impl RenderScene {
         let mut infinite_lights: Vec<Arc<dyn SyncLight>> = Vec::new();
 
         for (id, bsdf) in &scene.bsdfs {
-            materials.insert(id.clone(), Arc::new(material_from_bsdf(&log, &bsdf)));
+            materials.insert(
+                id.clone(),
+                Arc::new(material_from_bsdf(&log, &scene.path, &bsdf)),
+            );
         }
 
         for shape in &scene.shapes {
@@ -346,7 +370,21 @@ impl RenderScene {
                     lights.push(Arc::clone(&env_light));
                     infinite_lights.push(Arc::clone(&env_light));
                 }
-                mitsuba::Emitter::SunSky => {} // TODO: support mitsuba sunsky emitter
+                mitsuba::Emitter::SunSky => {
+                    let hdr_map_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                        .join("data/abandoned_tank_farm_04_1k.hdr");
+                    let hdr_map_path = hdr_map_path.to_str().unwrap();
+                    let mut env_light = InfiniteAreaLight::new(
+                        &log,
+                        env_light_to_world,
+                        Spectrum::new(1.0),
+                        hdr_map_path,
+                    );
+                    env_light.preprocess(&world_bound);
+                    let env_light = Arc::new(env_light) as Arc<dyn SyncLight>;
+                    lights.push(Arc::clone(&env_light));
+                    infinite_lights.push(Arc::clone(&env_light));
+                } // TODO: support mitsuba sunsky emitter
             }
         }
 
