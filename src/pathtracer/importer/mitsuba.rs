@@ -371,6 +371,10 @@ impl RenderScene {
                     infinite_lights.push(Arc::clone(&env_light));
                 }
                 mitsuba::Emitter::SunSky => {
+                    warn!(
+                        log,
+                        "sunsky emitter not supported, putting default env map instead"
+                    );
                     let hdr_map_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
                         .join("data/abandoned_tank_farm_04_1k.hdr");
                     let hdr_map_path = hdr_map_path.to_str().unwrap();

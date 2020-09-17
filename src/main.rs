@@ -74,7 +74,7 @@ fn main() {
         (@arg samples: -s --samples default_value("1") validator(sample_arg_legal) "Number of samples path tracer to take per pixel (must be perfect square)")
         (@arg resolution: -r --resolution +takes_value "Resolution of the window")
         (@arg camera_controller: -c --camera default_value("orbit") "Camera movement type")
-        (@arg max_depth: -d --max_depth default_value("5") "Maximum ray tracing depth")
+        (@arg max_depth: -d --max_depth default_value("15") "Maximum ray tracing depth")
         (@arg log_level: -l --log_level default_value("INFO") "Application wide log level")
         (@arg module_log: -m --module_log default_value("all") "Module names to log, (all for every module)")
         (@arg default_lights: --default_lights "Add default lights into the scene")
