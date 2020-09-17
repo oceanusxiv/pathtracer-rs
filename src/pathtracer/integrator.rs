@@ -627,6 +627,7 @@ impl PathIntegrator {
         } else {
             render_par_iter.for_each(work_closure);
         }
+        camera.film.write_image();
 
         let duration = start.elapsed();
 

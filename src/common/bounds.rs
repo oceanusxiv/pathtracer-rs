@@ -9,7 +9,7 @@ pub struct TBounds2<T: na::Scalar> {
 
 pub type Bounds2i = TBounds2<i32>;
 
-impl<T: na::Scalar + na::ClosedSub + na::ClosedMul + Copy> TBounds2<T> {
+impl<T: na::Scalar + na::ClosedSub + na::ClosedMul + Copy + Ord> TBounds2<T> {
     pub fn diagonal(&self) -> na::Vector2<T> {
         self.p_max.coords - self.p_min.coords
     }
@@ -17,6 +17,19 @@ impl<T: na::Scalar + na::ClosedSub + na::ClosedMul + Copy> TBounds2<T> {
     pub fn area(&self) -> T {
         let d = self.p_max.coords - self.p_min.coords;
         d.x * d.y
+    }
+
+    pub fn intersect(&self, other: &TBounds2<T>) -> TBounds2<T> {
+        TBounds2 {
+            p_min: na::Point2::new(
+                self.p_min.x.max(other.p_min.x),
+                self.p_min.y.max(other.p_min.y),
+            ),
+            p_max: na::Point2::new(
+                self.p_max.x.min(other.p_max.x),
+                self.p_max.y.min(other.p_max.y),
+            ),
+        }
     }
 }
 

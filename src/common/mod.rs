@@ -7,7 +7,7 @@ pub mod ray;
 pub mod spectrum;
 
 use film::Film;
-use filter::{Filter, TriangleFilter};
+use filter::{Filter, GuassianFilter};
 
 lazy_static::lazy_static! {
     pub static ref DEFAULT_RESOLUTION: glm::Vec2 = glm::vec2(640.0, 480.0);
@@ -55,9 +55,7 @@ impl Camera {
             dy_camera,
             film: Film::new(
                 &resolution,
-                Box::new(Filter::Triangle(TriangleFilter::new(&na::Vector2::new(
-                    2.0, 2.0,
-                )))),
+                Box::new(Filter::Guassian(GuassianFilter::new(2.))),
             ),
         }
     }

@@ -21,47 +21,88 @@ impl FilmTilePixel {
 }
 
 pub struct FilmTile {
-    tile: Vec<FilmTilePixel>,
+    pixels: Vec<FilmTilePixel>,
     pixel_bounds: Bounds2i,
+    filter_radius: na::Vector2<f32>,
+    inv_filter_radius: na::Vector2<f32>,
+    filter_table: [f32; FILTER_TABLE_WIDTH * FILTER_TABLE_WIDTH],
 }
 
 impl FilmTile {
-    pub fn new(pixel_bounds: Bounds2i) -> Self {
+    pub fn new(
+        pixel_bounds: Bounds2i,
+        filter_radius: na::Vector2<f32>,
+        filter_table: [f32; FILTER_TABLE_WIDTH * FILTER_TABLE_WIDTH],
+    ) -> Self {
         Self {
-            tile: vec![FilmTilePixel::new(); pixel_bounds.area() as usize],
+            pixels: vec![FilmTilePixel::new(); pixel_bounds.area() as usize],
             pixel_bounds,
+            filter_radius,
+            inv_filter_radius: na::Vector2::new(1. / filter_radius.x, 1. / filter_radius.y),
+            filter_table,
         }
     }
 
     fn get_pixel(&self, p: &na::Point2<i32>) -> &FilmTilePixel {
         let width = self.pixel_bounds.p_max.x - self.pixel_bounds.p_min.x;
         let offset = (p.x - self.pixel_bounds.p_min.x) + (p.y - self.pixel_bounds.p_min.y) * width;
-        return &self.tile[offset as usize];
+        return &self.pixels[offset as usize];
     }
 
     fn get_pixel_mut(&mut self, p: &na::Point2<i32>) -> &mut FilmTilePixel {
         let width = self.pixel_bounds.p_max.x - self.pixel_bounds.p_min.x;
         let offset = (p.x - self.pixel_bounds.p_min.x) + (p.y - self.pixel_bounds.p_min.y) * width;
 
-        return &mut self.tile[offset as usize];
+        return &mut self.pixels[offset as usize];
     }
 
     // TODO: use more sophisticated image reconstruction techniques
     pub fn add_sample(&mut self, p_film: &na::Point2<f32>, l: &Spectrum) {
-        let discrete_x = p_film
-            .x
-            .floor()
-            .min((self.pixel_bounds.p_max.coords.x - 1) as f32)
-            .max(self.pixel_bounds.p_min.coords.x as f32) as i32;
-        let discrete_y = p_film
-            .y
-            .floor()
-            .min((self.pixel_bounds.p_max.coords.y - 1) as f32)
-            .max(self.pixel_bounds.p_min.coords.y as f32) as i32;
+        let p_film_discrete = p_film - na::Vector2::new(0.5, 0.5);
+        let p0 = na::Point2::new(
+            (p_film_discrete.x - self.filter_radius.x).ceil() as i32,
+            (p_film_discrete.y - self.filter_radius.y).ceil() as i32,
+        );
+        let p1 = na::Point2::new(
+            ((p_film_discrete.x + self.filter_radius.x).floor() + 1.0) as i32,
+            ((p_film_discrete.y + self.filter_radius.y).floor() + 1.0) as i32,
+        );
+        let p0 = na::Point2::new(
+            p0.x.max(self.pixel_bounds.p_min.x),
+            p0.y.max(self.pixel_bounds.p_min.y),
+        );
+        let p1 = na::Point2::new(
+            p1.x.min(self.pixel_bounds.p_max.x),
+            p1.y.min(self.pixel_bounds.p_max.y),
+        );
 
-        let pixel = self.get_pixel_mut(&na::Point2::new(discrete_x, discrete_y));
-        pixel.contrib_sum += *l;
-        pixel.filter_wight_sum += 1.0;
+        let mut ifx = vec![0; (p1.x - p0.x) as usize];
+        for x in p0.x..p1.x {
+            let fx = ((x as f32 - p_film_discrete.x)
+                * self.inv_filter_radius.x
+                * FILTER_TABLE_WIDTH as f32)
+                .abs();
+            ifx[(x - p0.x) as usize] = (fx.floor() as i32).min(FILTER_TABLE_WIDTH as i32 - 1);
+        }
+        let mut ify = vec![0; (p1.y - p0.y) as usize];
+        for y in p0.y..p1.y {
+            let fy = ((y as f32 - p_film_discrete.y)
+                * self.inv_filter_radius.y
+                * FILTER_TABLE_WIDTH as f32)
+                .abs();
+            ify[(y - p0.y) as usize] = (fy.floor() as i32).min(FILTER_TABLE_WIDTH as i32 - 1);
+        }
+
+        for y in p0.y..p1.y {
+            for x in p0.x..p1.x {
+                let offset = ify[(y - p0.y) as usize] as usize * FILTER_TABLE_WIDTH
+                    + ifx[(x - p0.x) as usize] as usize;
+                let filter_weight = self.filter_table[offset];
+                let pixel = self.get_pixel_mut(&na::Point2::new(x, y));
+                pixel.contrib_sum += *l * filter_weight;
+                pixel.filter_wight_sum += filter_weight;
+            }
+        }
     }
 
     pub fn get_pixel_bounds(&self) -> Bounds2i {
@@ -80,8 +121,10 @@ struct FilmPixel {
 const FILTER_TABLE_WIDTH: usize = 16;
 
 pub struct Film {
-    image: RwLock<RgbaImage>,
+    image: RgbaImage,
     pixels: RwLock<Vec<FilmPixel>>,
+    resolution: glm::UVec2,
+    pixel_bounds: Bounds2i,
     filter_table: [f32; FILTER_TABLE_WIDTH * FILTER_TABLE_WIDTH],
     filter: Box<Filter>,
 }
@@ -101,7 +144,7 @@ impl Film {
             }
         }
         Self {
-            image: RwLock::new(RgbaImage::new(resolution.x, resolution.y)),
+            image: RgbaImage::new(resolution.x, resolution.y),
             pixels: RwLock::new(vec![
                 FilmPixel {
                     xyz: [0.0, 0.0, 0.0],
@@ -110,51 +153,101 @@ impl Film {
                 };
                 (resolution.x * resolution.y) as usize
             ]),
+            resolution: *resolution,
+            pixel_bounds: Bounds2i {
+                p_min: na::Point2::new(0, 0),
+                p_max: na::Point2::new(resolution.x as i32, resolution.y as i32),
+            },
             filter_table,
             filter,
         }
     }
 
     pub fn save(&self, file_path: &Path) {
-        self.image.read().unwrap().save(file_path).unwrap()
+        self.image.save(file_path).unwrap()
     }
 
     pub fn copy_image(&self) -> image::RgbaImage {
-        self.image.read().unwrap().clone()
+        self.image.clone()
     }
 
     pub fn get_sample_bounds(&self) -> Bounds2i {
         Bounds2i {
-            p_min: na::Point2::new(0, 0),
+            p_min: na::Point2::new(
+                (0.5 - self.filter.radius().x).floor() as i32,
+                (0.5 - self.filter.radius().y).floor() as i32,
+            ),
             p_max: na::Point2::new(
-                self.image.read().unwrap().width() as i32,
-                self.image.read().unwrap().height() as i32,
+                (self.resolution.x as f32 - 0.5 + self.filter.radius().x).ceil() as i32,
+                (self.resolution.y as f32 - 0.5 + self.filter.radius().y).ceil() as i32,
             ),
         }
     }
 
     pub fn get_pixel(&self, p: &na::Point2<i32>) -> Spectrum {
-        let pixel = self.image.read().unwrap();
-        let pixel = pixel.get_pixel(p.x as u32, p.y as u32);
+        let pixel = self.image.get_pixel(p.x as u32, p.y as u32);
         Spectrum::from_image_rgba(pixel, false)
     }
 
+    fn get_pixel_offset(&self, x: i32, y: i32) -> usize {
+        let p = na::Point2::new(x, y);
+        let width = self.pixel_bounds.p_max.x - self.pixel_bounds.p_min.x;
+        ((p.x - self.pixel_bounds.p_min.x) + (p.y - self.pixel_bounds.p_min.y) * width) as usize
+    }
+
     pub fn get_film_tile(&self, sample_bounds: &Bounds2i) -> Box<FilmTile> {
-        Box::new(FilmTile::new(*sample_bounds))
+        let bounds = Bounds2i {
+            p_min: na::Point2::new(
+                (sample_bounds.p_min.x as f32 - 0.5 - self.filter.radius().x).ceil() as i32,
+                (sample_bounds.p_min.y as f32 - 0.5 - self.filter.radius().y).ceil() as i32,
+            ),
+            p_max: na::Point2::new(
+                (sample_bounds.p_max.x as f32 - 0.5 + self.filter.radius().x).floor() as i32 + 1,
+                (sample_bounds.p_max.y as f32 - 0.5 + self.filter.radius().y).floor() as i32 + 1,
+            ),
+        }
+        .intersect(&self.pixel_bounds);
+
+        Box::new(FilmTile::new(
+            bounds,
+            *self.filter.radius(),
+            self.filter_table,
+        ))
     }
 
     pub fn merge_film_tile(&self, tile: Box<FilmTile>) {
-        let mut image = self.image.write().unwrap();
+        let mut pixels = self.pixels.write().unwrap();
         let pixel_bounds = tile.get_pixel_bounds();
         for (x, y) in (pixel_bounds.p_min.x..pixel_bounds.p_max.x)
             .cartesian_product(pixel_bounds.p_min.y..pixel_bounds.p_max.y)
         {
-            let film_tile_pixel = tile.get_pixel(&na::Point2::new(x, y));
+            let p = na::Point2::new(x, y);
+            let tile_pixel = tile.get_pixel(&p);
+            let offset = self.get_pixel_offset(x, y);
+            let merge_pixel = &mut pixels[offset as usize];
+            merge_pixel.xyz[0] += tile_pixel.contrib_sum.r();
+            merge_pixel.xyz[1] += tile_pixel.contrib_sum.g();
+            merge_pixel.xyz[2] += tile_pixel.contrib_sum.b();
+            merge_pixel.filter_weight_sum += tile_pixel.filter_wight_sum;
+        }
+    }
 
-            image.put_pixel(
+    pub fn write_image(&mut self) {
+        for (x, y) in (self.pixel_bounds.p_min.x..self.pixel_bounds.p_max.x)
+            .cartesian_product(self.pixel_bounds.p_min.y..self.pixel_bounds.p_max.y)
+        {
+            let offset = self.get_pixel_offset(x, y);
+            let pixel = &self.pixels.read().unwrap()[offset];
+            let inv_wt = 1. / pixel.filter_weight_sum;
+            self.image.put_pixel(
                 x as u32,
                 y as u32,
-                (film_tile_pixel.contrib_sum / film_tile_pixel.filter_wight_sum).to_image_rgba(),
+                (Spectrum::from_floats(
+                    pixel.xyz[0] * inv_wt,
+                    pixel.xyz[1] * inv_wt,
+                    pixel.xyz[2] * inv_wt,
+                ))
+                .to_image_rgba(),
             );
         }
     }
