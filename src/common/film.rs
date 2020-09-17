@@ -76,21 +76,21 @@ impl FilmTile {
             p1.y.min(self.pixel_bounds.p_max.y),
         );
 
-        let mut ifx = vec![0; (p1.x - p0.x) as usize];
+        let mut ifx = Vec::with_capacity((p1.x - p0.x) as usize);
         for x in p0.x..p1.x {
             let fx = ((x as f32 - p_film_discrete.x)
                 * self.inv_filter_radius.x
                 * FILTER_TABLE_WIDTH as f32)
                 .abs();
-            ifx[(x - p0.x) as usize] = (fx.floor() as i32).min(FILTER_TABLE_WIDTH as i32 - 1);
+            ifx.push((fx.floor() as i32).min(FILTER_TABLE_WIDTH as i32 - 1));
         }
-        let mut ify = vec![0; (p1.y - p0.y) as usize];
+        let mut ify = Vec::with_capacity((p1.y - p0.y) as usize);
         for y in p0.y..p1.y {
             let fy = ((y as f32 - p_film_discrete.y)
                 * self.inv_filter_radius.y
                 * FILTER_TABLE_WIDTH as f32)
                 .abs();
-            ify[(y - p0.y) as usize] = (fy.floor() as i32).min(FILTER_TABLE_WIDTH as i32 - 1);
+            ify.push((fy.floor() as i32).min(FILTER_TABLE_WIDTH as i32 - 1));
         }
 
         for y in p0.y..p1.y {
