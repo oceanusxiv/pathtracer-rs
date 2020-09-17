@@ -1,3 +1,4 @@
+pub mod sobol;
 pub mod stratified;
 
 use super::{sampling::Random, CameraSample};
