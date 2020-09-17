@@ -171,6 +171,16 @@ impl Film {
         self.image.clone()
     }
 
+    pub fn clear(&self) {
+        for pixel in self.pixels.write().unwrap().iter_mut() {
+            *pixel = FilmPixel {
+                xyz: [0.0, 0.0, 0.0],
+                filter_weight_sum: 0.0,
+                splat_xyz: 0.0,
+            }
+        }
+    }
+
     pub fn get_sample_bounds(&self) -> Bounds2i {
         Bounds2i {
             p_min: na::Point2::new(

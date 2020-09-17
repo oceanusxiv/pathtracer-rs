@@ -219,6 +219,7 @@ fn main() {
                                 virtual_keycode: Some(VirtualKeyCode::R),
                                 ..
                             } => {
+                                camera.film.clear();
                                 integrator.render(&mut camera, &render_scene);
                                 viewer.update_rendered_texture(&camera);
                                 viewer.state = viewer::ViewerState::RenderImage
