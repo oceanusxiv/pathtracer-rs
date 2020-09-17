@@ -14,7 +14,7 @@ use crate::{
         primitive::{GeometricPrimitive, SyncPrimitive},
         shape::{shapes_from_mesh, TriangleMesh},
         texture::{CheckerTexture, ConstantTexture, SyncTexture},
-        RenderScene,
+        Primitive, RenderScene,
     },
 };
 use std::{collections::HashMap, sync::Arc};
@@ -269,7 +269,7 @@ impl RenderScene {
             );
         }
 
-        let bvh = Box::new(accelerator::BVH::new(&log, primitives, &4)) as Box<dyn SyncPrimitive>;
+        let bvh = Box::new(accelerator::BVH::new(&log, primitives, &4));
         let world_bound = bvh.world_bound();
 
         // FIXME: should probably figure out what's wrong with the overall transformation

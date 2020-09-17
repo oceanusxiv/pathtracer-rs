@@ -21,7 +21,7 @@ use crate::common::Camera;
 use interaction::SurfaceMediumInteraction;
 use light::SyncLight;
 use material::{Material, MaterialInterface};
-use primitive::SyncPrimitive;
+use primitive::Primitive;
 use std::sync::Arc;
 
 #[derive(PartialEq, Eq)]
@@ -77,7 +77,7 @@ impl Camera {
 }
 
 pub struct RenderScene {
-    scene: Box<dyn SyncPrimitive>,
+    scene: Box<accelerator::BVH>,
     pub lights: Vec<Arc<dyn SyncLight>>,
     pub infinite_lights: Vec<Arc<dyn SyncLight>>,
 }
@@ -93,5 +93,9 @@ impl RenderScene {
 
     pub fn world_bound(&self) -> Bounds3 {
         self.scene.world_bound()
+    }
+
+    pub fn get_bounding_boxes(&self) -> Vec<Bounds3> {
+        self.scene.get_bounding_boxes()
     }
 }

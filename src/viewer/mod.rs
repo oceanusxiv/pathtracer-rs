@@ -9,7 +9,7 @@ mod texture;
 mod vertex;
 mod wireframe;
 
-use crate::common::Camera;
+use crate::common::{bounds::Bounds3, Camera};
 use bounds::{BoundsRenderPass, DrawBounds};
 use camera::{CameraController, CameraControllerInterface};
 use mesh::{DrawMesh, MeshRenderPass};
@@ -124,6 +124,8 @@ pub struct Viewer {
     pub state: ViewerState,
     pub draw_wireframe: bool,
     pub draw_mesh: bool,
+    pub draw_bounds: bool,
+    pub bounds_loaded: bool,
 }
 
 impl Viewer {
@@ -250,6 +252,8 @@ impl Viewer {
             state: ViewerState::RenderScene,
             draw_wireframe: false,
             draw_mesh: true,
+            draw_bounds: false,
+            bounds_loaded: false,
         }
     }
 
@@ -356,6 +360,13 @@ impl Viewer {
         self.queue.submit(&[encoder.finish()]);
     }
 
+    pub fn update_bounds(&mut self, bounds: &Vec<Bounds3>) {
+        if !self.bounds_loaded {
+            self.bounds_render_pass.update_bounds(&self.device, &bounds);
+            self.bounds_loaded = true;
+        }
+    }
+
     pub fn render(&mut self) {
         match self.state {
             ViewerState::RenderScene => {
@@ -435,7 +446,9 @@ impl Viewer {
             if self.draw_mesh {
                 render_pass.draw_all_mesh(&self.mesh_render_pass);
             }
-            render_pass.draw_all_bounds(&self.bounds_render_pass);
+            if self.draw_bounds {
+                render_pass.draw_all_bounds(&self.bounds_render_pass);
+            }
             if self.draw_wireframe {
                 render_pass.draw_all_wire_frame(&self.wireframe_render_pass);
             }

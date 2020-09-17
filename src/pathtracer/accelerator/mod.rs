@@ -1,5 +1,5 @@
-use super::primitive::Primitive;
-use super::{SurfaceMediumInteraction, SyncPrimitive};
+use super::primitive::{Primitive, SyncPrimitive};
+use super::SurfaceMediumInteraction;
 use crate::common::bounds::Bounds3;
 use crate::common::ray::Ray;
 use std::{sync::Arc, time::Instant};
@@ -331,6 +331,15 @@ impl BVH {
 
         my_offset
     }
+
+    pub fn get_bounding_boxes(&self) -> Vec<Bounds3> {
+        let mut bounds = Vec::with_capacity(self.nodes.len());
+        for node in self.nodes.as_ref() {
+            bounds.push(node.bounds);
+        }
+
+        bounds
+    }
 }
 
 impl Primitive for BVH {
@@ -345,7 +354,7 @@ impl Primitive for BVH {
 
         let mut to_visit_offset = 0;
         let mut curr_node_idx = 0;
-        let mut nodes_to_visit = [0; 256];
+        let mut nodes_to_visit = [0; 64];
         loop {
             let node = &self.nodes[curr_node_idx];
 
@@ -354,6 +363,7 @@ impl Primitive for BVH {
                     for i in 0..node.num_prims {
                         unsafe {
                             if self.primitives[node.offset.primitives_offset as usize + i as usize]
+                                .as_ref()
                                 .intersect(r, &mut isect)
                             {
                                 hit = true;

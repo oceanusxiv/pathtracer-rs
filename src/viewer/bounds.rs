@@ -96,6 +96,13 @@ impl BoundsRenderPass {
             render_pipeline,
         }
     }
+
+    pub fn update_bounds(&mut self, device: &wgpu::Device, bounds: &Vec<Bounds3>) {
+        self.bounds_handles = bounds
+            .iter()
+            .map(|bounds| BoundsHandle::from_bounds(&device, bounds))
+            .collect_vec();
+    }
 }
 
 pub trait DrawBounds<'a, 'b>

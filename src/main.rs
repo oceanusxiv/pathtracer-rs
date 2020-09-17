@@ -248,6 +248,16 @@ fn main() {
                             }
                             KeyboardInput {
                                 state: ElementState::Pressed,
+                                virtual_keycode: Some(VirtualKeyCode::B),
+                                ..
+                            } => {
+                                if crtl_clicked {
+                                    viewer.update_bounds(&render_scene.get_bounding_boxes());
+                                    viewer.draw_bounds = !viewer.draw_bounds;
+                                }
+                            }
+                            KeyboardInput {
+                                state: ElementState::Pressed,
                                 virtual_keycode: Some(VirtualKeyCode::S),
                                 ..
                             } => {
