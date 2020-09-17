@@ -78,6 +78,14 @@ pub fn normal_mapping(
     );
 }
 
+pub fn bump_mapping(
+    log: &slog::Logger,
+    d: &Box<dyn SyncTexture<f32>>,
+    si: &mut SurfaceMediumInteraction,
+) {
+    let si_eval = si.clone_lite();
+}
+
 fn sqr(x: f32) -> f32 {
     x * x
 }
@@ -128,6 +136,12 @@ impl MaterialInterface for NormalMaterial {
         normal_mapping(&self.log, &self.normal_map, &mut si);
         self.material.compute_scattering_functions(&mut si, mode);
     }
+}
+
+pub struct BumpMaterial {
+    bump_map: Box<dyn SyncTexture<f32>>,
+    material: Box<Material>,
+    log: slog::Logger,
 }
 
 pub struct MatteMaterial {

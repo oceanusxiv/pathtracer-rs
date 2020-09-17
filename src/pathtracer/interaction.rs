@@ -59,6 +59,7 @@ impl Interaction {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct SurfaceInteractionShading {
     pub n: na::Vector3<f32>,
     pub dpdu: na::Vector3<f32>,
@@ -166,6 +167,25 @@ impl<'a> SurfaceMediumInteraction<'a> {
             shape: Some(shape),
             primitive: None,
             bsdf: None,
+            ..Default::default()
+        }
+    }
+
+    pub fn clone_lite(&self) -> Self {
+        Self {
+            general: self.general.clone(),
+            uv: self.uv.clone(),
+            shading: self.shading.clone(),
+            dpdu: self.dpdu,
+            dpdv: self.dpdv,
+            dndu: self.dndu,
+            dndv: self.dndv,
+            dpdx: self.dpdx,
+            dpdy: self.dpdy,
+            dudx: self.dudx,
+            dvdx: self.dvdx,
+            dudy: self.dudy,
+            dvdy: self.dvdy,
             ..Default::default()
         }
     }
