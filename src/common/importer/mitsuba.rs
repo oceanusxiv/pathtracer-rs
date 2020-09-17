@@ -326,7 +326,7 @@ where
 }
 
 #[derive(Debug, Deserialize)]
-pub struct RoughConductor {
+pub struct Material {
     pub id: Option<String>,
 
     #[serde(flatten, rename = "rgb", deserialize_with = "de_rgbs")]
@@ -334,33 +334,11 @@ pub struct RoughConductor {
 
     #[serde(flatten, rename = "float", deserialize_with = "de_floats")]
     pub float_params: HashMap<String, f32>,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct Dielectric {
-    pub id: Option<String>,
-
-    #[serde(flatten, rename = "float", deserialize_with = "de_floats")]
-    pub float_params: HashMap<String, f32>,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct Plastic {
-    pub id: Option<String>,
-
-    #[serde(flatten, rename = "float", deserialize_with = "de_floats")]
-    pub float_params: HashMap<String, f32>,
-
-    #[serde(rename = "rgb", with = "rgb")]
-    pub diffuse_reflectance: [f32; 3],
-}
-
-#[derive(Debug, Deserialize)]
-pub struct Conductor {
-    pub id: Option<String>,
 
     #[serde(rename = "string")]
     pub material: Option<StringParam>,
+
+    pub texture: Option<Texture>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -371,13 +349,15 @@ pub enum BSDF {
     #[serde(rename = "diffuse")]
     Diffuse(Diffuse),
     #[serde(rename = "conductor")]
-    Conductor(Conductor),
+    Conductor(Material),
     #[serde(rename = "roughconductor")]
-    RoughConductor(RoughConductor),
+    RoughConductor(Material),
     #[serde(rename = "dielectric")]
-    Dielectric(Dielectric),
+    Dielectric(Material),
     #[serde(rename = "plastic")]
-    Plastic(Plastic),
+    Plastic(Material),
+    #[serde(rename = "roughplastic")]
+    RoughPlastic(Material),
 }
 
 #[macro_export]
@@ -413,7 +393,8 @@ mod bsdf {
                 BSDF::Conductor,
                 BSDF::RoughConductor,
                 BSDF::Dielectric,
-                BSDF::Plastic
+                BSDF::Plastic,
+                BSDF::RoughPlastic
             )
         }
         Ok(map)
@@ -457,6 +438,8 @@ pub enum Emitter {
         #[serde(rename = "string", with = "string")]
         filename: String,
     },
+    #[serde(rename = "sunsky")]
+    SunSky,
 }
 
 #[derive(Debug, Deserialize)]
@@ -505,6 +488,39 @@ mod string {
         let s = StringParam::deserialize(deserializer)?;
         Ok(s.value)
     }
+}
+
+fn de_strings<'de, D>(deserializer: D) -> Result<HashMap<String, String>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    struct ChildVisitor;
+    impl<'de> serde::de::Visitor<'de> for ChildVisitor {
+        type Value = HashMap<String, String>;
+
+        fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+            formatter
+                .write_str("Map of children elements - filtering for fields with `string` suffix")
+        }
+
+        fn visit_map<M>(self, mut access: M) -> Result<Self::Value, M::Error>
+        where
+            M: serde::de::MapAccess<'de>,
+        {
+            let mut hm = HashMap::<String, String>::new();
+
+            while let Some(key) = access.next_key::<String>()? {
+                if key.ends_with("string") {
+                    let param = access.next_value::<StringParam>().unwrap();
+                    hm.insert(param.name.to_snake_case(), param.value);
+                }
+            }
+
+            Ok(hm)
+        }
+    }
+
+    deserializer.deserialize_any(ChildVisitor {})
 }
 
 mod bool {
@@ -616,6 +632,11 @@ pub enum Texture {
         #[serde(flatten, rename = "float", deserialize_with = "de_floats")]
         float_params: HashMap<String, f32>,
     },
+    #[serde(rename = "bitmap")]
+    BitMap {
+        #[serde(flatten, rename = "string", deserialize_with = "de_strings")]
+        string_params: HashMap<String, String>,
+    },
 }
 
 #[derive(Debug, Deserialize)]
@@ -641,9 +662,11 @@ fn get_camera(scene: &Scene, resolution: &na::Vector2<f32>) -> Camera {
     // FIXME: should probably figure out what's wrong with the overall transformation
     let rotation = na::Rotation3::new(na::Vector3::new(0.0, -std::f32::consts::PI, 0.0));
     // dunno why I need to do this, but sometimes convert to isometry fails even when scaling is 1.0
-    let sim_cam_to_world: na::Similarity3<f32> =
+    let mut sim_cam_to_world: na::Similarity3<f32> =
         na::try_convert(scene.sensor.transform * rotation).unwrap();
-    assert!(sim_cam_to_world.scaling() == 1.0);
+    if !(sim_cam_to_world.scaling() == 1.0) {
+        sim_cam_to_world.set_scaling(1.0);
+    }
     let cam_to_world = sim_cam_to_world.isometry;
     Camera::new(
         &cam_to_world,

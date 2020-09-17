@@ -38,6 +38,9 @@ fn texture_from_mitsuba(
                 float_params["voffset"],
             ),
         )),
+        mitsuba::Texture::BitMap { string_params } => {
+            Box::new(ConstantTexture::new(Spectrum::new(0.0)))
+        }
     }
 }
 
@@ -62,7 +65,21 @@ fn material_from_bsdf(log: &slog::Logger, bsdf: &mitsuba::BSDF) -> Material {
                     panic!("other material values not supported yet!");
                 }
             } else {
-                panic!("other smooth conductors not supported yet!");
+                Material::Metal(MetalMaterial::new(
+                    &log,
+                    Box::new(ConstantTexture::new(Spectrum::from_slice_3(
+                        &bsdf.rgb_params["eta"],
+                        false,
+                    ))),
+                    Box::new(ConstantTexture::new(Spectrum::from_slice_3(
+                        &bsdf.rgb_params["k"],
+                        false,
+                    ))),
+                    Some(Box::new(ConstantTexture::new(0.001))),
+                    None,
+                    None,
+                    false,
+                ))
             }
         }
         mitsuba::BSDF::RoughConductor(bsdf) => Material::Metal(MetalMaterial::new(
@@ -90,7 +107,7 @@ fn material_from_bsdf(log: &slog::Logger, bsdf: &mitsuba::BSDF) -> Material {
         mitsuba::BSDF::Plastic(bsdf) => Material::Substrate(SubstrateMaterial::new(
             log,
             Box::new(ConstantTexture::new(Spectrum::from_slice_3(
-                &bsdf.diffuse_reflectance,
+                &bsdf.rgb_params["diffuse_reflectance"],
                 false,
             ))),
             Box::new(ConstantTexture::new(Spectrum::new(schlick_r0_from_eta(
@@ -98,6 +115,19 @@ fn material_from_bsdf(log: &slog::Logger, bsdf: &mitsuba::BSDF) -> Material {
             )))),
             Box::new(ConstantTexture::new(0.001)),
             Box::new(ConstantTexture::new(0.001)),
+            false,
+        )),
+        mitsuba::BSDF::RoughPlastic(bsdf) => Material::Substrate(SubstrateMaterial::new(
+            log,
+            Box::new(ConstantTexture::new(Spectrum::from_slice_3(
+                &bsdf.rgb_params["diffuse_reflectance"],
+                false,
+            ))),
+            Box::new(ConstantTexture::new(Spectrum::new(schlick_r0_from_eta(
+                bsdf.float_params["int_ior"],
+            )))),
+            Box::new(ConstantTexture::new(bsdf.float_params["alpha"])),
+            Box::new(ConstantTexture::new(bsdf.float_params["alpha"])),
             false,
         )),
     }
@@ -287,7 +317,7 @@ impl RenderScene {
                 mitsuba::Emitter::Area { rgb: _ } => {
                     error!(log, "area lights should not be standalone!");
                 }
-                mitsuba::Emitter::Point => {}
+                mitsuba::Emitter::Point => {} // TODO: support mitsuba point light
                 mitsuba::Emitter::EnvMap {
                     transform,
                     filename,
@@ -308,6 +338,7 @@ impl RenderScene {
                     lights.push(Arc::clone(&env_light));
                     infinite_lights.push(Arc::clone(&env_light));
                 }
+                mitsuba::Emitter::SunSky => {} // TODO: support mitsuba sunsky emitter
             }
         }
 
