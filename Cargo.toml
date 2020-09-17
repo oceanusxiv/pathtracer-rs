@@ -15,6 +15,9 @@ harness = false
 name = "benchmark_bounds"
 harness = false
 
+[features]
+disable_rayon = [] # disable rayon for profiling purposes 
+
 [profile.release.package."*"]
 debug=false
 debug-assertions=false

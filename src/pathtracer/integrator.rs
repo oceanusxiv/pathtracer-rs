@@ -6,10 +6,12 @@ use crate::common::ray::RayDifferential;
 use crate::common::spectrum::Spectrum;
 use crate::common::Camera;
 use crate::common::{bounds::Bounds2i, math::power_heuristic};
-use indicatif::ParallelProgressIterator;
+#[cfg(feature = "disable_rayon")]
 use indicatif::ProgressIterator;
 use itertools::Itertools;
-use rayon::prelude::*;
+#[cfg(not(feature = "disable_rayon"))]
+use {indicatif::ParallelProgressIterator, rayon::prelude::*};
+
 use std::time::Instant;
 
 #[derive(Debug, Eq, PartialEq)]
@@ -615,10 +617,19 @@ impl PathIntegrator {
             camera.film.merge_film_tile(film_tile)
         };
 
-        let render_par_iter = (0..num_tiles.x)
+        let render_tile_vec = (0..num_tiles.x)
             .cartesian_product(0..num_tiles.y)
             .collect_vec();
-        let render_par_iter = render_par_iter.par_iter();
+
+        let render_par_iter;
+        #[cfg(feature = "disable_rayon")]
+        {
+            render_par_iter = render_tile_vec.iter();
+        }
+        #[cfg(not(feature = "disable_rayon"))]
+        {
+            render_par_iter = render_tile_vec.par_iter();
+        }
 
         if self.show_progress_bar {
             render_par_iter
