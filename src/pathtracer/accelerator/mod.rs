@@ -50,6 +50,21 @@ impl BVHBuildNode {
     }
 }
 
+fn find_max_depth(root: &BVHBuildNode) -> usize {
+    let left_depth = if let Some(left) = root.children[0].as_ref() {
+        find_max_depth(left)
+    } else {
+        0
+    };
+    let right_depth = if let Some(right) = root.children[1].as_ref() {
+        find_max_depth(right)
+    } else {
+        0
+    };
+
+    1 + left_depth.max(right_depth)
+}
+
 #[derive(Copy, Clone)]
 struct BucketInfo {
     count: usize,
@@ -101,6 +116,7 @@ impl BVH {
             };
         }
 
+        debug!(log, "number of primitives: {:?}", primitives.len());
         let mut primitive_info = Vec::<BVHPrimitiveInfo>::with_capacity(primitives.len());
 
         for i in 0..primitives.len() {
@@ -118,6 +134,10 @@ impl BVH {
             &mut total_nodes,
             &mut ordered_prims,
             &primitives,
+        );
+
+        debug!(log, "bvh tree"; "max depth" =>
+            find_max_depth(&root)
         );
 
         let mut nodes = Box::<[LinearBVHNode]>::new_uninit_slice(total_nodes);
