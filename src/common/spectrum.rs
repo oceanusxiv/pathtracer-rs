@@ -129,7 +129,7 @@ impl RGBSpectrum {
 
 impl AddAssign for RGBSpectrum {
     fn add_assign(&mut self, other: Self) {
-        *self = *self + other;
+        self.0 += other.0;
     }
 }
 
@@ -145,7 +145,7 @@ impl Add<f32> for RGBSpectrum {
     type Output = Self;
 
     fn add(self, rhs: f32) -> Self::Output {
-        Self::from_floats(self.r() + rhs, self.g() + rhs, self.b() + rhs)
+        Self(self.0.add_scalar(rhs))
     }
 }
 
@@ -161,7 +161,7 @@ impl Sub<f32> for RGBSpectrum {
     type Output = Self;
 
     fn sub(self, rhs: f32) -> Self::Output {
-        Self::from_floats(self.r() - rhs, self.g() - rhs, self.b() - rhs)
+        Self(self.0.add_scalar(-rhs))
     }
 }
 
@@ -175,13 +175,13 @@ impl Mul for RGBSpectrum {
 
 impl MulAssign for RGBSpectrum {
     fn mul_assign(&mut self, rhs: Self) {
-        *self = *self * rhs;
+        self.0.component_mul_assign(&rhs.0)
     }
 }
 
 impl MulAssign<f32> for RGBSpectrum {
     fn mul_assign(&mut self, rhs: f32) {
-        *self = *self * rhs
+        self.0 *= rhs
     }
 }
 
@@ -197,7 +197,7 @@ impl Mul<f32> for RGBSpectrum {
     type Output = Self;
 
     fn mul(self, rhs: f32) -> Self::Output {
-        Self::from_floats(self.r() * rhs, self.g() * rhs, self.b() * rhs)
+        Self(self.0 * rhs)
     }
 }
 
@@ -213,13 +213,13 @@ impl Div<f32> for RGBSpectrum {
     type Output = Self;
 
     fn div(self, rhs: f32) -> Self::Output {
-        Self::from_floats(self.r() / rhs, self.g() / rhs, self.b() / rhs)
+        Self(self.0 / rhs)
     }
 }
 
 impl DivAssign<f32> for RGBSpectrum {
     fn div_assign(&mut self, rhs: f32) {
-        *self = *self / rhs
+        self.0 /= rhs;
     }
 }
 
