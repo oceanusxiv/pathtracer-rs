@@ -596,32 +596,54 @@ impl Shape for Triangle {
 }
 
 pub struct TriangleMesh {
-    pub indices: Vec<u32>,
-    pub pos: Vec<na::Point3<f32>>,
-    pub normal: Vec<na::Vector3<f32>>,
-    pub s: Vec<na::Vector3<f32>>,
-    pub uv: Vec<na::Point2<f32>>,
-    pub colors: Vec<na::Vector3<f32>>,
-    pub alpha_mask: Option<Arc<dyn SyncTexture<f32>>>,
+    indices: Vec<u32>,
+    pos: Vec<na::Point3<f32>>,
+    normal: Vec<na::Vector3<f32>>,
+    s: Vec<na::Vector3<f32>>,
+    uv: Vec<na::Point2<f32>>,
+    colors: Vec<na::Vector3<f32>>,
+    alpha_mask: Option<Arc<dyn SyncTexture<f32>>>,
+}
+
+impl TriangleMesh {
+    pub fn new_with_transform(
+        indices: Vec<u32>,
+        mut pos: Vec<na::Point3<f32>>,
+        mut normal: Vec<na::Vector3<f32>>,
+        mut s: Vec<na::Vector3<f32>>,
+        uv: Vec<na::Point2<f32>>,
+        colors: Vec<na::Vector3<f32>>,
+        alpha_mask: Option<Arc<dyn SyncTexture<f32>>>,
+        obj_to_world: &na::Projective3<f32>,
+    ) -> Self {
+        for pos in &mut pos {
+            *pos = obj_to_world * *pos;
+        }
+
+        for normal in &mut normal {
+            *normal = obj_to_world * *normal;
+        }
+
+        for s in &mut s {
+            *s = obj_to_world * *s;
+        }
+
+        Self {
+            indices,
+            pos,
+            normal,
+            s,
+            uv,
+            colors,
+            alpha_mask,
+        }
+    }
 }
 
 pub fn shapes_from_mesh(
     mut mesh: TriangleMesh,
-    obj_to_world: &na::Projective3<f32>,
     transform_swaps_handedness: bool,
 ) -> Vec<Arc<dyn SyncShape>> {
-    for pos in &mut mesh.pos {
-        *pos = obj_to_world * *pos;
-    }
-
-    for normal in &mut mesh.normal {
-        *normal = obj_to_world * *normal;
-    }
-
-    for s in &mut mesh.s {
-        *s = obj_to_world * *s;
-    }
-
     let mut shapes = Vec::new();
 
     let world_mesh = Arc::new(mesh);

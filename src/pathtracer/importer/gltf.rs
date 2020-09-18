@@ -329,39 +329,40 @@ pub fn shapes_from_gltf_prim(
     }
 
     let reader = gltf_prim.reader(|buffer| Some(&buffers[buffer.index()]));
-    let world_mesh = TriangleMesh {
-        indices: reader.read_indices().unwrap().into_u32().collect(),
-        pos: reader
+    let world_mesh = TriangleMesh::new_with_transform(
+        reader.read_indices().unwrap().into_u32().collect(),
+        reader
             .read_positions()
             .unwrap()
             .map(|vertex| na::Point3::from_slice(&vertex))
             .collect(),
-        normal: match reader.read_normals() {
+        match reader.read_normals() {
             Some(normals) => normals.map(|normal| glm::make_vec3(&normal)).collect(),
             None => vec![],
         },
-        s: match reader.read_tangents() {
+        match reader.read_tangents() {
             Some(tangents) => tangents.map(|tangent| glm::make_vec3(&tangent)).collect(),
             None => vec![],
         },
-        uv: match reader.read_tex_coords(0) {
+        match reader.read_tex_coords(0) {
             Some(read_texels) => read_texels
                 .into_f32()
                 .map(|texel| na::Point2::new(texel[0], texel[1]))
                 .collect(),
             None => vec![],
         },
-        colors: match reader.read_colors(0) {
+        match reader.read_colors(0) {
             Some(colors) => colors
                 .into_rgb_f32()
                 .map(|color| glm::make_vec3(&color))
                 .collect(),
             None => vec![],
         },
-        alpha_mask: alpha_mask_texture,
-    };
+        alpha_mask_texture,
+        &obj_to_world,
+    );
 
-    shapes_from_mesh(world_mesh, &obj_to_world, false)
+    shapes_from_mesh(world_mesh, false)
 }
 
 fn populate_scene(

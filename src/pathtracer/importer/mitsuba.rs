@@ -187,15 +187,16 @@ fn parse_shape(
             light_info = emitter;
             material_ref = material;
             material_embed = bsdf;
-            world_mesh = TriangleMesh {
-                indices: mesh.indices,
-                pos: mesh.pos,
-                normal: mesh.normal,
-                s: vec![],
-                uv: vec![],
-                colors: vec![],
-                alpha_mask: None,
-            };
+            world_mesh = TriangleMesh::new_with_transform(
+                mesh.indices,
+                mesh.pos,
+                mesh.normal,
+                vec![],
+                vec![],
+                vec![],
+                None,
+                &obj_to_world,
+            );
         }
         mitsuba::Shape::Cube {
             transform,
@@ -208,15 +209,16 @@ fn parse_shape(
             light_info = emitter;
             material_ref = material;
             material_embed = bsdf;
-            world_mesh = TriangleMesh {
-                indices: mesh.indices,
-                pos: mesh.pos,
-                normal: mesh.normal,
-                s: vec![],
-                uv: vec![],
-                colors: vec![],
-                alpha_mask: None,
-            };
+            world_mesh = TriangleMesh::new_with_transform(
+                mesh.indices,
+                mesh.pos,
+                mesh.normal,
+                vec![],
+                vec![],
+                vec![],
+                None,
+                &obj_to_world,
+            );
         }
         mitsuba::Shape::Sphere {
             point,
@@ -229,15 +231,16 @@ fn parse_shape(
             light_info = emitter;
             material_ref = material;
             material_embed = bsdf;
-            world_mesh = TriangleMesh {
-                indices: mesh.indices,
-                pos: mesh.pos,
-                normal: mesh.normal,
-                s: vec![],
-                uv: vec![],
-                colors: vec![],
-                alpha_mask: None,
-            };
+            world_mesh = TriangleMesh::new_with_transform(
+                mesh.indices,
+                mesh.pos,
+                mesh.normal,
+                vec![],
+                vec![],
+                vec![],
+                None,
+                &obj_to_world,
+            );
         }
         mitsuba::Shape::Obj {
             transform,
@@ -260,15 +263,16 @@ fn parse_shape(
                 );
             }
 
-            world_mesh = TriangleMesh {
-                indices: mesh.indices,
-                pos: mesh.pos,
-                normal: if *face_normals { vec![] } else { mesh.normal },
-                s: vec![],
-                uv: vec![],
-                colors: vec![],
-                alpha_mask: None,
-            };
+            world_mesh = TriangleMesh::new_with_transform(
+                mesh.indices,
+                mesh.pos,
+                if *face_normals { vec![] } else { mesh.normal },
+                vec![],
+                vec![],
+                vec![],
+                None,
+                &obj_to_world,
+            );
         }
     }
 
@@ -281,7 +285,7 @@ fn parse_shape(
         panic!("either ref exists or embedded bsdf exists");
     }
 
-    for shape in shapes_from_mesh(world_mesh, &obj_to_world, false) {
+    for shape in shapes_from_mesh(world_mesh, false) {
         let area_light = if let Some(light_info) = light_info {
             if let mitsuba::Emitter::Area { rgb } = light_info {
                 let ke = Arc::new(ConstantTexture::<Spectrum>::new(Spectrum::from_slice_3(
