@@ -168,6 +168,7 @@ fn parse_shape(
     shape: &mitsuba::Shape,
     materials: &HashMap<String, Arc<Material>>,
     primitives: &mut Vec<Arc<dyn SyncPrimitive>>,
+    meshes: &mut Vec<Arc<TriangleMesh>>,
     lights: &mut Vec<Arc<dyn SyncLight>>,
 ) {
     let mut obj_to_world = na::Projective3::identity();
@@ -187,7 +188,7 @@ fn parse_shape(
             light_info = emitter;
             material_ref = material;
             material_embed = bsdf;
-            world_mesh = TriangleMesh::new_with_transform(
+            world_mesh = Arc::new(TriangleMesh::new_with_transform(
                 mesh.indices,
                 mesh.pos,
                 mesh.normal,
@@ -196,7 +197,7 @@ fn parse_shape(
                 vec![],
                 None,
                 &obj_to_world,
-            );
+            ));
         }
         mitsuba::Shape::Cube {
             transform,
@@ -209,7 +210,7 @@ fn parse_shape(
             light_info = emitter;
             material_ref = material;
             material_embed = bsdf;
-            world_mesh = TriangleMesh::new_with_transform(
+            world_mesh = Arc::new(TriangleMesh::new_with_transform(
                 mesh.indices,
                 mesh.pos,
                 mesh.normal,
@@ -218,7 +219,7 @@ fn parse_shape(
                 vec![],
                 None,
                 &obj_to_world,
-            );
+            ));
         }
         mitsuba::Shape::Sphere {
             point,
@@ -231,7 +232,7 @@ fn parse_shape(
             light_info = emitter;
             material_ref = material;
             material_embed = bsdf;
-            world_mesh = TriangleMesh::new_with_transform(
+            world_mesh = Arc::new(TriangleMesh::new_with_transform(
                 mesh.indices,
                 mesh.pos,
                 mesh.normal,
@@ -240,7 +241,7 @@ fn parse_shape(
                 vec![],
                 None,
                 &obj_to_world,
-            );
+            ));
         }
         mitsuba::Shape::Obj {
             transform,
@@ -263,7 +264,7 @@ fn parse_shape(
                 );
             }
 
-            world_mesh = TriangleMesh::new_with_transform(
+            world_mesh = Arc::new(TriangleMesh::new_with_transform(
                 mesh.indices,
                 mesh.pos,
                 if *face_normals { vec![] } else { mesh.normal },
@@ -272,7 +273,7 @@ fn parse_shape(
                 vec![],
                 None,
                 &obj_to_world,
-            );
+            ));
         }
     }
 
@@ -285,7 +286,9 @@ fn parse_shape(
         panic!("either ref exists or embedded bsdf exists");
     }
 
-    for shape in triangles_from_mesh(world_mesh, false) {
+    meshes.push(world_mesh.clone());
+
+    for shape in triangles_from_mesh(&world_mesh, false) {
         let area_light = if let Some(light_info) = light_info {
             if let mitsuba::Emitter::Area { rgb } = light_info {
                 let ke = Arc::new(ConstantTexture::<Spectrum>::new(Spectrum::from_slice_3(
@@ -316,6 +319,7 @@ impl RenderScene {
         let mut primitives: Vec<Arc<dyn SyncPrimitive>> = Vec::new();
         let mut lights: Vec<Arc<dyn SyncLight>> = Vec::new();
         let mut infinite_lights: Vec<Arc<dyn SyncLight>> = Vec::new();
+        let mut meshes: Vec<Arc<TriangleMesh>> = Vec::new();
 
         for (id, bsdf) in &scene.bsdfs {
             materials.insert(
@@ -331,6 +335,7 @@ impl RenderScene {
                 &shape,
                 &materials,
                 &mut primitives,
+                &mut meshes,
                 &mut lights,
             );
         }
@@ -400,6 +405,7 @@ impl RenderScene {
             scene: bvh,
             lights,
             infinite_lights,
+            meshes,
         }
     }
 }

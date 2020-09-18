@@ -22,6 +22,7 @@ use interaction::SurfaceMediumInteraction;
 use light::SyncLight;
 use material::{Material, MaterialInterface};
 use primitive::Primitive;
+use shape::TriangleMesh;
 use std::sync::Arc;
 
 #[derive(PartialEq, Eq)]
@@ -80,6 +81,7 @@ pub struct RenderScene {
     scene: Box<accelerator::BVH>,
     pub lights: Vec<Arc<dyn SyncLight>>,
     pub infinite_lights: Vec<Arc<dyn SyncLight>>,
+    pub meshes: Vec<Arc<TriangleMesh>>,
 }
 
 impl RenderScene {

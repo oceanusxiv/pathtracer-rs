@@ -294,6 +294,7 @@ pub fn shapes_from_gltf_prim(
     obj_to_world: &na::Projective3<f32>,
     images: &[gltf::image::Data],
     buffers: &[gltf::buffer::Data],
+    meshes: &mut Vec<Arc<TriangleMesh>>,
 ) -> Vec<Arc<Triangle>> {
     let mut alpha_mask_texture = None;
 
@@ -329,7 +330,7 @@ pub fn shapes_from_gltf_prim(
     }
 
     let reader = gltf_prim.reader(|buffer| Some(&buffers[buffer.index()]));
-    let world_mesh = TriangleMesh::new_with_transform(
+    let world_mesh = Arc::new(TriangleMesh::new_with_transform(
         reader.read_indices().unwrap().into_u32().collect(),
         reader
             .read_positions()
@@ -360,9 +361,11 @@ pub fn shapes_from_gltf_prim(
         },
         alpha_mask_texture,
         &obj_to_world,
-    );
+    ));
 
-    triangles_from_mesh(world_mesh, false)
+    meshes.push(world_mesh.clone());
+
+    triangles_from_mesh(&world_mesh, false)
 }
 
 fn populate_scene(
@@ -373,6 +376,7 @@ fn populate_scene(
     images: &[gltf::image::Data],
     materials: &Vec<Arc<Material>>,
     mut primitives: &mut Vec<Arc<dyn SyncPrimitive>>,
+    mut meshes: &mut Vec<Arc<TriangleMesh>>,
     mut lights: &mut Vec<Arc<dyn SyncLight>>,
     mut preprocess_lights: &mut Vec<Arc<dyn SyncLight>>,
 ) {
@@ -402,9 +406,14 @@ fn populate_scene(
                 }
             }
 
-            for shape in
-                shapes_from_gltf_prim(log, &gltf_prim, &current_transform, &images, buffers)
-            {
+            for shape in shapes_from_gltf_prim(
+                log,
+                &gltf_prim,
+                &current_transform,
+                &images,
+                buffers,
+                &mut meshes,
+            ) {
                 let mut some_area_light = None;
                 // only create area light if object material is emissive
                 if !emissive_factor.is_black() {
@@ -484,6 +493,7 @@ fn populate_scene(
             &images,
             &materials,
             &mut primitives,
+            &mut meshes,
             &mut lights,
             &mut preprocess_lights,
         );
@@ -504,6 +514,7 @@ impl RenderScene {
         let mut lights: Vec<Arc<dyn SyncLight>> = Vec::new();
         let mut preprocess_lights: Vec<Arc<dyn SyncLight>> = Vec::new();
         let mut infinite_lights: Vec<Arc<dyn SyncLight>> = Vec::new();
+        let mut meshes: Vec<Arc<TriangleMesh>> = Vec::new();
 
         for material in document.materials() {
             materials.push(Arc::new(material_from_gltf(&log, &material, &images)));
@@ -519,6 +530,7 @@ impl RenderScene {
                     &images,
                     &materials,
                     &mut primitives,
+                    &mut meshes,
                     &mut lights,
                     &mut preprocess_lights,
                 );
@@ -559,6 +571,7 @@ impl RenderScene {
             scene: bvh,
             lights,
             infinite_lights,
+            meshes,
         }
     }
 }

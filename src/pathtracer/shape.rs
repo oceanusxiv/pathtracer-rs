@@ -624,15 +624,13 @@ impl TriangleMesh {
 }
 
 pub fn triangles_from_mesh(
-    mut mesh: TriangleMesh,
+    mesh: &Arc<TriangleMesh>,
     transform_swaps_handedness: bool,
 ) -> Vec<Arc<Triangle>> {
     let mut shapes = Vec::new();
-
-    let world_mesh = Arc::new(mesh);
-    for chunk in world_mesh.indices.chunks_exact(3) {
+    for chunk in mesh.indices.chunks_exact(3) {
         shapes.push(Arc::new(Triangle::new(
-            Arc::clone(&world_mesh),
+            mesh.clone(),
             [chunk[0], chunk[1], chunk[2]],
             false,
             transform_swaps_handedness,
