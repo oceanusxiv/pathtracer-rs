@@ -21,7 +21,7 @@ harness = false
 
 [features]
 disable_rayon = [] # disable rayon for profiling purposes
-enable_optix = ["cu", "optix"]
+enable_optix = ["cu", "optix", "ustr"]
 
 [profile.release.package."*"]
 debug=false
@@ -70,6 +70,7 @@ heck = "0.3.1"
 wavefront_obj = "8.0.0"
 cu = {git = "https://github.com/anderslanglands/optix-rs.git", branch = "rewrite", optional = true}
 optix = {git = "https://github.com/anderslanglands/optix-rs.git", branch = "rewrite", optional = true}
+ustr = {version = "0.7.0", optional = true}
 
 [dependencies.nalgebra]
 version = "0.22.0"

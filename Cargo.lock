@@ -1911,6 +1911,7 @@ dependencies = [
  "slog-atomic",
  "slog-kvfilter",
  "slog-term",
+ "ustr",
  "wavefront_obj",
  "wgpu",
  "winit",
