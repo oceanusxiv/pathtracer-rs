@@ -1,4 +1,4 @@
-use super::shape::SyncShape;
+use super::shape::Triangle;
 use super::{
     light::DiffuseAreaLight, Material, MaterialInterface, SurfaceMediumInteraction, TransportMode,
 };
@@ -18,14 +18,14 @@ pub trait SyncPrimitive: Primitive + Send + Sync {}
 impl<T> SyncPrimitive for T where T: Primitive + Send + Sync {}
 
 pub struct GeometricPrimitive {
-    shape: Arc<dyn SyncShape>,
+    shape: Arc<Triangle>,
     material: Arc<Material>,
     area_light: Option<Arc<DiffuseAreaLight>>,
 }
 
 impl GeometricPrimitive {
     pub fn new(
-        shape: Arc<dyn SyncShape>,
+        shape: Arc<Triangle>,
         material: Arc<Material>,
         area_light: Option<Arc<DiffuseAreaLight>>,
     ) -> Self {

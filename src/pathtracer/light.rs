@@ -3,7 +3,7 @@ use std::{fs::File, io::BufReader, sync::Arc};
 use super::{
     interaction::{Interaction, SurfaceMediumInteraction},
     sampling::Distribution2D,
-    shape::SyncShape,
+    shape::Triangle,
     texture::{MIPMap, SyncTexture},
     RenderScene,
 };
@@ -230,7 +230,7 @@ impl Light for DirectionalLight {
 
 pub struct DiffuseAreaLight {
     ke: Arc<dyn SyncTexture<Spectrum>>,
-    shape: Arc<dyn SyncShape>,
+    shape: Arc<Triangle>,
     num_samples: usize,
     area: f32,
 }
@@ -238,7 +238,7 @@ pub struct DiffuseAreaLight {
 impl DiffuseAreaLight {
     pub fn new(
         ke: Arc<dyn SyncTexture<Spectrum>>,
-        shape: Arc<dyn SyncShape>,
+        shape: Arc<Triangle>,
         num_samples: usize,
     ) -> Self {
         Self {

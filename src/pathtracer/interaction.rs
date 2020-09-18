@@ -1,4 +1,4 @@
-use super::{bsdf::BSDF, primitive::Primitive, shape::Shape, TransportMode};
+use super::{bsdf::BSDF, primitive::Primitive, shape::Triangle, TransportMode};
 use crate::common::{
     math::{face_forward, offset_ray_origin, solve_linear_system_2x2},
     ray::{Ray, RayDifferential},
@@ -88,7 +88,7 @@ pub struct SurfaceMediumInteraction<'a> {
     pub dndu: na::Vector3<f32>,
     pub dndv: na::Vector3<f32>,
     pub shading: SurfaceInteractionShading,
-    pub shape: Option<&'a dyn Shape>,
+    pub shape: Option<&'a Triangle>,
     pub primitive: Option<&'a dyn Primitive>,
     pub bsdf: Option<BSDF>,
 
@@ -140,7 +140,7 @@ impl<'a> SurfaceMediumInteraction<'a> {
         dndu: &na::Vector3<f32>,
         dndv: &na::Vector3<f32>,
         time: f32,
-        shape: &'a dyn Shape,
+        shape: &'a Triangle,
     ) -> Self {
         let n = dpdu.cross(dpdv).normalize();
         let shading = SurfaceInteractionShading {

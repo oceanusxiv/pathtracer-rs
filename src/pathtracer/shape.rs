@@ -4,45 +4,6 @@ use crate::common::math::*;
 use crate::common::ray::Ray;
 use std::sync::Arc;
 
-pub trait Shape {
-    fn intersect<'a>(
-        &'a self,
-        r: &Ray,
-        t_hit: &mut f32,
-        isect: &mut SurfaceMediumInteraction<'a>,
-    ) -> bool;
-    fn intersect_p(&self, r: &Ray) -> bool;
-    fn world_bound(&self) -> Bounds3;
-    fn area(&self) -> f32;
-
-    // surface interaction is empty aside from uv for emissive map lookup
-    fn sample(&self, u: &na::Point2<f32>) -> SurfaceMediumInteraction;
-    fn sample_at_point(
-        &self,
-        _reference: &Interaction,
-        u: &na::Point2<f32>,
-    ) -> SurfaceMediumInteraction {
-        self.sample(&u)
-    }
-    fn pdf(&self, _it: &Interaction) -> f32 {
-        1.0 / self.area()
-    }
-    fn pdf_at_point(&self, reference: &Interaction, wi: &na::Vector3<f32>) -> f32 {
-        let ray = reference.spawn_ray(&wi);
-        let mut t_hit = 0.0;
-        let mut isect_light = SurfaceMediumInteraction::default();
-        if !self.intersect(&ray, &mut t_hit, &mut isect_light) {
-            return 0.0;
-        }
-
-        (reference.p - isect_light.general.p).norm_squared()
-            / (isect_light.general.n.dot(&-wi).abs() * self.area())
-    }
-}
-
-pub trait SyncShape: Shape + Send + Sync {}
-impl<T> SyncShape for T where T: Shape + Send + Sync {}
-
 pub struct Triangle {
     mesh: Arc<TriangleMesh>,
     indices: [u32; 3],
@@ -70,7 +31,7 @@ impl Triangle {
         }
     }
 
-    fn get_uvs(&self) -> [na::Point2<f32>; 3] {
+    pub fn get_uvs(&self) -> [na::Point2<f32>; 3] {
         if !self.mesh.uv.is_empty() {
             [
                 self.mesh.uv[self.indices[0] as usize],
@@ -85,10 +46,32 @@ impl Triangle {
             ]
         }
     }
-}
 
-impl Shape for Triangle {
-    fn intersect<'a>(
+    pub fn sample_at_point(
+        &self,
+        _reference: &Interaction,
+        u: &na::Point2<f32>,
+    ) -> SurfaceMediumInteraction {
+        self.sample(&u)
+    }
+
+    pub fn pdf(&self, _it: &Interaction) -> f32 {
+        1.0 / self.area()
+    }
+
+    pub fn pdf_at_point(&self, reference: &Interaction, wi: &na::Vector3<f32>) -> f32 {
+        let ray = reference.spawn_ray(&wi);
+        let mut t_hit = 0.0;
+        let mut isect_light = SurfaceMediumInteraction::default();
+        if !self.intersect(&ray, &mut t_hit, &mut isect_light) {
+            return 0.0;
+        }
+
+        (reference.p - isect_light.general.p).norm_squared()
+            / (isect_light.general.n.dot(&-wi).abs() * self.area())
+    }
+
+    pub fn intersect<'a>(
         &'a self,
         r: &Ray,
         t_hit: &mut f32,
@@ -376,7 +359,7 @@ impl Shape for Triangle {
         return true;
     }
 
-    fn intersect_p(&self, r: &Ray) -> bool {
+    pub fn intersect_p(&self, r: &Ray) -> bool {
         // get triangle vertices
         let p0 = &self.mesh.pos[self.indices[0] as usize];
         let p1 = &self.mesh.pos[self.indices[1] as usize];
@@ -540,14 +523,14 @@ impl Shape for Triangle {
         return true;
     }
 
-    fn world_bound(&self) -> Bounds3 {
+    pub fn world_bound(&self) -> Bounds3 {
         let p0 = self.mesh.pos[self.indices[0] as usize];
         let p1 = self.mesh.pos[self.indices[1] as usize];
         let p2 = self.mesh.pos[self.indices[2] as usize];
         Bounds3::union_p(&Bounds3::new(p0, p1), &p2)
     }
 
-    fn area(&self) -> f32 {
+    pub fn area(&self) -> f32 {
         let p0 = self.mesh.pos[self.indices[0] as usize];
         let p1 = self.mesh.pos[self.indices[1] as usize];
         let p2 = self.mesh.pos[self.indices[2] as usize];
@@ -555,7 +538,7 @@ impl Shape for Triangle {
         0.5 * (p1 - p0).cross(&(p2 - p0)).norm()
     }
 
-    fn sample(&self, u: &na::Point2<f32>) -> SurfaceMediumInteraction {
+    pub fn sample(&self, u: &na::Point2<f32>) -> SurfaceMediumInteraction {
         let b = uniform_sample_triangle(&u);
         let p0 = &self.mesh.pos[self.indices[0] as usize];
         let p1 = &self.mesh.pos[self.indices[1] as usize];
@@ -596,13 +579,13 @@ impl Shape for Triangle {
 }
 
 pub struct TriangleMesh {
-    indices: Vec<u32>,
-    pos: Vec<na::Point3<f32>>,
-    normal: Vec<na::Vector3<f32>>,
-    s: Vec<na::Vector3<f32>>,
-    uv: Vec<na::Point2<f32>>,
-    colors: Vec<na::Vector3<f32>>,
-    alpha_mask: Option<Arc<dyn SyncTexture<f32>>>,
+    pub indices: Vec<u32>,
+    pub pos: Vec<na::Point3<f32>>,
+    pub normal: Vec<na::Vector3<f32>>,
+    pub s: Vec<na::Vector3<f32>>,
+    pub uv: Vec<na::Point2<f32>>,
+    pub colors: Vec<na::Vector3<f32>>,
+    pub alpha_mask: Option<Arc<dyn SyncTexture<f32>>>,
 }
 
 impl TriangleMesh {
@@ -640,10 +623,10 @@ impl TriangleMesh {
     }
 }
 
-pub fn shapes_from_mesh(
+pub fn triangles_from_mesh(
     mut mesh: TriangleMesh,
     transform_swaps_handedness: bool,
-) -> Vec<Arc<dyn SyncShape>> {
+) -> Vec<Arc<Triangle>> {
     let mut shapes = Vec::new();
 
     let world_mesh = Arc::new(mesh);
@@ -653,7 +636,7 @@ pub fn shapes_from_mesh(
             [chunk[0], chunk[1], chunk[2]],
             false,
             transform_swaps_handedness,
-        )) as Arc<dyn SyncShape>)
+        )));
     }
 
     shapes

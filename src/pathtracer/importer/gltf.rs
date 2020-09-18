@@ -9,7 +9,7 @@ use crate::{
             MirrorMaterial,
         },
         primitive::{GeometricPrimitive, SyncPrimitive},
-        shape::{shapes_from_mesh, SyncShape, TriangleMesh},
+        shape::{triangles_from_mesh, Triangle, TriangleMesh},
         texture::{ConstantTexture, ImageTexture, NormalMap, SyncTexture, UVMap},
         Primitive, RenderScene,
     },
@@ -294,7 +294,7 @@ pub fn shapes_from_gltf_prim(
     obj_to_world: &na::Projective3<f32>,
     images: &[gltf::image::Data],
     buffers: &[gltf::buffer::Data],
-) -> Vec<Arc<dyn SyncShape>> {
+) -> Vec<Arc<Triangle>> {
     let mut alpha_mask_texture = None;
 
     if let Some(texture) = gltf_prim
@@ -362,7 +362,7 @@ pub fn shapes_from_gltf_prim(
         &obj_to_world,
     );
 
-    shapes_from_mesh(world_mesh, false)
+    triangles_from_mesh(world_mesh, false)
 }
 
 fn populate_scene(

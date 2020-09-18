@@ -14,7 +14,7 @@ use crate::{
             MatteMaterial, MirrorMaterial,
         },
         primitive::{GeometricPrimitive, SyncPrimitive},
-        shape::{shapes_from_mesh, TriangleMesh},
+        shape::{triangles_from_mesh, TriangleMesh},
         texture::{CheckerTexture, ConstantTexture, SyncTexture},
         Primitive, RenderScene,
     },
@@ -285,7 +285,7 @@ fn parse_shape(
         panic!("either ref exists or embedded bsdf exists");
     }
 
-    for shape in shapes_from_mesh(world_mesh, false) {
+    for shape in triangles_from_mesh(world_mesh, false) {
         let area_light = if let Some(light_info) = light_info {
             if let mitsuba::Emitter::Area { rgb } = light_info {
                 let ke = Arc::new(ConstantTexture::<Spectrum>::new(Spectrum::from_slice_3(
