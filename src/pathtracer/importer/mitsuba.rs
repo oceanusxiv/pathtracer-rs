@@ -1,21 +1,17 @@
 use crate::{
     common::WrapMode,
     common::{importer::mitsuba, spectrum::Spectrum},
-    pathtracer::light::InfiniteAreaLight,
-    pathtracer::light::Light,
-    pathtracer::material::GlassMaterial,
-    pathtracer::texture::ImageTexture,
-    pathtracer::texture::UVMap,
     pathtracer::{
         accelerator,
-        light::{DiffuseAreaLight, SyncLight},
+        light::{DiffuseAreaLight, InfiniteAreaLight, Light, SyncLight},
         material::{
-            metal::MetalMaterial, schlick_r0_from_eta, substrate::SubstrateMaterial, Material,
-            MatteMaterial, MirrorMaterial,
+            metal::MetalMaterial, schlick_r0_from_eta, substrate::SubstrateMaterial, GlassMaterial,
+            Material, MatteMaterial, MirrorMaterial,
         },
         primitive::{GeometricPrimitive, SyncPrimitive},
-        shape::{shapes_from_mesh, TriangleMesh},
-        texture::{CheckerTexture, ConstantTexture, SyncTexture},
+        shape::shapes_from_mesh,
+        shared::TriangleMesh,
+        texture::{CheckerTexture, ConstantTexture, ImageTexture, SyncTexture, UVMap},
         Primitive, RenderScene,
     },
 };

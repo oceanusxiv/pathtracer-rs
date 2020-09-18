@@ -1,15 +1,18 @@
 use crate::{
     common::{importer::gltf::trans_from_gltf, spectrum::Spectrum, WrapMode},
-    pathtracer::light::InfiniteAreaLight,
     pathtracer::{
         accelerator,
-        light::{DiffuseAreaLight, DirectionalLight, LightFlags, PointLight, SyncLight},
+        light::{
+            DiffuseAreaLight, DirectionalLight, InfiniteAreaLight, LightFlags, PointLight,
+            SyncLight,
+        },
         material::{
             disney::DisneyMaterial, with_normal, GlassMaterial, Material, MatteMaterial,
             MirrorMaterial,
         },
         primitive::{GeometricPrimitive, SyncPrimitive},
-        shape::{shapes_from_mesh, SyncShape, TriangleMesh},
+        shape::{shapes_from_mesh, SyncShape},
+        shared::TriangleMesh,
         texture::{ConstantTexture, ImageTexture, NormalMap, SyncTexture, UVMap},
         Primitive, RenderScene,
     },

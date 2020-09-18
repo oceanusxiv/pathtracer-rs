@@ -10,6 +10,7 @@ mod primitive;
 pub mod sampler;
 pub mod sampling;
 mod shape;
+mod shared;
 mod texture;
 
 use crate::common::{
