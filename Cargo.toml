@@ -21,7 +21,7 @@ harness = false
 
 [features]
 disable_rayon = [] # disable rayon for profiling purposes
-enable_optix = []
+enable_optix = ["cu", "optix"]
 
 [profile.release.package."*"]
 debug=false
@@ -68,10 +68,8 @@ serde_derive = "1.0.115"
 maplit = "1.0.2"
 heck = "0.3.1"
 wavefront_obj = "8.0.0"
-
-[target.'cfg(feature = "enable_optix")'.dependencies]
-cu = {git = "https://github.com/anderslanglands/optix-rs.git", branch = "rewrite"}
-optix = {git = "https://github.com/anderslanglands/optix-rs.git", branch = "rewrite"}
+cu = {git = "https://github.com/anderslanglands/optix-rs.git", branch = "rewrite", optional = true}
+optix = {git = "https://github.com/anderslanglands/optix-rs.git", branch = "rewrite", optional = true}
 
 [dependencies.nalgebra]
 version = "0.22.0"

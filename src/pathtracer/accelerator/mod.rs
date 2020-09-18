@@ -1,4 +1,4 @@
-#[cfg(target_os = "linux")]
+#[cfg(feature = "enable_optix")]
 pub mod optix;
 
 use super::primitive::{Primitive, SyncPrimitive};
