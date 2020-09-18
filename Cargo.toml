@@ -7,6 +7,10 @@ edition = "2018"
 [[example]]
 name = "small_scene"
 
+[[example]]
+name = "optix"
+required-features = ["enable_optix"]
+
 [[bench]]
 name = "benchmark_render"
 harness = false
@@ -16,7 +20,8 @@ name = "benchmark_bounds"
 harness = false
 
 [features]
-disable_rayon = [] # disable rayon for profiling purposes 
+disable_rayon = [] # disable rayon for profiling purposes
+enable_optix = []
 
 [profile.release.package."*"]
 debug=false
@@ -64,7 +69,7 @@ maplit = "1.0.2"
 heck = "0.3.1"
 wavefront_obj = "8.0.0"
 
-[target.'cfg(target_os = "linux")'.dependencies]
+[target.'cfg(feature = "enable_optix")'.dependencies]
 cu = {git = "https://github.com/anderslanglands/optix-rs.git", branch = "rewrite"}
 optix = {git = "https://github.com/anderslanglands/optix-rs.git", branch = "rewrite"}
 
