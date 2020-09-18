@@ -1,3 +1,6 @@
+#[cfg(target_os = "linux")]
+pub mod optix;
+
 use super::primitive::{Primitive, SyncPrimitive};
 use super::SurfaceMediumInteraction;
 use crate::common::bounds::Bounds3;
