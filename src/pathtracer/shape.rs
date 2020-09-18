@@ -1,6 +1,4 @@
-use super::{
-    interaction::Interaction, shared::TriangleMesh, texture::SyncTexture, SurfaceMediumInteraction,
-};
+use super::{interaction::Interaction, texture::SyncTexture, SurfaceMediumInteraction};
 use crate::common::bounds::Bounds3;
 use crate::common::math::*;
 use crate::common::ray::Ray;
@@ -595,6 +593,16 @@ impl Shape for Triangle {
             ..Default::default()
         }
     }
+}
+
+pub struct TriangleMesh {
+    pub indices: Vec<u32>,
+    pub pos: Vec<na::Point3<f32>>,
+    pub normal: Vec<na::Vector3<f32>>,
+    pub s: Vec<na::Vector3<f32>>,
+    pub uv: Vec<na::Point2<f32>>,
+    pub colors: Vec<na::Vector3<f32>>,
+    pub alpha_mask: Option<Arc<dyn SyncTexture<f32>>>,
 }
 
 pub fn shapes_from_mesh(
