@@ -6,8 +6,8 @@ use super::{
     BxDFType,
 };
 use crate::{
-    common::spectrum::Spectrum, pathtracer::sampling::cosine_sample_hemisphere,
-    pathtracer::sampling::ONE_MINUS_EPSILON, pathtracer::TransportMode,
+    common::math::ONE_MINUS_EPSILON, common::spectrum::Spectrum,
+    pathtracer::sampling::cosine_sample_hemisphere, pathtracer::TransportMode,
 };
 use num::Zero;
 

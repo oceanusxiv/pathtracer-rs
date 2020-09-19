@@ -1,8 +1,7 @@
 use rand::Rng;
 
-use crate::common::math::find_interval;
+use crate::common::math::{find_interval, ONE_MINUS_EPSILON};
 
-pub const ONE_MINUS_EPSILON: f32 = hexf32!("0x1.fffffep-1");
 pub type Random = rand::rngs::SmallRng;
 
 pub fn stratified_sample_1d(samp: &mut [f32], n_samples: usize, rng: &mut Random, jitter: bool) {

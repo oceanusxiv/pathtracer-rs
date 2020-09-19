@@ -2,6 +2,7 @@ use std::ops::Mul;
 
 const MACHINE_EPSILON: f32 = f32::EPSILON * 0.5;
 pub const INV_2_PI: f32 = std::f32::consts::FRAC_1_PI * 0.5;
+pub const ONE_MINUS_EPSILON: f32 = hexf32!("0x1.fffffep-1");
 
 pub fn gamma(n: u32) -> f32 {
     (n as f32 * MACHINE_EPSILON) / (1.0 - n as f32 * MACHINE_EPSILON)
