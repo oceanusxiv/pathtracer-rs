@@ -311,8 +311,8 @@ impl BVH {
 
     fn flatten_bvh_tree(
         node: &Box<BVHBuildNode>,
-        mut linear_nodes: &mut Box<[std::mem::MaybeUninit<LinearBVHNode>]>,
-        mut offset: &mut usize,
+        linear_nodes: &mut Box<[std::mem::MaybeUninit<LinearBVHNode>]>,
+        offset: &mut usize,
     ) -> usize {
         let my_offset = *offset;
         *offset += 1;
@@ -329,16 +329,9 @@ impl BVH {
                 });
             }
         } else {
-            BVH::flatten_bvh_tree(
-                &node.children[0].as_ref().unwrap(),
-                &mut linear_nodes,
-                &mut offset,
-            );
-            let second_offset = BVH::flatten_bvh_tree(
-                &node.children[1].as_ref().unwrap(),
-                &mut linear_nodes,
-                &mut offset,
-            );
+            BVH::flatten_bvh_tree(&node.children[0].as_ref().unwrap(), linear_nodes, offset);
+            let second_offset =
+                BVH::flatten_bvh_tree(&node.children[1].as_ref().unwrap(), linear_nodes, offset);
 
             unsafe {
                 linear_nodes[my_offset].as_mut_ptr().write(LinearBVHNode {

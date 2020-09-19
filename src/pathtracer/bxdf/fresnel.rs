@@ -179,7 +179,7 @@ impl BxDFInterface for SpecularTransmission {
     fn sample_f(
         &self,
         wo: &na::Vector3<f32>,
-        mut wi: &mut na::Vector3<f32>,
+        wi: &mut na::Vector3<f32>,
         _u: &na::Point2<f32>,
         pdf: &mut f32,
         _sampled_type: &mut Option<BxDFType>,
@@ -192,7 +192,7 @@ impl BxDFInterface for SpecularTransmission {
             &wo,
             &face_forward(&na::Vector3::new(0.0, 0.0, 1.0), &wo),
             eta_i / eta_t,
-            &mut wi,
+            wi,
         ) {
             return Spectrum::new(0.0);
         }
@@ -244,7 +244,7 @@ impl BxDFInterface for FresnelSpecular {
     fn sample_f(
         &self,
         wo: &na::Vector3<f32>,
-        mut wi: &mut na::Vector3<f32>,
+        wi: &mut na::Vector3<f32>,
         u: &na::Point2<f32>,
         pdf: &mut f32,
         sampled_type: &mut Option<BxDFType>,
@@ -266,7 +266,7 @@ impl BxDFInterface for FresnelSpecular {
                 &wo,
                 &face_forward(&na::Vector3::new(0.0, 0.0, 1.0), &wo),
                 eta_i / eta_t,
-                &mut wi,
+                wi,
             ) {
                 return Spectrum::new(0.0);
             }

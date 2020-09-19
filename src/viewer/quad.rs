@@ -77,10 +77,10 @@ pub struct QuadRenderPass {
 impl QuadRenderPass {
     pub fn from_texture(
         device: &wgpu::Device,
-        mut compiler: &mut shaderc::Compiler,
+        compiler: &mut shaderc::Compiler,
         texture: texture::Texture,
     ) -> Self {
-        let (vs_module, fs_module) = shaders::quad::compile_shaders(&mut compiler, &device);
+        let (vs_module, fs_module) = shaders::quad::compile_shaders(compiler, &device);
 
         let texture_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {

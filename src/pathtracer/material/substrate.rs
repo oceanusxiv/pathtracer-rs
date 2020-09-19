@@ -42,15 +42,15 @@ impl SubstrateMaterial {
 impl MaterialInterface for SubstrateMaterial {
     fn compute_scattering_functions(
         &self,
-        mut si: &mut SurfaceMediumInteraction,
+        si: &mut SurfaceMediumInteraction,
         _mode: TransportMode,
     ) {
-        let mut bsdf = BSDF::new(&self.log, &si, 1.0);
+        let mut bsdf = BSDF::new(&self.log, si, 1.0);
 
-        let d = self.kd.evaluate(&si);
-        let s = self.ks.evaluate(&si);
-        let mut rough_u = self.nu.evaluate(&si);
-        let mut rough_v = self.nv.evaluate(&si);
+        let d = self.kd.evaluate(si);
+        let s = self.ks.evaluate(si);
+        let mut rough_u = self.nu.evaluate(si);
+        let mut rough_v = self.nv.evaluate(si);
 
         if !d.is_black() || s.is_black() {
             if self.remap_roughness {

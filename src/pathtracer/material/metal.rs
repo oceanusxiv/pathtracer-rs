@@ -46,7 +46,7 @@ impl MetalMaterial {
 impl MaterialInterface for MetalMaterial {
     fn compute_scattering_functions(
         &self,
-        mut si: &mut SurfaceMediumInteraction,
+        si: &mut SurfaceMediumInteraction,
         _mode: TransportMode,
     ) {
         let mut bsdf = BSDF::new(&self.log, &si, 1.0);

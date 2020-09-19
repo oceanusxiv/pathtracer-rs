@@ -66,11 +66,11 @@ pub struct BoundsRenderPass {
 impl BoundsRenderPass {
     pub fn from_bounds(
         device: &wgpu::Device,
-        mut compiler: &mut shaderc::Compiler,
+        compiler: &mut shaderc::Compiler,
         uniform_bind_group_layout: &wgpu::BindGroupLayout,
         bounds: &Vec<Bounds3>,
     ) -> Self {
-        let (vs_module, fs_module) = shaders::flat::compile_shaders(&mut compiler, &device);
+        let (vs_module, fs_module) = shaders::flat::compile_shaders(compiler, &device);
 
         let bounds_handles = bounds
             .iter()

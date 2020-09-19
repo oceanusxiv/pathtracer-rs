@@ -261,7 +261,7 @@ impl PathIntegrator {
         r: &RayDifferential,
         isect: &SurfaceMediumInteraction,
         scene: &RenderScene,
-        mut sampler: &mut Sampler,
+        sampler: &mut Sampler,
         depth: u32,
     ) -> Spectrum {
         let wo = isect.general.wo;
@@ -297,7 +297,7 @@ impl PathIntegrator {
                 rd.rx_direction = wi - dwodx + 2.0 * (wo.dot(&ns) * dndx + d_dndx * ns);
                 rd.ry_direction = wi - dwody + 2.0 * (wo.dot(&ns) * dndy + d_dndy * ns);
             }
-            l = f * self.li(&rd, &scene, &mut sampler, depth + 1) * wi.dot(&ns).abs() / pdf;
+            l = f * self.li(&rd, &scene, sampler, depth + 1) * wi.dot(&ns).abs() / pdf;
         } else {
             l = Spectrum::new(0.0);
         }
@@ -317,7 +317,7 @@ impl PathIntegrator {
         r: &RayDifferential,
         isect: &SurfaceMediumInteraction,
         scene: &RenderScene,
-        mut sampler: &mut Sampler,
+        sampler: &mut Sampler,
         depth: u32,
     ) -> Spectrum {
         let wo = isect.general.wo;
@@ -367,7 +367,7 @@ impl PathIntegrator {
                 rd.rx_direction = wi - eta * dwodx + (mu * dndx + dmudx * ns);
                 rd.ry_direction = wi - eta * dwody + (mu * dndy + dmudy * ns);
             }
-            l = f * self.li(&rd, &scene, &mut sampler, depth + 1) * wi.dot(&ns).abs() / pdf
+            l = f * self.li(&rd, &scene, sampler, depth + 1) * wi.dot(&ns).abs() / pdf
         }
 
         trace!(
@@ -388,7 +388,7 @@ impl PathIntegrator {
         &self,
         ray: &RayDifferential,
         scene: &RenderScene,
-        mut sampler: &mut Sampler,
+        sampler: &mut Sampler,
         _depth: u32,
     ) -> Spectrum {
         let mut l = Spectrum::new(0.0);
@@ -436,7 +436,7 @@ impl PathIntegrator {
             let bsdf = isect.bsdf.as_ref().unwrap();
 
             if bsdf.num_components(BxDFType::BSDF_ALL - BxDFType::BSDF_SPECULAR) > 0 {
-                let ld = beta * uniform_sample_one_light(&isect, &scene, &mut sampler);
+                let ld = beta * uniform_sample_one_light(&isect, &scene, sampler);
                 trace!(self.log, "sampled direct lighting ld: {:?}", ld);
                 l += ld;
             }

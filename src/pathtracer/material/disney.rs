@@ -170,11 +170,7 @@ impl MicrofacetDistribution for DisneyMicrofacetDistribution {
 }
 
 impl MaterialInterface for DisneyMaterial {
-    fn compute_scattering_functions(
-        &self,
-        mut si: &mut SurfaceMediumInteraction,
-        mode: TransportMode,
-    ) {
+    fn compute_scattering_functions(&self, si: &mut SurfaceMediumInteraction, mode: TransportMode) {
         let mut bsdf = BSDF::new(&self.log, &si, 1.0);
 
         let c = self.color.evaluate(&si);

@@ -38,13 +38,9 @@ impl GeometricPrimitive {
 }
 
 impl Primitive for GeometricPrimitive {
-    fn intersect<'si>(
-        &'si self,
-        r: &mut Ray,
-        mut isect: &mut SurfaceMediumInteraction<'si>,
-    ) -> bool {
+    fn intersect<'si>(&'si self, r: &mut Ray, isect: &mut SurfaceMediumInteraction<'si>) -> bool {
         let mut t_hit = 0.0f32;
-        if !self.shape.intersect(r, &mut t_hit, &mut isect) {
+        if !self.shape.intersect(r, &mut t_hit, isect) {
             return false;
         }
 

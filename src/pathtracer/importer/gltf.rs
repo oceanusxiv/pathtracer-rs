@@ -375,10 +375,10 @@ fn populate_scene(
     buffers: &[gltf::buffer::Data],
     images: &[gltf::image::Data],
     materials: &Vec<Arc<Material>>,
-    mut primitives: &mut Vec<Arc<dyn SyncPrimitive>>,
-    mut meshes: &mut Vec<Arc<TriangleMesh>>,
-    mut lights: &mut Vec<Arc<dyn SyncLight>>,
-    mut preprocess_lights: &mut Vec<Arc<dyn SyncLight>>,
+    primitives: &mut Vec<Arc<dyn SyncPrimitive>>,
+    meshes: &mut Vec<Arc<TriangleMesh>>,
+    lights: &mut Vec<Arc<dyn SyncLight>>,
+    preprocess_lights: &mut Vec<Arc<dyn SyncLight>>,
 ) {
     let current_transform = *parent_transform * trans_from_gltf(current_node.transform());
     const EMISSIVE_SCALING_FACTOR: f32 = 10.0; // hack for gltf since it clamps emissive factor to 1.0
@@ -412,7 +412,7 @@ fn populate_scene(
                 &current_transform,
                 &images,
                 buffers,
-                &mut meshes,
+                meshes,
             ) {
                 let mut some_area_light = None;
                 // only create area light if object material is emissive
@@ -492,10 +492,10 @@ fn populate_scene(
             &buffers,
             &images,
             &materials,
-            &mut primitives,
-            &mut meshes,
-            &mut lights,
-            &mut preprocess_lights,
+            primitives,
+            meshes,
+            lights,
+            preprocess_lights,
         );
     }
 }

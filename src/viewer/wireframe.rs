@@ -116,12 +116,11 @@ pub struct WireFrameRenderPass {
 impl WireFrameRenderPass {
     pub fn from_scene(
         device: &wgpu::Device,
-        mut compiler: &mut shaderc::Compiler,
+        compiler: &mut shaderc::Compiler,
         uniform_bind_group_layout: &wgpu::BindGroupLayout,
         scene: &ViewerScene,
     ) -> Self {
-        let (vs_module, fs_module) =
-            shaders::flat_instance::compile_shaders(&mut compiler, &device);
+        let (vs_module, fs_module) = shaders::flat_instance::compile_shaders(compiler, &device);
         let instances_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                 bindings: &[Instance::create_bind_group_layout_entry()],

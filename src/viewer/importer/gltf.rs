@@ -46,8 +46,8 @@ fn populate_scene(
     parent_transform: &na::Projective3<f32>,
     current_node: &gltf::Node,
     buffers: &[gltf::buffer::Data],
-    mut meshes: &mut Vec<Mesh>,
-    mut mesh_prim_indice_map: &mut HashMap<usize, usize>,
+    meshes: &mut Vec<Mesh>,
+    mesh_prim_indice_map: &mut HashMap<usize, usize>,
 ) {
     let current_transform = *parent_transform * trans_from_gltf(current_node.transform());
     if let Some(gltf_mesh) = current_node.mesh() {
@@ -68,8 +68,8 @@ fn populate_scene(
             &current_transform,
             &child,
             &buffers,
-            &mut meshes,
-            &mut mesh_prim_indice_map,
+            meshes,
+            mesh_prim_indice_map,
         );
     }
 }

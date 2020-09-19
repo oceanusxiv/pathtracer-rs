@@ -128,13 +128,9 @@ pub fn with_normal(
 }
 
 impl MaterialInterface for NormalMaterial {
-    fn compute_scattering_functions(
-        &self,
-        mut si: &mut SurfaceMediumInteraction,
-        mode: TransportMode,
-    ) {
-        normal_mapping(&self.log, &self.normal_map, &mut si);
-        self.material.compute_scattering_functions(&mut si, mode);
+    fn compute_scattering_functions(&self, si: &mut SurfaceMediumInteraction, mode: TransportMode) {
+        normal_mapping(&self.log, &self.normal_map, si);
+        self.material.compute_scattering_functions(si, mode);
     }
 }
 
@@ -159,11 +155,11 @@ impl MatteMaterial {
 impl MaterialInterface for MatteMaterial {
     fn compute_scattering_functions(
         &self,
-        mut si: &mut SurfaceMediumInteraction,
+        si: &mut SurfaceMediumInteraction,
         _mode: TransportMode,
     ) {
-        let mut bsdf = BSDF::new(&self.log, &si, 1.0);
-        let r = self.kd.evaluate(&si);
+        let mut bsdf = BSDF::new(&self.log, si, 1.0);
+        let r = self.kd.evaluate(si);
         bsdf.add(BxDF::Lambertian(LambertianReflection::new(r)));
 
         si.bsdf = Some(bsdf);
@@ -218,16 +214,12 @@ impl GlassMaterial {
 }
 
 impl MaterialInterface for GlassMaterial {
-    fn compute_scattering_functions(
-        &self,
-        mut si: &mut SurfaceMediumInteraction,
-        mode: TransportMode,
-    ) {
-        let eta = self.index.evaluate(&si);
-        let r = self.kr.evaluate(&si);
-        let t = self.kt.evaluate(&si);
+    fn compute_scattering_functions(&self, si: &mut SurfaceMediumInteraction, mode: TransportMode) {
+        let eta = self.index.evaluate(si);
+        let r = self.kr.evaluate(si);
+        let t = self.kt.evaluate(si);
 
-        let mut bsdf = BSDF::new(&self.log, &si, eta);
+        let mut bsdf = BSDF::new(&self.log, si, eta);
         if r.is_black() && t.is_black() {
             return;
         }
