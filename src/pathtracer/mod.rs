@@ -5,11 +5,13 @@ pub mod importer;
 pub mod integrator;
 mod interaction;
 pub mod light;
+mod lowdiscrepancy;
 mod material;
 mod primitive;
 pub mod sampler;
 pub mod sampling;
 mod shape;
+mod sobolmatrices;
 mod texture;
 
 use crate::common::{

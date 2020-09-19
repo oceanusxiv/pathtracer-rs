@@ -1,0 +1,3 @@
+ignore = [
+    "src/pathtracer/sobolmatrices.rs"
+]
