@@ -1,6 +1,8 @@
 #[macro_use]
 extern crate slog;
 
+extern crate nalgebra as na;
+
 use criterion::*;
 use pathtracer_rs::*;
 
@@ -47,5 +49,22 @@ fn bench_bounds(c: &mut Criterion) {
     group.finish();
 }
 
-criterion_group!(benches, bench_bounds, bench_render);
+fn bench_samplers(c: &mut Criterion) {
+    let mut group = c.benchmark_group("benchmark-samplers");
+
+    let drain = slog::Discard;
+    let log = slog::Logger::root(drain, o!());
+    let pixel_samples_sqrt = 32;
+    let mut sampler =
+        pathtracer::sampler::stratified::StratifiedSamplerBuilder::new(&log, pixel_samples_sqrt, 8)
+            .with_seed(10)
+            .build();
+
+    group.bench_function("bench_stratified_sampler_start_pixel", |b| {
+        b.iter(|| sampler.start_pixel(&na::Point2::new(0, 0)))
+    });
+    group.finish();
+}
+
+criterion_group!(benches, bench_bounds, bench_render, bench_samplers);
 criterion_main!(benches);

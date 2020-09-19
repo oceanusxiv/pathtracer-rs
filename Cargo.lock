@@ -627,7 +627,7 @@ dependencies = [
 [[package]]
 name = "cu"
 version = "0.1.0"
-source = "git+https://github.com/anderslanglands/optix-rs.git?branch=rewrite#efc21ba1df7940883e8a50dece4ff584c238c996"
+source = "git+https://github.com/anderslanglands/optix-rs.git?branch=optix7#3bc37c1e2ea239caddb116d94ff7f54e474ef925"
 dependencies = [
  "bindgen",
  "bitflags",
@@ -1781,7 +1781,7 @@ checksum = "a170cebd8021a008ea92e4db85a72f80b35df514ec664b296fdcbb654eac0b2c"
 [[package]]
 name = "optix"
 version = "0.1.0"
-source = "git+https://github.com/anderslanglands/optix-rs.git?branch=rewrite#efc21ba1df7940883e8a50dece4ff584c238c996"
+source = "git+https://github.com/anderslanglands/optix-rs.git?branch=optix7#3bc37c1e2ea239caddb116d94ff7f54e474ef925"
 dependencies = [
  "bindgen",
  "bitflags",
