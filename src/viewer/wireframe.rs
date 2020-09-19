@@ -1,15 +1,12 @@
 use super::vertex::VertexPos;
 use super::{pipeline::create_render_pipeline, shaders, Instance, Mesh, ViewerScene};
+use crate::common::math::cantor_pairing;
 use itertools::Itertools;
 use std::collections::HashSet;
 
 pub struct WireFrameHandle {
     pub vertex_buffer: wgpu::Buffer,
     pub num_elements: usize,
-}
-
-fn cantor_pairing(x: usize, y: usize) -> usize {
-    (x + y) * (x + y + 1) / 2 + y
 }
 
 impl WireFrameHandle {

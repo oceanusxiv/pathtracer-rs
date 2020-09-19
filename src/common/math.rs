@@ -252,6 +252,10 @@ where
     x * (T::one() - a) + y * a
 }
 
+pub fn cantor_pairing(x: usize, y: usize) -> usize {
+    (x + y) * (x + y + 1) / 2 + y
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
