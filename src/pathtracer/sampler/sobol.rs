@@ -1,12 +1,11 @@
 use std::cell::Cell;
 
-use crate::{common::bounds::Bounds2i, pathtracer::sampling::Random, pathtracer::CameraSample};
+use crate::{common::bounds::Bounds2i, pathtracer::CameraSample};
 
 use super::CoreSampler;
 use crate::common::math::{log2_int, RoundUpPow2, ONE_MINUS_EPSILON};
 use crate::pathtracer::lowdiscrepancy::{sobol_interval_to_index, sobol_sample};
 use crate::pathtracer::sobolmatrices::NUM_SOBOL_DIMENSIONS;
-use rand::SeedableRng;
 const ARRAY_START_DIM: usize = 5;
 
 pub struct SobolSampler {
@@ -26,7 +25,6 @@ pub struct SobolSamplerBuilder {
     sample_bounds: Bounds2i,
     resolution: i32,
     log_2_resolution: u32,
-    rng: Random,
     log: slog::Logger,
 }
 
@@ -46,7 +44,7 @@ impl SobolSamplerBuilder {
             warn!(
                 log,
                 "non power-of-two sample count rounded up to {:?} for sobol sampler",
-                samples_per_pixel
+                new_samples_per_pixel
             );
         }
         Self {
@@ -54,7 +52,6 @@ impl SobolSamplerBuilder {
             sample_bounds: *sample_bounds,
             resolution,
             log_2_resolution,
-            rng: Random::from_entropy(),
             log,
         }
     }
@@ -71,9 +68,7 @@ impl SobolSamplerBuilder {
         }
     }
 
-    pub fn with_seed(&mut self, seed: u64) -> &mut Self {
-        self.rng = Random::seed_from_u64(seed);
-
+    pub fn with_seed(&mut self, _seed: u64) -> &mut Self {
         self
     }
 }

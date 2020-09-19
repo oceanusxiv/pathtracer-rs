@@ -142,8 +142,11 @@ fn main() {
     let start = Instant::now();
     let (mut camera, render_scene, viewer_scene) =
         common::importer::import(&log, &scene_path, &resolution, default_lights);
-    let sample_bounds = common::bounds::Bounds2i::from(resolution);
-    let sampler = pathtracer::sampler::SamplerBuilder::new(&log, pixel_samples, &sample_bounds);
+    let sampler = pathtracer::sampler::SamplerBuilder::new(
+        &log,
+        pixel_samples,
+        &camera.film.get_sample_bounds(),
+    );
     let mut integrator = pathtracer::integrator::PathIntegrator::new(&log, sampler, max_depth);
     integrator.preprocess(&render_scene);
 
@@ -275,14 +278,14 @@ fn main() {
                                 virtual_keycode: Some(VirtualKeyCode::Up),
                                 ..
                             } => {
-                                pixel_samples += 1;
+                                pixel_samples *= 2;
                                 info!(log, "pixel sample increment now {:?}", pixel_samples);
                                 integrator = pathtracer::integrator::PathIntegrator::new(
                                     &log,
                                     pathtracer::sampler::SamplerBuilder::new(
                                         &log,
                                         pixel_samples,
-                                        &sample_bounds,
+                                        &camera.film.get_sample_bounds(),
                                     ),
                                     max_depth,
                                 );
@@ -293,14 +296,14 @@ fn main() {
                                 virtual_keycode: Some(VirtualKeyCode::Down),
                                 ..
                             } => {
-                                pixel_samples = 1.max(pixel_samples - 1);
+                                pixel_samples = 1.max(pixel_samples / 2);
                                 info!(log, "pixel sample increment now {:?}", pixel_samples);
                                 integrator = pathtracer::integrator::PathIntegrator::new(
                                     &log,
                                     pathtracer::sampler::SamplerBuilder::new(
                                         &log,
                                         pixel_samples,
-                                        &sample_bounds,
+                                        &camera.film.get_sample_bounds(),
                                     ),
                                     max_depth,
                                 );

@@ -1,12 +1,8 @@
-use super::{
-    sampling::{shuffle, Random},
-    sobolmatrices::{
-        NUM_SOBOL_DIMENSIONS, SOBOL_MATRICES_32, SOBOL_MATRIX_SIZE, VD_C_SOBOL_MATRICES,
-        VD_C_SOBOL_MATRICES_INV,
-    },
+use super::sobolmatrices::{
+    NUM_SOBOL_DIMENSIONS, SOBOL_MATRICES_32, SOBOL_MATRIX_SIZE, VD_C_SOBOL_MATRICES,
+    VD_C_SOBOL_MATRICES_INV,
 };
 use crate::common::math::ONE_MINUS_EPSILON;
-use rand::Rng;
 
 const INV_1_2_32: f32 = hexf32!("0x1.p-32");
 
