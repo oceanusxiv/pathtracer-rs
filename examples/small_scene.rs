@@ -12,13 +12,7 @@ fn main() {
     let pixel_samples_sqrt = 5;
     let (mut camera, render_scene, _) =
         common::importer::import(&log, &scene_path, &common::DEFAULT_RESOLUTION, false);
-    let sampler = pathtracer::sampler::SamplerBuilder::new(
-        &log,
-        pixel_samples_sqrt,
-        pixel_samples_sqrt,
-        true,
-        8,
-    );
+    let sampler = pathtracer::sampler::SamplerBuilder::new(&log, pixel_samples_sqrt, 8);
     let mut integrator = pathtracer::integrator::PathIntegrator::new(&log, sampler, 5);
     integrator.preprocess(&render_scene);
     integrator.render(&mut camera, &render_scene);

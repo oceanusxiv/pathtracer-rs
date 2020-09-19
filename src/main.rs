@@ -26,18 +26,6 @@ use winit::{
 
 const MAX_DEPTH: i32 = 20;
 
-fn sample_arg_legal(val: String) -> Result<(), String> {
-    if let Ok(val) = val.parse::<f64>() {
-        if val.sqrt() % 1.0 == 0.0 {
-            Ok(())
-        } else {
-            Err(String::from("arg is not perfect square"))
-        }
-    } else {
-        Err(String::from("could not parse arg samples"))
-    }
-}
-
 fn new_drain(
     level: slog::Level,
     allowed_modules: &Option<slog_kvfilter::KVFilterList>,
@@ -71,7 +59,7 @@ fn main() {
         (about: "Rust path tracer")
         (@arg SCENE: +required "Sets the input scene to use")
         (@arg output: -o --output +takes_value +required "Sets the output directory to save renders at")
-        (@arg samples: -s --samples default_value("1") validator(sample_arg_legal) "Number of samples path tracer to take per pixel (must be perfect square)")
+        (@arg samples: -s --samples default_value("1") "Number of samples path tracer to take per pixel (sampler dependent)")
         (@arg resolution: -r --resolution +takes_value "Resolution of the window")
         (@arg camera_controller: -c --camera default_value("orbit") "Camera movement type")
         (@arg max_depth: -d --max_depth default_value("15") "Maximum ray tracing depth")
@@ -100,12 +88,11 @@ fn main() {
 
     let scene_path = matches.value_of("SCENE").unwrap();
     let output_path = Path::new(matches.value_of("output").unwrap()).join("render.png");
-    let mut pixel_samples_sqrt = matches
+    let mut pixel_samples = matches
         .value_of("samples")
         .unwrap()
-        .parse::<f64>()
-        .unwrap()
-        .sqrt() as usize;
+        .parse::<usize>()
+        .unwrap();
     let resolution = if let Some(res_str) = matches.value_of("resolution") {
         parse_resolution(&res_str).unwrap_or_else(|_| {
             warn!(
@@ -155,13 +142,7 @@ fn main() {
     let start = Instant::now();
     let (mut camera, render_scene, viewer_scene) =
         common::importer::import(&log, &scene_path, &resolution, default_lights);
-    let sampler = pathtracer::sampler::SamplerBuilder::new(
-        &log,
-        pixel_samples_sqrt,
-        pixel_samples_sqrt,
-        true,
-        8,
-    );
+    let sampler = pathtracer::sampler::SamplerBuilder::new(&log, pixel_samples, 8);
     let mut integrator = pathtracer::integrator::PathIntegrator::new(&log, sampler, max_depth);
     integrator.preprocess(&render_scene);
 
@@ -293,19 +274,13 @@ fn main() {
                                 virtual_keycode: Some(VirtualKeyCode::Up),
                                 ..
                             } => {
-                                pixel_samples_sqrt += 1;
-                                info!(
-                                    log,
-                                    "pixel sample count now {:?}",
-                                    pixel_samples_sqrt * pixel_samples_sqrt
-                                );
+                                pixel_samples += 1;
+                                info!(log, "pixel sample increment now {:?}", pixel_samples);
                                 integrator = pathtracer::integrator::PathIntegrator::new(
                                     &log,
                                     pathtracer::sampler::SamplerBuilder::new(
                                         &log,
-                                        pixel_samples_sqrt,
-                                        pixel_samples_sqrt,
-                                        true,
+                                        pixel_samples,
                                         8,
                                     ),
                                     max_depth,
@@ -317,19 +292,13 @@ fn main() {
                                 virtual_keycode: Some(VirtualKeyCode::Down),
                                 ..
                             } => {
-                                pixel_samples_sqrt = 1.max(pixel_samples_sqrt - 1);
-                                info!(
-                                    log,
-                                    "pixel sample count now {:?}",
-                                    pixel_samples_sqrt * pixel_samples_sqrt
-                                );
+                                pixel_samples = 1.max(pixel_samples - 1);
+                                info!(log, "pixel sample increment now {:?}", pixel_samples);
                                 integrator = pathtracer::integrator::PathIntegrator::new(
                                     &log,
                                     pathtracer::sampler::SamplerBuilder::new(
                                         &log,
-                                        pixel_samples_sqrt,
-                                        pixel_samples_sqrt,
-                                        true,
+                                        pixel_samples,
                                         8,
                                     ),
                                     max_depth,

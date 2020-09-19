@@ -7,8 +7,7 @@ use rand::SeedableRng;
 
 #[derive(Clone)]
 pub struct StratifiedSamplerBuilder {
-    x_pixel_samples: usize,
-    y_pixel_samples: usize,
+    dim_pixel_samples: usize,
     jitter_samples: bool,
     n_sampled_dimensions: usize,
     rng: Random,
@@ -20,18 +19,11 @@ pub struct StratifiedSamplerBuilder {
 }
 
 impl StratifiedSamplerBuilder {
-    pub fn new(
-        log: &slog::Logger,
-        x_pixel_samples: usize,
-        y_pixel_samples: usize,
-        jitter_samples: bool,
-        n_sampled_dimensions: usize,
-    ) -> Self {
+    pub fn new(log: &slog::Logger, dim_pixel_samples: usize, n_sampled_dimensions: usize) -> Self {
         let log = log.new(o!("module" => "sampler"));
         Self {
-            x_pixel_samples,
-            y_pixel_samples,
-            jitter_samples,
+            dim_pixel_samples,
+            jitter_samples: true,
             n_sampled_dimensions,
             rng: Random::from_entropy(),
             sample_1d_array_sizes: vec![],
@@ -43,7 +35,7 @@ impl StratifiedSamplerBuilder {
     }
 
     pub fn build(&self) -> StratifiedSampler {
-        let samples_per_pixel = self.x_pixel_samples * self.y_pixel_samples;
+        let samples_per_pixel = self.dim_pixel_samples * self.dim_pixel_samples;
         StratifiedSampler {
             pixel_sampler: PixelSampler::new(
                 CoreSampler::new(
@@ -57,15 +49,14 @@ impl StratifiedSamplerBuilder {
                 self.n_sampled_dimensions,
                 self.rng.clone(),
             ),
-            x_pixel_samples: self.x_pixel_samples,
-            y_pixel_samples: self.y_pixel_samples,
+            dim_pixel_samples: self.dim_pixel_samples,
             jitter_samples: self.jitter_samples,
             log: self.log.clone(),
         }
     }
 
     pub fn request_1d_array(&mut self, n: usize) -> &mut Self {
-        let samples_per_pixel = self.x_pixel_samples * self.y_pixel_samples;
+        let samples_per_pixel = self.dim_pixel_samples * self.dim_pixel_samples;
 
         self.sample_1d_array_sizes.push(n);
         self.sample_array_1d.push(vec![0.0; n * samples_per_pixel]);
@@ -74,7 +65,7 @@ impl StratifiedSamplerBuilder {
     }
 
     pub fn request_2d_array(&mut self, n: usize) -> &mut Self {
-        let samples_per_pixel = self.x_pixel_samples * self.y_pixel_samples;
+        let samples_per_pixel = self.dim_pixel_samples * self.dim_pixel_samples;
 
         self.sample_2d_array_sizes.push(n);
         self.sample_array_2d
@@ -92,8 +83,7 @@ impl StratifiedSamplerBuilder {
 
 pub struct StratifiedSampler {
     pixel_sampler: PixelSampler,
-    x_pixel_samples: usize,
-    y_pixel_samples: usize,
+    dim_pixel_samples: usize,
     jitter_samples: bool,
     log: slog::Logger,
 }
@@ -105,13 +95,13 @@ impl StratifiedSampler {
         for i in 0..pixel_sampler.samples_1d.len() {
             stratified_sample_1d(
                 &mut pixel_sampler.samples_1d[i][..],
-                self.x_pixel_samples * self.y_pixel_samples,
+                self.dim_pixel_samples * self.dim_pixel_samples,
                 pixel_sampler.rng.get_mut(),
                 self.jitter_samples,
             );
             shuffle(
                 &mut pixel_sampler.samples_1d[i][..],
-                self.x_pixel_samples * self.y_pixel_samples,
+                self.dim_pixel_samples * self.dim_pixel_samples,
                 1,
                 pixel_sampler.rng.get_mut(),
             );
@@ -119,14 +109,14 @@ impl StratifiedSampler {
         for i in 0..pixel_sampler.samples_2d.len() {
             stratified_sample_2d(
                 &mut pixel_sampler.samples_2d[i][..],
-                self.x_pixel_samples,
-                self.y_pixel_samples,
+                self.dim_pixel_samples,
+                self.dim_pixel_samples,
                 pixel_sampler.rng.get_mut(),
                 self.jitter_samples,
             );
             shuffle(
                 &mut pixel_sampler.samples_2d[i][..],
-                self.x_pixel_samples * self.y_pixel_samples,
+                self.dim_pixel_samples * self.dim_pixel_samples,
                 1,
                 pixel_sampler.rng.get_mut(),
             );
