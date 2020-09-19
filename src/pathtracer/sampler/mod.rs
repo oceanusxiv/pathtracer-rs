@@ -167,5 +167,5 @@ impl PixelSampler {
 }
 
 // TODO: add more samplers
-pub type Sampler = stratified::StratifiedSampler; // for now, since dealing with sampler inheritance is annoying
-pub type SamplerBuilder = stratified::StratifiedSamplerBuilder;
+pub type Sampler = sobol::SobolSampler; // for now, since dealing with sampler inheritance is annoying
+pub type SamplerBuilder = sobol::SobolSamplerBuilder;

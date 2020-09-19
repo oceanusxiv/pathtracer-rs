@@ -33,6 +33,15 @@ impl<T: na::Scalar + na::ClosedSub + na::ClosedMul + Copy + Ord> TBounds2<T> {
     }
 }
 
+impl<T: na::Scalar + num::FromPrimitive> From<na::Vector2<f32>> for TBounds2<T> {
+    fn from(input: na::Vector2<f32>) -> Self {
+        Self {
+            p_min: na::Point2::new(T::from_i32(0).unwrap(), T::from_i32(0).unwrap()),
+            p_max: na::Point2::new(T::from_f32(input.x).unwrap(), T::from_f32(input.y).unwrap()),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy)]
 pub struct TBounds3<T: na::RealField> {
     pub p_min: na::Point3<T>,

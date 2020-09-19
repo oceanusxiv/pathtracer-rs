@@ -142,7 +142,8 @@ fn main() {
     let start = Instant::now();
     let (mut camera, render_scene, viewer_scene) =
         common::importer::import(&log, &scene_path, &resolution, default_lights);
-    let sampler = pathtracer::sampler::SamplerBuilder::new(&log, pixel_samples, 8);
+    let sample_bounds = common::bounds::Bounds2i::from(resolution);
+    let sampler = pathtracer::sampler::SamplerBuilder::new(&log, pixel_samples, &sample_bounds);
     let mut integrator = pathtracer::integrator::PathIntegrator::new(&log, sampler, max_depth);
     integrator.preprocess(&render_scene);
 
@@ -281,7 +282,7 @@ fn main() {
                                     pathtracer::sampler::SamplerBuilder::new(
                                         &log,
                                         pixel_samples,
-                                        8,
+                                        &sample_bounds,
                                     ),
                                     max_depth,
                                 );
@@ -299,7 +300,7 @@ fn main() {
                                     pathtracer::sampler::SamplerBuilder::new(
                                         &log,
                                         pixel_samples,
-                                        8,
+                                        &sample_bounds,
                                     ),
                                     max_depth,
                                 );

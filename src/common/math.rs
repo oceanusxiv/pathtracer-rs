@@ -200,14 +200,35 @@ pub fn find_interval<T: Fn(usize) -> bool>(size: usize, pred: T) -> usize {
     (first - 1).clamp(0, size - 2)
 }
 
-pub fn round_up_pow_2(mut v: i32) -> i32 {
-    v -= 1;
-    v |= v >> 1;
-    v |= v >> 2;
-    v |= v >> 4;
-    v |= v >> 8;
-    v |= v >> 16;
-    return v + 1;
+pub trait RoundUpPow2 {
+    fn round_up_pow_2(&self) -> Self;
+}
+
+impl RoundUpPow2 for i32 {
+    fn round_up_pow_2(&self) -> Self {
+        let mut v = *self;
+        v -= 1;
+        v |= v >> 1;
+        v |= v >> 2;
+        v |= v >> 4;
+        v |= v >> 8;
+        v |= v >> 16;
+        return v + 1;
+    }
+}
+
+impl RoundUpPow2 for i64 {
+    fn round_up_pow_2(&self) -> Self {
+        let mut v = *self;
+        v -= 1;
+        v |= v >> 1;
+        v |= v >> 2;
+        v |= v >> 4;
+        v |= v >> 8;
+        v |= v >> 16;
+        v |= v >> 32;
+        return v + 1;
+    }
 }
 
 pub fn abs_mod<T: num::Integer + Copy>(a: T, b: T) -> T {

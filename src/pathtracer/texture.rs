@@ -2,7 +2,7 @@ use std::ops::{AddAssign, Mul};
 
 use super::interaction::SurfaceMediumInteraction;
 use crate::common::{
-    math::abs_mod, math::lerp, math::log2_int, math::round_up_pow_2, spectrum::Spectrum, WrapMode,
+    math::abs_mod, math::lerp, math::log2_int, math::RoundUpPow2, spectrum::Spectrum, WrapMode,
 };
 
 pub trait Texture<T> {
@@ -289,8 +289,8 @@ where
         {
             debug!(log, "image size not power of two, resampling");
             let res_pow_2 = na::Point2::new(
-                round_up_pow_2(image.ncols() as i32) as usize,
-                round_up_pow_2(image.nrows() as i32) as usize,
+                (image.ncols() as i32).round_up_pow_2() as usize,
+                (image.nrows() as i32).round_up_pow_2() as usize,
             );
 
             info!(
