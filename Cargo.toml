@@ -12,11 +12,7 @@ name = "optix"
 required-features = ["enable_optix"]
 
 [[bench]]
-name = "benchmark_render"
-harness = false
-
-[[bench]]
-name = "benchmark_bounds"
+name = "benchmark_pathtracer"
 harness = false
 
 [features]
