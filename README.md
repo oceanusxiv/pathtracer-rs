@@ -97,5 +97,6 @@ If the `--headless` flag is set, no preview window will be created. Rendering wi
 
 ## Gallery
 
-![render](https://user-images.githubusercontent.com/8923171/91656172-75625400-ea6b-11ea-9c71-015333cf244f.png)
-*Render of the Sponza sample gltf scene, direct lighting only*
+### Sponza GLTF scene
+![sponza_2048](https://user-images.githubusercontent.com/8923171/93720490-2f665080-fb3e-11ea-99e0-86657a535c70.png)
+Can be found [here](https://github.com/KhronosGroup/glTF-Sample-Models/tree/master/2.0/Sponza).
