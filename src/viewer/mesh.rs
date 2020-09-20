@@ -1,6 +1,7 @@
 use super::vertex::VertexPosNorm;
 use super::{pipeline::create_render_pipeline, shaders, Instance, Mesh, ViewerScene};
 use itertools::{zip_eq, Itertools};
+use wgpu::util::DeviceExt;
 
 pub struct MeshHandle {
     pub vertex_buffer: wgpu::Buffer,
@@ -14,15 +15,17 @@ impl MeshHandle {
             .map_into::<VertexPosNorm>()
             .collect_vec();
 
-        let vertex_buffer = device.create_buffer_with_data(
-            bytemuck::cast_slice(&vertices[..]),
-            wgpu::BufferUsage::VERTEX,
-        );
+        let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: None,
+            contents: bytemuck::cast_slice(&vertices[..]),
+            usage: wgpu::BufferUsage::VERTEX,
+        });
 
-        let index_buffer = device.create_buffer_with_data(
-            bytemuck::cast_slice(&mesh.indices[..]),
-            wgpu::BufferUsage::INDEX,
-        );
+        let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: None,
+            contents: bytemuck::cast_slice(&mesh.indices[..]),
+            usage: wgpu::BufferUsage::INDEX,
+        });
 
         MeshHandle {
             vertex_buffer,
@@ -54,19 +57,17 @@ impl MeshInstancesHandle {
             })
             .collect_vec();
         let instance_buffer_size = instance_data.len() * std::mem::size_of::<glm::Mat4>();
-        let instance_buffer = device.create_buffer_with_data(
-            bytemuck::cast_slice(&instance_data[..]),
-            wgpu::BufferUsage::STORAGE_READ,
-        );
+        let instance_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: None,
+            contents: bytemuck::cast_slice(&instance_data[..]),
+            usage: wgpu::BufferUsage::STORAGE,
+        });
 
         let instances_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout: &instances_bind_group_layout,
-            bindings: &[wgpu::Binding {
+            entries: &[wgpu::BindGroupEntry {
                 binding: 0,
-                resource: wgpu::BindingResource::Buffer {
-                    buffer: &instance_buffer,
-                    range: 0..instance_buffer_size as wgpu::BufferAddress,
-                },
+                resource: wgpu::BindingResource::Buffer(instance_buffer.slice(..)),
             }],
             label: Some("instances_bind_group"),
         });
@@ -100,7 +101,7 @@ impl MeshRenderPass {
 
         let instances_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                bindings: &[Instance::create_bind_group_layout_entry()],
+                entries: &[Instance::create_bind_group_layout_entry()],
                 label: Some("instances_bind_group_layout"),
             });
 
@@ -119,7 +120,9 @@ impl MeshRenderPass {
 
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                label: None,
                 bind_group_layouts: &[&uniform_bind_group_layout, &instances_bind_group_layout],
+                push_constant_ranges: &[],
             });
 
         let render_pipeline = create_render_pipeline::<VertexPosNorm>(
@@ -152,8 +155,8 @@ where
 {
     fn draw_mesh_instances(&mut self, mesh_instances: &'b MeshInstancesHandle) {
         self.set_bind_group(1, &mesh_instances.instances_bind_group, &[]);
-        self.set_vertex_buffer(0, &mesh_instances.mesh.vertex_buffer, 0, 0);
-        self.set_index_buffer(&mesh_instances.mesh.index_buffer, 0, 0);
+        self.set_vertex_buffer(0, mesh_instances.mesh.vertex_buffer.slice(..));
+        self.set_index_buffer(mesh_instances.mesh.index_buffer.slice(..));
         self.draw_indexed(
             0..mesh_instances.mesh.num_elements as u32,
             0,

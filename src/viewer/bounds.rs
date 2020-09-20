@@ -2,6 +2,7 @@ use super::vertex::VertexPos;
 use super::{pipeline::create_render_pipeline, shaders};
 use crate::common::bounds::Bounds3;
 use itertools::Itertools;
+use wgpu::util::DeviceExt;
 
 pub struct BoundsHandle {
     pub vertex_buffer: wgpu::Buffer,
@@ -48,8 +49,11 @@ impl BoundsHandle {
             VertexPos::from(&min_x_max_yz),
         ];
 
-        let vertex_buffer = device
-            .create_buffer_with_data(bytemuck::cast_slice(&line_list), wgpu::BufferUsage::VERTEX);
+        let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: None,
+            contents: bytemuck::cast_slice(&line_list),
+            usage: wgpu::BufferUsage::VERTEX,
+        });
 
         BoundsHandle {
             vertex_buffer,
@@ -79,7 +83,9 @@ impl BoundsRenderPass {
 
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                label: None,
                 bind_group_layouts: &[&uniform_bind_group_layout],
+                push_constant_ranges: &[],
             });
 
         let render_pipeline = create_render_pipeline::<VertexPos>(
@@ -118,7 +124,7 @@ where
     'b: 'a,
 {
     fn draw_bounds(&mut self, bounds: &'b BoundsHandle) {
-        self.set_vertex_buffer(0, &bounds.vertex_buffer, 0, 0);
+        self.set_vertex_buffer(0, bounds.vertex_buffer.slice(..));
         self.draw(0..bounds.num_elements as u32, 0..1);
     }
 
