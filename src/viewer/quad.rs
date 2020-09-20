@@ -1,4 +1,5 @@
 use super::{pipeline::create_render_pipeline, shaders, texture, vertex::VertexPosTex};
+use wgpu::util::DeviceExt;
 
 const DEPTH_VERTICES: &[VertexPosTex] = &[
     VertexPosTex {
@@ -35,23 +36,25 @@ impl QuadHandle {
         texture_bind_group_layout: &wgpu::BindGroupLayout,
         texture: texture::Texture,
     ) -> Self {
-        let vertex_buffer = device.create_buffer_with_data(
-            bytemuck::cast_slice(DEPTH_VERTICES),
-            wgpu::BufferUsage::VERTEX,
-        );
-        let index_buffer = device.create_buffer_with_data(
-            bytemuck::cast_slice(DEPTH_INDICES),
-            wgpu::BufferUsage::INDEX,
-        );
+        let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: None,
+            contents: bytemuck::cast_slice(DEPTH_VERTICES),
+            usage: wgpu::BufferUsage::VERTEX,
+        });
+        let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: None,
+            contents: bytemuck::cast_slice(DEPTH_INDICES),
+            usage: wgpu::BufferUsage::INDEX,
+        });
 
         let texture_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout: texture_bind_group_layout,
-            bindings: &[
-                wgpu::Binding {
+            entries: &[
+                wgpu::BindGroupEntry {
                     binding: 0,
                     resource: wgpu::BindingResource::TextureView(&texture.view),
                 },
-                wgpu::Binding {
+                wgpu::BindGroupEntry {
                     binding: 1,
                     resource: wgpu::BindingResource::Sampler(&texture.sampler),
                 },
@@ -84,7 +87,7 @@ impl QuadRenderPass {
 
         let texture_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                bindings: &[
+                entries: &[
                     wgpu::BindGroupLayoutEntry {
                         binding: 0,
                         visibility: wgpu::ShaderStage::FRAGMENT,
@@ -93,11 +96,13 @@ impl QuadRenderPass {
                             dimension: wgpu::TextureViewDimension::D2,
                             component_type: wgpu::TextureComponentType::Uint,
                         },
+                        count: None,
                     },
                     wgpu::BindGroupLayoutEntry {
                         binding: 1,
                         visibility: wgpu::ShaderStage::FRAGMENT,
-                        ty: wgpu::BindingType::Sampler { comparison: true },
+                        ty: wgpu::BindingType::Sampler { comparison: false },
+                        count: None,
                     },
                 ],
                 label: Some("texture_bind_group_layout"),
@@ -105,7 +110,9 @@ impl QuadRenderPass {
 
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                label: None,
                 bind_group_layouts: &[&texture_bind_group_layout],
+                push_constant_ranges: &[],
             });
 
         let render_pipeline = create_render_pipeline::<VertexPosTex>(
@@ -138,8 +145,8 @@ where
     fn draw_quad(&mut self, quad: &'b QuadRenderPass) {
         self.set_pipeline(&quad.render_pipeline);
         self.set_bind_group(0, &quad.quad.texture_bind_group, &[]);
-        self.set_vertex_buffer(0, &quad.quad.vertex_buffer, 0, 0);
-        self.set_index_buffer(&quad.quad.index_buffer, 0, 0);
+        self.set_vertex_buffer(0, quad.quad.vertex_buffer.slice(..));
+        self.set_index_buffer(quad.quad.index_buffer.slice(..));
         self.draw_indexed(0..quad.quad.num_elements as u32, 0, 0..1);
     }
 }

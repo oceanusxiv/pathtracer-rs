@@ -14,6 +14,7 @@ use bounds::{BoundsRenderPass, DrawBounds};
 use camera::{CameraController, CameraControllerInterface};
 use mesh::{DrawMesh, MeshRenderPass};
 use quad::{DrawQuad, QuadRenderPass};
+use wgpu::util::DeviceExt;
 use winit::{event::*, window::Window};
 use wireframe::{DrawWireFrame, WireFrameRenderPass};
 
@@ -68,11 +69,11 @@ impl Instance {
             binding: 0,
             visibility: wgpu::ShaderStage::VERTEX,
             ty: wgpu::BindingType::StorageBuffer {
-                // We don't plan on changing the size of this buffer
                 dynamic: false,
-                // The shader is not allowed to modify it's contents
                 readonly: true,
+                min_binding_size: None,
             },
+            count: None,
         }
     }
 }
@@ -94,7 +95,11 @@ impl Uniforms {
         wgpu::BindGroupLayoutEntry {
             binding: 0,
             visibility: wgpu::ShaderStage::VERTEX,
-            ty: wgpu::BindingType::UniformBuffer { dynamic: false },
+            ty: wgpu::BindingType::UniformBuffer {
+                dynamic: false,
+                min_binding_size: None,
+            },
+            count: None,
         }
     }
 }
@@ -140,28 +145,29 @@ impl Viewer {
 
         let size = window.inner_size();
 
-        let surface = wgpu::Surface::create(window);
-
-        let adapter = wgpu::Adapter::request(
-            &wgpu::RequestAdapterOptions {
+        let instance = wgpu::Instance::new(wgpu::BackendBit::PRIMARY);
+        let surface = unsafe { instance.create_surface(window) };
+        let adapter = instance
+            .request_adapter(&wgpu::RequestAdapterOptions {
                 power_preference: wgpu::PowerPreference::Default,
                 compatible_surface: Some(&surface),
-            },
-            wgpu::BackendBit::PRIMARY, // Vulkan + Metal + DX12 + Browser WebGPU
-        )
-        .await
-        .unwrap();
+            })
+            .await
+            .unwrap();
 
         debug!(log, "{:?}", adapter.get_info());
 
         let (device, queue) = adapter
-            .request_device(&wgpu::DeviceDescriptor {
-                extensions: wgpu::Extensions {
-                    anisotropic_filtering: false,
+            .request_device(
+                &wgpu::DeviceDescriptor {
+                    features: wgpu::Features::empty(),
+                    limits: wgpu::Limits::default(),
+                    shader_validation: true,
                 },
-                limits: Default::default(),
-            })
-            .await;
+                None,
+            )
+            .await
+            .unwrap();
 
         let sc_desc = wgpu::SwapChainDescriptor {
             usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
@@ -177,26 +183,23 @@ impl Viewer {
         let mut uniforms = Uniforms::new();
         uniforms.update_view_proj(&camera);
 
-        let uniform_buffer = device.create_buffer_with_data(
-            bytemuck::cast_slice(&[uniforms]),
-            wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
-        );
+        let uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Uniform Buffer"),
+            contents: bytemuck::cast_slice(&[uniforms]),
+            usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
+        });
 
         let uniform_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                bindings: &[Uniforms::create_bind_group_layout_entry()],
+                entries: &[Uniforms::create_bind_group_layout_entry()],
                 label: Some("uniform_bind_group_layout"),
             });
 
         let uniform_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout: &uniform_bind_group_layout,
-            bindings: &[wgpu::Binding {
+            entries: &[wgpu::BindGroupEntry {
                 binding: 0,
-                resource: wgpu::BindingResource::Buffer {
-                    buffer: &uniform_buffer,
-                    // FYI: you can share a single buffer between bindings.
-                    range: 0..std::mem::size_of_val(&uniforms) as wgpu::BufferAddress,
-                },
+                resource: wgpu::BindingResource::Buffer(uniform_buffer.slice(..)),
             }],
             label: Some("uniform_bind_group"),
         });
@@ -221,13 +224,13 @@ impl Viewer {
         let depth_texture =
             texture::Texture::create_depth_texture(&device, &sc_desc, "depth_texture");
 
-        let (rendered_texture, rendered_command_buffer) = texture::Texture::from_image(
+        let rendered_texture = texture::Texture::from_image(
             &device,
+            &queue,
             &camera.film.copy_image(),
             Some("rendered_texture"),
         )
         .unwrap();
-        queue.submit(&[rendered_command_buffer]);
 
         let quad_render_pass =
             QuadRenderPass::from_texture(&device, &mut compiler, rendered_texture);
@@ -321,43 +324,40 @@ impl Viewer {
     }
 
     pub fn update_rendered_texture(&mut self, camera: &Camera) {
-        let cmd = texture::Texture::get_image_to_texture_cmd(
-            &self.device,
-            &camera.film.copy_image(),
-            &self.quad_render_pass.quad.texture.texture,
-        );
+        let img = camera.film.copy_image();
+        let dimensions = img.dimensions();
 
-        self.queue.submit(&[cmd]);
+        let size = wgpu::Extent3d {
+            width: dimensions.0,
+            height: dimensions.1,
+            depth: 1,
+        };
+
+        self.queue.write_texture(
+            wgpu::TextureCopyView {
+                texture: &self.quad_render_pass.quad.texture.texture,
+                mip_level: 0,
+                origin: wgpu::Origin3d::ZERO,
+            },
+            &img,
+            wgpu::TextureDataLayout {
+                offset: 0,
+                bytes_per_row: 4 * dimensions.0,
+                rows_per_image: dimensions.1,
+            },
+            size,
+        );
     }
 
     pub fn update_camera(&mut self, camera: &mut Camera, dt: std::time::Duration) {
         self.camera_controller.update_camera(camera, dt);
         self.uniforms.update_view_proj(camera);
 
-        // Copy operation's are performed on the gpu, so we'll need
-        // a CommandEncoder for that
-        let mut encoder = self
-            .device
-            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                label: Some("update encoder"),
-            });
-
-        let staging_buffer = self.device.create_buffer_with_data(
-            bytemuck::cast_slice(&[self.uniforms]),
-            wgpu::BufferUsage::COPY_SRC,
-        );
-
-        encoder.copy_buffer_to_buffer(
-            &staging_buffer,
-            0,
+        self.queue.write_buffer(
             &self.uniform_buffer,
             0,
-            std::mem::size_of::<Uniforms>() as wgpu::BufferAddress,
+            &bytemuck::cast_slice(&[self.uniforms]),
         );
-
-        // We need to remember to submit our CommandEncoder's output
-        // otherwise we won't see any change.
-        self.queue.submit(&[encoder.finish()]);
     }
 
     pub fn update_bounds(&mut self, bounds: &Vec<Bounds3>) {
@@ -381,8 +381,10 @@ impl Viewer {
     pub fn render_image(&mut self) {
         let frame = self
             .swap_chain
-            .get_next_texture()
-            .expect("Timeout getting texture");
+            .get_current_frame()
+            .expect("Timeout getting texture")
+            .output;
+
         let mut encoder = self
             .device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor {
@@ -394,23 +396,26 @@ impl Viewer {
                 color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
                     attachment: &frame.view,
                     resolve_target: None,
-                    load_op: wgpu::LoadOp::Clear,
-                    store_op: wgpu::StoreOp::Store,
-                    clear_color: wgpu::Color::BLACK,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
+                        store: true,
+                    },
                 }],
                 depth_stencil_attachment: None,
             });
             render_pass.draw_quad(&self.quad_render_pass);
         }
 
-        self.queue.submit(&[encoder.finish()]);
+        self.queue.submit(Some(encoder.finish()));
     }
 
     pub fn render_scene(&mut self) {
         let frame = self
             .swap_chain
-            .get_next_texture()
-            .expect("Timeout getting texture");
+            .get_current_frame()
+            .expect("Timeout getting texture")
+            .output;
+
         let mut encoder = self
             .device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor {
@@ -422,23 +427,23 @@ impl Viewer {
                 color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
                     attachment: &frame.view,
                     resolve_target: None,
-                    load_op: wgpu::LoadOp::Clear,
-                    store_op: wgpu::StoreOp::Store,
-                    clear_color: wgpu::Color {
-                        r: 0.5,
-                        g: 0.5,
-                        b: 0.5,
-                        a: 1.0,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(wgpu::Color {
+                            r: 0.5,
+                            g: 0.5,
+                            b: 0.5,
+                            a: 1.0,
+                        }),
+                        store: true,
                     },
                 }],
                 depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachmentDescriptor {
                     attachment: &self.depth_texture.view,
-                    depth_load_op: wgpu::LoadOp::Clear,
-                    depth_store_op: wgpu::StoreOp::Store,
-                    clear_depth: 1.0,
-                    stencil_load_op: wgpu::LoadOp::Clear,
-                    stencil_store_op: wgpu::StoreOp::Store,
-                    clear_stencil: 0,
+                    depth_ops: Some(wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(1.0),
+                        store: true,
+                    }),
+                    stencil_ops: None,
                 }),
             });
 
@@ -454,6 +459,6 @@ impl Viewer {
             }
         }
 
-        self.queue.submit(&[encoder.finish()]);
+        self.queue.submit(Some(encoder.finish()));
     }
 }

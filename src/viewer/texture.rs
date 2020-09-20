@@ -21,18 +21,15 @@ impl Texture {
         let desc = wgpu::TextureDescriptor {
             label: Some(label),
             size,
-            array_layer_count: 1,
             mip_level_count: 1,
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
             format: Self::DEPTH_FORMAT,
-            usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT
-                | wgpu::TextureUsage::SAMPLED
-                | wgpu::TextureUsage::COPY_SRC,
+            usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT | wgpu::TextureUsage::SAMPLED,
         };
         let texture = device.create_texture(&desc);
 
-        let view = texture.create_default_view();
+        let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
         let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
             address_mode_u: wgpu::AddressMode::ClampToEdge,
             address_mode_v: wgpu::AddressMode::ClampToEdge,
@@ -40,9 +37,10 @@ impl Texture {
             mag_filter: wgpu::FilterMode::Linear,
             min_filter: wgpu::FilterMode::Linear,
             mipmap_filter: wgpu::FilterMode::Nearest,
+            compare: Some(wgpu::CompareFunction::LessEqual),
             lod_min_clamp: -100.0,
             lod_max_clamp: 100.0,
-            compare: wgpu::CompareFunction::LessEqual,
+            ..Default::default()
         });
 
         Self {
@@ -52,57 +50,12 @@ impl Texture {
         }
     }
 
-    pub fn from_bytes(
-        device: &wgpu::Device,
-        bytes: &[u8],
-        label: &str,
-    ) -> Result<(Self, wgpu::CommandBuffer), anyhow::Error> {
-        let img = image::load_from_memory(bytes)?;
-        Self::from_image(device, img.as_rgba8().unwrap(), Some(label))
-    }
-
-    pub fn get_image_to_texture_cmd(
-        device: &wgpu::Device,
-        img: &image::RgbaImage,
-        texture: &wgpu::Texture,
-    ) -> wgpu::CommandBuffer {
-        let dimensions = img.dimensions();
-        let size = wgpu::Extent3d {
-            width: dimensions.0,
-            height: dimensions.1,
-            depth: 1,
-        };
-
-        let buffer = device.create_buffer_with_data(&img, wgpu::BufferUsage::COPY_SRC);
-
-        let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-            label: Some("texture_buffer_copy_encoder"),
-        });
-
-        encoder.copy_buffer_to_texture(
-            wgpu::BufferCopyView {
-                buffer: &buffer,
-                offset: 0,
-                bytes_per_row: 4 * dimensions.0,
-                rows_per_image: dimensions.1,
-            },
-            wgpu::TextureCopyView {
-                texture: &texture,
-                mip_level: 0,
-                array_layer: 0,
-                origin: wgpu::Origin3d::ZERO,
-            },
-            size,
-        );
-
-        encoder.finish()
-    }
-
     pub fn from_image(
         device: &wgpu::Device,
+        queue: &wgpu::Queue,
         img: &image::RgbaImage,
         label: Option<&str>,
-    ) -> Result<(Self, wgpu::CommandBuffer), anyhow::Error> {
+    ) -> anyhow::Result<Self> {
         let dimensions = img.dimensions();
 
         let size = wgpu::Extent3d {
@@ -110,10 +63,10 @@ impl Texture {
             height: dimensions.1,
             depth: 1,
         };
+
         let texture = device.create_texture(&wgpu::TextureDescriptor {
             label,
             size,
-            array_layer_count: 1,
             mip_level_count: 1,
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
@@ -121,9 +74,22 @@ impl Texture {
             usage: wgpu::TextureUsage::SAMPLED | wgpu::TextureUsage::COPY_DST,
         });
 
-        let cmd_buffer = Texture::get_image_to_texture_cmd(&device, &img, &texture);
+        queue.write_texture(
+            wgpu::TextureCopyView {
+                texture: &texture,
+                mip_level: 0,
+                origin: wgpu::Origin3d::ZERO,
+            },
+            &img,
+            wgpu::TextureDataLayout {
+                offset: 0,
+                bytes_per_row: 4 * dimensions.0,
+                rows_per_image: dimensions.1,
+            },
+            size,
+        );
 
-        let view = texture.create_default_view();
+        let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
         let sampler = device.create_sampler(&wgpu::SamplerDescriptor {
             address_mode_u: wgpu::AddressMode::ClampToEdge,
             address_mode_v: wgpu::AddressMode::ClampToEdge,
@@ -131,18 +97,13 @@ impl Texture {
             mag_filter: wgpu::FilterMode::Linear,
             min_filter: wgpu::FilterMode::Nearest,
             mipmap_filter: wgpu::FilterMode::Nearest,
-            lod_min_clamp: -100.0,
-            lod_max_clamp: 100.0,
-            compare: wgpu::CompareFunction::Always,
+            ..Default::default()
         });
 
-        Ok((
-            Self {
-                texture,
-                view,
-                sampler,
-            },
-            cmd_buffer,
-        ))
+        Ok(Self {
+            texture,
+            view,
+            sampler,
+        })
     }
 }

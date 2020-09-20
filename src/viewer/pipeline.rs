@@ -10,7 +10,8 @@ pub fn create_render_pipeline<T: Vertex>(
     depth_test: bool,
 ) -> wgpu::RenderPipeline {
     device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-        layout: &render_pipeline_layout,
+        label: None,
+        layout: Some(&render_pipeline_layout),
         vertex_stage: wgpu::ProgrammableStageDescriptor {
             module: vs_module,
             entry_point: "main",
@@ -25,6 +26,7 @@ pub fn create_render_pipeline<T: Vertex>(
             depth_bias: 0,
             depth_bias_slope_scale: 0.0,
             depth_bias_clamp: 0.0,
+            clamp_depth: false,
         }),
         color_states: &[wgpu::ColorStateDescriptor {
             format: Texture::COLOR_FORMAT,
@@ -38,10 +40,7 @@ pub fn create_render_pipeline<T: Vertex>(
                 format: Texture::DEPTH_FORMAT,
                 depth_write_enabled: true,
                 depth_compare: wgpu::CompareFunction::Less, // 1.
-                stencil_front: wgpu::StencilStateFaceDescriptor::IGNORE,
-                stencil_back: wgpu::StencilStateFaceDescriptor::IGNORE,
-                stencil_read_mask: 0,
-                stencil_write_mask: 0,
+                stencil: wgpu::StencilStateDescriptor::default(),
             })
         } else {
             None

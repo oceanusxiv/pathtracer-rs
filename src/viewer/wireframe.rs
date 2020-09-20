@@ -3,6 +3,7 @@ use super::{pipeline::create_render_pipeline, shaders, Instance, Mesh, ViewerSce
 use crate::common::math::cantor_pairing;
 use itertools::Itertools;
 use std::collections::HashSet;
+use wgpu::util::DeviceExt;
 
 pub struct WireFrameHandle {
     pub vertex_buffer: wgpu::Buffer,
@@ -42,8 +43,11 @@ impl WireFrameHandle {
             }
         }
 
-        let vertex_buffer = device
-            .create_buffer_with_data(bytemuck::cast_slice(&line_list), wgpu::BufferUsage::VERTEX);
+        let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: None,
+            contents: bytemuck::cast_slice(&line_list),
+            usage: wgpu::BufferUsage::VERTEX,
+        });
 
         WireFrameHandle {
             vertex_buffer,
@@ -75,19 +79,17 @@ impl WireFrameInstancesHandle {
             .collect_vec();
 
         let instance_buffer_size = instance_data.len() * std::mem::size_of::<glm::Mat4>();
-        let instance_buffer = device.create_buffer_with_data(
-            bytemuck::cast_slice(&instance_data[..]),
-            wgpu::BufferUsage::STORAGE_READ,
-        );
+        let instance_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: None,
+            contents: bytemuck::cast_slice(&instance_data[..]),
+            usage: wgpu::BufferUsage::STORAGE,
+        });
 
         let instances_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout: &instances_bind_group_layout,
-            bindings: &[wgpu::Binding {
+            entries: &[wgpu::BindGroupEntry {
                 binding: 0,
-                resource: wgpu::BindingResource::Buffer {
-                    buffer: &instance_buffer,
-                    range: 0..instance_buffer_size as wgpu::BufferAddress,
-                },
+                resource: wgpu::BindingResource::Buffer(instance_buffer.slice(..)),
             }],
             label: Some("instances_bind_group"),
         });
@@ -120,7 +122,7 @@ impl WireFrameRenderPass {
         let (vs_module, fs_module) = shaders::flat_instance::compile_shaders(compiler, &device);
         let instances_bind_group_layout =
             device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                bindings: &[Instance::create_bind_group_layout_entry()],
+                entries: &[Instance::create_bind_group_layout_entry()],
                 label: Some("instances_bind_group_layout"),
             });
 
@@ -139,7 +141,9 @@ impl WireFrameRenderPass {
 
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                label: None,
                 bind_group_layouts: &[&uniform_bind_group_layout, &instances_bind_group_layout],
+                push_constant_ranges: &[],
             });
 
         let render_pipeline = create_render_pipeline::<VertexPos>(
@@ -172,7 +176,7 @@ where
 {
     fn draw_wire_frame(&mut self, wire_frame: &'b WireFrameInstancesHandle) {
         self.set_bind_group(1, &wire_frame.instances_bind_group, &[]);
-        self.set_vertex_buffer(0, &wire_frame.wireframe.vertex_buffer, 0, 0);
+        self.set_vertex_buffer(0, wire_frame.wireframe.vertex_buffer.slice(..));
         self.draw(
             0..wire_frame.wireframe.num_elements as u32,
             wire_frame.visible_instances.clone(),
