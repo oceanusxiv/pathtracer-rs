@@ -46,7 +46,7 @@ impl BSDF {
     }
 
     pub fn add(&mut self, b: BxDF) {
-        assert!(self.n_bxdfs < MAX_BXDFS);
+        debug_assert!(self.n_bxdfs < MAX_BXDFS);
         self.bxdfs[self.n_bxdfs] = Some(b);
         self.n_bxdfs += 1;
     }

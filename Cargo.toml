@@ -19,14 +19,9 @@ harness = false
 disable_rayon = [] # disable rayon for profiling purposes
 enable_optix = ["cu", "optix", "ustr"]
 
-[profile.release.package."*"]
-debug=false
-debug-assertions=false
-
-# for debug purposes
-[profile.release]
-debug=true
-debug-assertions=true
+# need high opt level even for debug
+[profile.dev]
+opt-level = 3
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [dev-dependencies.cargo-husky]
@@ -74,7 +69,7 @@ features = ["mint"]
 
 [dependencies.slog]
 version = "2.5.2"
-# features = ["release_max_level_trace"]
+features = ["max_level_trace",  "release_max_level_warn"]
 
 [dependencies.indicatif]
 version = "^0.15"
