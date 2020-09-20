@@ -183,7 +183,7 @@ impl SobolSampler {
         let mut s = sobol_sample(index, dimension, self.current_scramble_index);
 
         if dimension == 0 || dimension == 1 {
-            s = s * (self.resolution + self.sample_bounds.p_min[dimension]) as f32;
+            s = s * self.resolution as f32 + self.sample_bounds.p_min[dimension] as f32;
             s = (s - self.sampler.current_pixel[dimension] as f32).clamp(0., ONE_MINUS_EPSILON);
         }
 
