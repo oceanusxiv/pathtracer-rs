@@ -46,7 +46,7 @@ fn main() {
         (@arg log_level: -l --log_level default_value("INFO") "Application wide log level")
         (@arg module_log: -m --module_log default_value("all") "Module names to log, (all for every module)")
         (@arg default_lights: --default_lights "Add default lights into the scene")
-        (@arg verbose: -v --verbose "Print test information verbosely")
+        (@arg headless: --headless "run pathtracer in headless mode")
     )
     .get_matches();
 
@@ -95,8 +95,6 @@ fn main() {
             MAX_DEPTH
         });
 
-    let camera_controller_type = matches.value_of("camera_controller").unwrap();
-
     let default_lights = matches.is_present("default_lights");
 
     let (camera, render_scene, viewer_scene) =
@@ -111,19 +109,27 @@ fn main() {
 
     debug!(log, "camera starting at: {:?}", camera.cam_to_world);
 
-    viewer::run(
-        log,
-        &resolution,
-        &viewer_scene,
-        render_scene,
-        camera,
-        camera_controller_type,
-        integrator,
-        output_path,
-        ctrl,
-        pixel_samples,
-        max_depth,
-        init_log_level,
-        allowed_modules,
-    );
+    let headless = matches.is_present("headless");
+
+    if headless {
+        headless::run(log, render_scene, camera, integrator, output_path);
+    } else {
+        let camera_controller_type = matches.value_of("camera_controller").unwrap();
+
+        viewer::run(
+            log,
+            &resolution,
+            &viewer_scene,
+            render_scene,
+            camera,
+            camera_controller_type,
+            integrator,
+            output_path,
+            ctrl,
+            pixel_samples,
+            max_depth,
+            init_log_level,
+            allowed_modules,
+        );
+    }
 }

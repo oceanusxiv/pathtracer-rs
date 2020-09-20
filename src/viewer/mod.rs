@@ -36,7 +36,7 @@ pub fn run(
     render_scene: RenderScene,
     camera: Camera,
     camera_controller_type: &str,
-    mut integrator: PathIntegrator,
+    integrator: PathIntegrator,
     output_path: PathBuf,
     ctrl: slog_atomic::AtomicSwitchCtrl,
     mut pixel_samples: usize,
@@ -78,7 +78,7 @@ pub fn run(
     let mut viewer;
     {
         let camera = camera.read().unwrap();
-        viewer = futures::executor::block_on(renderer::Renderer::new(
+        viewer = futures::executor::block_on(Renderer::new(
             &log,
             &window,
             &viewer_scene,
@@ -97,7 +97,7 @@ pub fn run(
     let (tx, rx) = mpsc::channel();
 
     scope(|s| {
-        let render_closure = |s: &crossbeam::thread::Scope| {
+        let render_closure = |_: &crossbeam::thread::Scope| {
             rendering_done.store(false, Ordering::Relaxed);
             let camera = camera.read().unwrap();
             let integrator = integrator.read().unwrap();

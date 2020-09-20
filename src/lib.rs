@@ -19,5 +19,6 @@ extern crate nalgebra as na;
 extern crate nalgebra_glm as glm;
 
 pub mod common;
+pub mod headless;
 pub mod pathtracer;
 pub mod viewer;
