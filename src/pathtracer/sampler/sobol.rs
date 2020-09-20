@@ -3,7 +3,9 @@ use std::cell::Cell;
 use crate::{common::bounds::Bounds2i, pathtracer::CameraSample};
 
 use super::CoreSampler;
-use crate::common::math::{cantor_pairing, log2_int, RoundUpPow2, ONE_MINUS_EPSILON};
+use crate::common::math::{
+    cantor_pairing, log2_int, RoundUpPow2, HALF_MAX_I_32, ONE_MINUS_EPSILON,
+};
 use crate::pathtracer::lowdiscrepancy::{sobol_interval_to_index, sobol_sample};
 use crate::pathtracer::sobolmatrices::NUM_SOBOL_DIMENSIONS;
 const ARRAY_START_DIM: usize = 5;
@@ -79,8 +81,8 @@ impl SobolSampler {
     pub fn start_pixel(&mut self, p: &na::Point2<i32>) {
         self.sampler.start_pixel(p);
         self.current_scramble_index = cantor_pairing(
-            self.sampler.current_pixel.x as usize,
-            self.sampler.current_pixel.y as usize,
+            (self.sampler.current_pixel.x + HALF_MAX_I_32) as usize,
+            (self.sampler.current_pixel.y + HALF_MAX_I_32) as usize,
         ) as u64;
         self.dimension = Cell::new(0);
         self.interval_sample_index = self.get_index_for_sample(0);

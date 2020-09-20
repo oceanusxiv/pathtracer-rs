@@ -1,5 +1,5 @@
 use crate::common::importer::mitsuba;
-use crate::viewer::{Mesh, ViewerScene};
+use crate::viewer::renderer::{Mesh, ViewerScene};
 
 impl ViewerScene {
     pub fn from_mitsuba(scene: &mitsuba::Scene) -> Self {

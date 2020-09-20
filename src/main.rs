@@ -15,30 +15,10 @@ use pathtracer_rs::*;
 use slog::Drain;
 use std::collections::HashSet;
 use std::iter::FromIterator;
+use std::path::Path;
 use std::str::FromStr;
-use std::{path::Path, time::Instant};
-use winit::{
-    dpi::{LogicalSize, Size},
-    event::*,
-    event_loop::{ControlFlow, EventLoop},
-    window::WindowBuilder,
-};
 
 const MAX_DEPTH: i32 = 20;
-
-fn new_drain(
-    level: slog::Level,
-    allowed_modules: &Option<slog_kvfilter::KVFilterList>,
-) -> slog::Fuse<slog::LevelFilter<slog::Fuse<slog_kvfilter::KVFilter<slog::Fuse<slog_async::Async>>>>>
-{
-    let decorator = slog_term::TermDecorator::new().build();
-    let drain = slog_term::CompactFormat::new(decorator).build().fuse();
-    let drain = slog_async::Async::new(drain).chan_size(1000).build().fuse();
-    let drain = slog_kvfilter::KVFilter::new(drain, slog::Level::Warning)
-        .only_pass_any_on_all_keys(allowed_modules.clone())
-        .fuse();
-    drain.filter_level(level).fuse()
-}
 
 fn parse_resolution(res_str: &str) -> Result<na::Vector2<f32>> {
     let xy = res_str.split("x").collect::<Vec<_>>();
@@ -80,15 +60,14 @@ fn main() {
             hashmap! {String::from("module") => HashSet::<String>::from_iter(allowed_modules_str.split(",").map(|s| String::from(s)).into_iter())},
         )
     };
-    let drain = new_drain(init_log_level, &allowed_modules);
+    let drain = common::new_drain(init_log_level, &allowed_modules);
     let drain = slog_atomic::AtomicSwitch::new(drain);
     let ctrl = drain.ctrl();
     let log = slog::Logger::root(drain.fuse(), o!());
-    let mut trace_mode = false;
 
     let scene_path = matches.value_of("SCENE").unwrap();
     let output_path = Path::new(matches.value_of("output").unwrap()).join("render.png");
-    let mut pixel_samples = matches
+    let pixel_samples = matches
         .value_of("samples")
         .unwrap()
         .parse::<usize>()
@@ -117,30 +96,10 @@ fn main() {
         });
 
     let camera_controller_type = matches.value_of("camera_controller").unwrap();
-    let camera_controller;
-    if camera_controller_type == "orbit" {
-        camera_controller =
-            viewer::camera::CameraController::Orbit(viewer::camera::OrbitalCameraController::new(
-                &log,
-                na::Vector3::new(0.0, 0.0, 0.0),
-                5000.0,
-                0.01,
-            ));
-    } else if camera_controller_type == "fp" {
-        camera_controller = viewer::camera::CameraController::FirstPerson(
-            viewer::camera::FirstPersonCameraController::new(&log, 6000.0, 2.5),
-        );
-    } else {
-        panic!(
-            "invalid camera controller type: {:?}",
-            camera_controller_type
-        )
-    }
 
     let default_lights = matches.is_present("default_lights");
 
-    let start = Instant::now();
-    let (mut camera, render_scene, viewer_scene) =
+    let (camera, render_scene, viewer_scene) =
         common::importer::import(&log, &scene_path, &resolution, default_lights);
     let sampler = pathtracer::sampler::SamplerBuilder::new(
         &log,
@@ -152,222 +111,19 @@ fn main() {
 
     debug!(log, "camera starting at: {:?}", camera.cam_to_world);
 
-    let event_loop = EventLoop::new();
-    let window = WindowBuilder::new()
-        .with_title("pathtracer-rs")
-        .with_inner_size(Size::Logical(LogicalSize::new(
-            resolution.x as f64,
-            resolution.y as f64,
-        )))
-        .build(&event_loop)
-        .unwrap();
-    let mut viewer = futures::executor::block_on(viewer::Viewer::new(
-        &log,
-        &window,
+    viewer::run(
+        log,
+        &resolution,
         &viewer_scene,
-        &camera,
-        camera_controller,
-    ));
-    debug!(log, "initialization took: {:?}", start.elapsed());
-
-    let mut last_render_time = Instant::now();
-    let mut cursor_in_window = true;
-    let mut crtl_clicked = false;
-    let mut cursor_position: winit::dpi::PhysicalPosition<f64> =
-        winit::dpi::PhysicalPosition::new(0.0, 0.0);
-    event_loop.run(move |event, _, control_flow| {
-        *control_flow = ControlFlow::Poll;
-        match event {
-            Event::DeviceEvent {
-                ref event,
-                device_id: _,
-            } => {
-                if cursor_in_window {
-                    viewer.device_input(event);
-                }
-            }
-            Event::WindowEvent {
-                ref event,
-                window_id,
-            } if window_id == window.id() => {
-                if !viewer.window_input(event) {
-                    match event {
-                        WindowEvent::CloseRequested => *control_flow = ControlFlow::Exit,
-                        WindowEvent::KeyboardInput { input, .. } => match input {
-                            KeyboardInput {
-                                state: ElementState::Pressed,
-                                virtual_keycode: Some(VirtualKeyCode::Escape),
-                                ..
-                            } => *control_flow = ControlFlow::Exit,
-                            KeyboardInput {
-                                state: ElementState::Pressed,
-                                virtual_keycode: Some(VirtualKeyCode::R),
-                                ..
-                            } => {
-                                camera.film.clear();
-                                integrator.render(&mut camera, &render_scene);
-                                viewer.update_rendered_texture(&camera);
-                                viewer.state = viewer::ViewerState::RenderImage
-                            }
-                            KeyboardInput {
-                                state: ElementState::Pressed,
-                                virtual_keycode: Some(VirtualKeyCode::C),
-                                ..
-                            } => viewer.state = viewer::ViewerState::RenderScene,
-                            KeyboardInput {
-                                state: ElementState::Pressed,
-                                virtual_keycode: Some(VirtualKeyCode::G),
-                                ..
-                            } => {
-                                if crtl_clicked {
-                                    viewer.draw_wireframe = !viewer.draw_wireframe;
-                                }
-                            }
-                            KeyboardInput {
-                                state: ElementState::Pressed,
-                                virtual_keycode: Some(VirtualKeyCode::H),
-                                ..
-                            } => {
-                                if crtl_clicked {
-                                    viewer.draw_mesh = !viewer.draw_mesh;
-                                }
-                            }
-                            KeyboardInput {
-                                state: ElementState::Pressed,
-                                virtual_keycode: Some(VirtualKeyCode::B),
-                                ..
-                            } => {
-                                if crtl_clicked {
-                                    viewer.update_bounds(&render_scene.get_bounding_boxes());
-                                    viewer.draw_bounds = !viewer.draw_bounds;
-                                }
-                            }
-                            KeyboardInput {
-                                state: ElementState::Pressed,
-                                virtual_keycode: Some(VirtualKeyCode::S),
-                                ..
-                            } => {
-                                if crtl_clicked {
-                                    info!(log, "saving image to {:?}", &output_path);
-                                    camera.film.save(&output_path);
-                                }
-                            }
-                            KeyboardInput {
-                                state: ElementState::Pressed,
-                                virtual_keycode: Some(VirtualKeyCode::T),
-                                ..
-                            } => {
-                                if trace_mode {
-                                    info!(log, "setting log level to {:?}", init_log_level);
-                                    ctrl.set(new_drain(slog::Level::Info, &allowed_modules));
-                                } else {
-                                    info!(log, "setting log level to {:?}", slog::Level::Trace);
-                                    ctrl.set(new_drain(slog::Level::Trace, &allowed_modules));
-                                }
-                                trace_mode = !trace_mode;
-                            }
-                            KeyboardInput {
-                                state: ElementState::Pressed,
-                                virtual_keycode: Some(VirtualKeyCode::P),
-                                ..
-                            } => {
-                                integrator.toggle_progress_bar();
-                            }
-                            KeyboardInput {
-                                state: ElementState::Pressed,
-                                virtual_keycode: Some(VirtualKeyCode::Up),
-                                ..
-                            } => {
-                                pixel_samples *= 2;
-                                info!(log, "pixel sample increment now {:?}", pixel_samples);
-                                integrator = pathtracer::integrator::PathIntegrator::new(
-                                    &log,
-                                    pathtracer::sampler::SamplerBuilder::new(
-                                        &log,
-                                        pixel_samples,
-                                        &camera.film.get_sample_bounds(),
-                                    ),
-                                    max_depth,
-                                );
-                                integrator.preprocess(&render_scene);
-                            }
-                            KeyboardInput {
-                                state: ElementState::Pressed,
-                                virtual_keycode: Some(VirtualKeyCode::Down),
-                                ..
-                            } => {
-                                pixel_samples = 1.max(pixel_samples / 2);
-                                info!(log, "pixel sample increment now {:?}", pixel_samples);
-                                integrator = pathtracer::integrator::PathIntegrator::new(
-                                    &log,
-                                    pathtracer::sampler::SamplerBuilder::new(
-                                        &log,
-                                        pixel_samples,
-                                        &camera.film.get_sample_bounds(),
-                                    ),
-                                    max_depth,
-                                );
-                                integrator.preprocess(&render_scene);
-                            }
-                            _ => {}
-                        },
-                        WindowEvent::Resized(physical_size) => {
-                            viewer.resize(*physical_size);
-                        }
-                        WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
-                            // new_inner_size is &mut so w have to dereference it twice
-                            viewer.resize(**new_inner_size);
-                        }
-                        WindowEvent::CursorEntered { device_id: _ } => {
-                            cursor_in_window = true;
-                        }
-                        WindowEvent::CursorLeft { device_id: _ } => {
-                            cursor_in_window = false;
-                        }
-                        WindowEvent::ModifiersChanged(modifier) => match *modifier {
-                            ModifiersState::CTRL => {
-                                crtl_clicked = true;
-                            }
-                            ModifiersState::LOGO => {
-                                crtl_clicked = true;
-                            }
-                            _ => {
-                                crtl_clicked = false;
-                            }
-                        },
-                        WindowEvent::MouseInput {
-                            state: ElementState::Released,
-                            button: MouseButton::Left,
-                            ..
-                        } => {
-                            if crtl_clicked {
-                                let pixel = na::Point2::new(
-                                    (cursor_position.x / window.scale_factor()).floor() as i32,
-                                    (cursor_position.y / window.scale_factor()).floor() as i32,
-                                );
-                                integrator.render_single_pixel(&mut camera, pixel, &render_scene);
-                            }
-                        }
-                        WindowEvent::CursorMoved { position, .. } => {
-                            cursor_position = *position;
-                        }
-                        _ => {}
-                    }
-                }
-            }
-            Event::RedrawRequested(_) => {
-                let now = std::time::Instant::now();
-                let dt = now - last_render_time;
-                last_render_time = now;
-                viewer.update_camera(&mut camera, dt);
-                viewer.render();
-            }
-            Event::MainEventsCleared => {
-                // RedrawRequested will only trigger once, unless we manually
-                // request it.
-                window.request_redraw();
-            }
-            _ => {}
-        }
-    });
+        render_scene,
+        camera,
+        camera_controller_type,
+        integrator,
+        output_path,
+        ctrl,
+        pixel_samples,
+        max_depth,
+        init_log_level,
+        allowed_modules,
+    );
 }

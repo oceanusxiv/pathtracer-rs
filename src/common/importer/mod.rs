@@ -11,7 +11,7 @@ pub fn import(
 ) -> (
     Camera,
     crate::pathtracer::RenderScene,
-    crate::viewer::ViewerScene,
+    crate::viewer::renderer::ViewerScene,
 ) {
     let ext = std::path::Path::new(path).extension().unwrap();
 

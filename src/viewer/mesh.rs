@@ -1,5 +1,9 @@
 use super::vertex::VertexPosNorm;
-use super::{pipeline::create_render_pipeline, shaders, Instance, Mesh, ViewerScene};
+use super::{
+    pipeline::create_render_pipeline,
+    renderer::{Instance, Mesh, ViewerScene},
+    shaders,
+};
 use itertools::{zip_eq, Itertools};
 use wgpu::util::DeviceExt;
 

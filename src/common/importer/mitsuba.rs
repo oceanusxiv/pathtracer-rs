@@ -687,7 +687,7 @@ pub fn from_mitsuba(
 ) -> (
     Camera,
     crate::pathtracer::RenderScene,
-    crate::viewer::ViewerScene,
+    crate::viewer::renderer::ViewerScene,
 ) {
     let file = File::open(path).unwrap();
     let file = BufReader::new(file);
@@ -697,7 +697,7 @@ pub fn from_mitsuba(
 
     let camera = get_camera(&scene, &resolution);
     let render_scene = crate::pathtracer::RenderScene::from_mitsuba(&log, &scene);
-    let viewer_scene = crate::viewer::ViewerScene::from_mitsuba(&scene);
+    let viewer_scene = crate::viewer::renderer::ViewerScene::from_mitsuba(&scene);
 
     (camera, render_scene, viewer_scene)
 }

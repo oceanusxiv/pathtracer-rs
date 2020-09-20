@@ -8,6 +8,7 @@ pub mod spectrum;
 
 use film::Film;
 use filter::{Filter, GuassianFilter};
+use slog::Drain;
 
 lazy_static::lazy_static! {
     pub static ref DEFAULT_RESOLUTION: glm::Vec2 = glm::vec2(640.0, 480.0);
@@ -66,6 +67,20 @@ pub enum WrapMode {
     Repeat,
     Black,
     Clamp,
+}
+
+pub fn new_drain(
+    level: slog::Level,
+    allowed_modules: &Option<slog_kvfilter::KVFilterList>,
+) -> slog::Fuse<slog::LevelFilter<slog::Fuse<slog_kvfilter::KVFilter<slog::Fuse<slog_async::Async>>>>>
+{
+    let decorator = slog_term::TermDecorator::new().build();
+    let drain = slog_term::CompactFormat::new(decorator).build().fuse();
+    let drain = slog_async::Async::new(drain).chan_size(1000).build().fuse();
+    let drain = slog_kvfilter::KVFilter::new(drain, slog::Level::Warning)
+        .only_pass_any_on_all_keys(allowed_modules.clone())
+        .fuse();
+    drain.filter_level(level).fuse()
 }
 
 #[cfg(test)]

@@ -4,461 +4,274 @@ pub mod importer;
 mod mesh;
 mod pipeline;
 mod quad;
+pub mod renderer;
 mod shaders;
 mod texture;
 mod vertex;
 mod wireframe;
 
-use crate::common::{bounds::Bounds3, Camera};
-use bounds::{BoundsRenderPass, DrawBounds};
-use camera::{CameraController, CameraControllerInterface};
-use mesh::{DrawMesh, MeshRenderPass};
-use quad::{DrawQuad, QuadRenderPass};
-use wgpu::util::DeviceExt;
-use winit::{event::*, window::Window};
-use wireframe::{DrawWireFrame, WireFrameRenderPass};
+use crate::common::{new_drain, Camera};
+use crate::pathtracer::{integrator::PathIntegrator, sampler::SamplerBuilder, RenderScene};
+use renderer::ViewerScene;
+use std::collections::{hash_map::RandomState, HashMap, HashSet};
+use std::{path::PathBuf, time::Instant};
+use winit::{
+    dpi::{LogicalSize, Size},
+    event::*,
+    event_loop::{ControlFlow, EventLoop},
+    window::WindowBuilder,
+};
 
-lazy_static::lazy_static! {
-    #[rustfmt::skip]
-    static ref OPENGL_TO_WGPU_MATRIX: glm::Mat4 = glm::mat4(
-        1.0, 0.0, 0.0, 0.0,
-        0.0, 1.0, 0.0, 0.0,
-        0.0, 0.0, 0.5, 0.5,
-        0.0, 0.0, 0.0, 1.0,
-    );
-}
-
-pub struct Mesh {
-    pub id: usize,
-    pub indices: Vec<u32>,
-    pub pos: Vec<na::Point3<f32>>,
-    pub normal: Vec<na::Vector3<f32>>,
-    pub s: Vec<na::Vector3<f32>>,
-    pub uv: Vec<na::Point2<f32>>,
-    pub colors: Vec<na::Vector3<f32>>,
-
-    pub instances: Vec<na::Projective3<f32>>,
-}
-pub struct ViewerScene {
-    meshes: Vec<Mesh>,
-}
-
-#[repr(C)] // We need this for Rust to store our data correctly for the shaders
-#[derive(Debug, Copy, Clone)] // This is so we can store this in a buffer
-struct Uniforms {
-    view_proj: glm::Mat4,
-}
-
-unsafe impl bytemuck::Zeroable for Uniforms {}
-
-unsafe impl bytemuck::Pod for Uniforms {}
-
-#[repr(C)]
-#[derive(Copy, Clone, Debug)]
-pub struct Instance {
-    model: glm::Mat4,
-}
-
-unsafe impl bytemuck::Zeroable for Instance {}
-
-unsafe impl bytemuck::Pod for Instance {}
-
-impl Instance {
-    pub fn create_bind_group_layout_entry() -> wgpu::BindGroupLayoutEntry {
-        wgpu::BindGroupLayoutEntry {
-            binding: 0,
-            visibility: wgpu::ShaderStage::VERTEX,
-            ty: wgpu::BindingType::StorageBuffer {
-                dynamic: false,
-                readonly: true,
-                min_binding_size: None,
-            },
-            count: None,
-        }
-    }
-}
-
-impl Uniforms {
-    fn new() -> Self {
-        Self {
-            view_proj: glm::Mat4::identity(),
-        }
-    }
-
-    fn update_view_proj(&mut self, camera: &Camera) {
-        self.view_proj = *OPENGL_TO_WGPU_MATRIX
-            * (camera.cam_to_screen.to_projective() * camera.cam_to_world.inverse())
-                .to_homogeneous();
-    }
-
-    pub fn create_bind_group_layout_entry() -> wgpu::BindGroupLayoutEntry {
-        wgpu::BindGroupLayoutEntry {
-            binding: 0,
-            visibility: wgpu::ShaderStage::VERTEX,
-            ty: wgpu::BindingType::UniformBuffer {
-                dynamic: false,
-                min_binding_size: None,
-            },
-            count: None,
-        }
-    }
-}
-
-pub enum ViewerState {
-    RenderScene,
-    RenderImage,
-}
-
-pub struct Viewer {
-    surface: wgpu::Surface,
-    device: wgpu::Device,
-    queue: wgpu::Queue,
-    sc_desc: wgpu::SwapChainDescriptor,
-    swap_chain: wgpu::SwapChain,
-    mesh_render_pass: MeshRenderPass,
-    bounds_render_pass: BoundsRenderPass,
-    quad_render_pass: QuadRenderPass,
-    wireframe_render_pass: WireFrameRenderPass,
-    uniforms: Uniforms,
-    uniform_buffer: wgpu::Buffer,
-    uniform_bind_group: wgpu::BindGroup,
-    depth_texture: texture::Texture,
-    size: winit::dpi::PhysicalSize<u32>,
-    camera_controller: CameraController,
-    mouse_pressed: bool,
-    pub state: ViewerState,
-    pub draw_wireframe: bool,
-    pub draw_mesh: bool,
-    pub draw_bounds: bool,
-    pub bounds_loaded: bool,
-}
-
-impl Viewer {
-    pub async fn new(
-        log: &slog::Logger,
-        window: &Window,
-        scene: &ViewerScene,
-        camera: &Camera,
-        camera_controller: CameraController,
-    ) -> Self {
-        let log = log.new(o!("module" => "viewer"));
-
-        let size = window.inner_size();
-
-        let instance = wgpu::Instance::new(wgpu::BackendBit::PRIMARY);
-        let surface = unsafe { instance.create_surface(window) };
-        let adapter = instance
-            .request_adapter(&wgpu::RequestAdapterOptions {
-                power_preference: wgpu::PowerPreference::Default,
-                compatible_surface: Some(&surface),
-            })
-            .await
-            .unwrap();
-
-        debug!(log, "{:?}", adapter.get_info());
-
-        let (device, queue) = adapter
-            .request_device(
-                &wgpu::DeviceDescriptor {
-                    features: wgpu::Features::empty(),
-                    limits: wgpu::Limits::default(),
-                    shader_validation: true,
-                },
-                None,
-            )
-            .await
-            .unwrap();
-
-        let sc_desc = wgpu::SwapChainDescriptor {
-            usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
-            format: wgpu::TextureFormat::Bgra8UnormSrgb,
-            width: size.width,
-            height: size.height,
-            present_mode: wgpu::PresentMode::Fifo,
-        };
-        let swap_chain = device.create_swap_chain(&surface, &sc_desc);
-
-        let mut compiler = shaderc::Compiler::new().unwrap();
-
-        let mut uniforms = Uniforms::new();
-        uniforms.update_view_proj(&camera);
-
-        let uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Uniform Buffer"),
-            contents: bytemuck::cast_slice(&[uniforms]),
-            usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
-        });
-
-        let uniform_bind_group_layout =
-            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                entries: &[Uniforms::create_bind_group_layout_entry()],
-                label: Some("uniform_bind_group_layout"),
-            });
-
-        let uniform_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &uniform_bind_group_layout,
-            entries: &[wgpu::BindGroupEntry {
-                binding: 0,
-                resource: wgpu::BindingResource::Buffer(uniform_buffer.slice(..)),
-            }],
-            label: Some("uniform_bind_group"),
-        });
-
-        let mesh_render_pass =
-            MeshRenderPass::from_scene(&device, &mut compiler, &uniform_bind_group_layout, &scene);
-
-        let bounds_render_pass = BoundsRenderPass::from_bounds(
-            &device,
-            &mut compiler,
-            &uniform_bind_group_layout,
-            &vec![],
+pub fn run(
+    log: slog::Logger,
+    resolution: &na::Vector2<f32>,
+    viewer_scene: &ViewerScene,
+    render_scene: RenderScene,
+    mut camera: Camera,
+    camera_controller_type: &str,
+    mut integrator: PathIntegrator,
+    output_path: PathBuf,
+    ctrl: slog_atomic::AtomicSwitchCtrl,
+    mut pixel_samples: usize,
+    max_depth: i32,
+    init_log_level: slog::Level,
+    allowed_modules: Option<HashMap<String, HashSet<String, RandomState>, RandomState>>,
+) {
+    let camera_controller;
+    if camera_controller_type == "orbit" {
+        camera_controller = camera::CameraController::Orbit(camera::OrbitalCameraController::new(
+            &log,
+            na::Vector3::new(0.0, 0.0, 0.0),
+            5000.0,
+            0.01,
+        ));
+    } else if camera_controller_type == "fp" {
+        camera_controller = camera::CameraController::FirstPerson(
+            camera::FirstPersonCameraController::new(&log, 6000.0, 2.5),
         );
-
-        let wireframe_render_pass = WireFrameRenderPass::from_scene(
-            &device,
-            &mut compiler,
-            &uniform_bind_group_layout,
-            &scene,
-        );
-
-        let depth_texture =
-            texture::Texture::create_depth_texture(&device, &sc_desc, "depth_texture");
-
-        let rendered_texture = texture::Texture::from_image(
-            &device,
-            &queue,
-            &camera.film.copy_image(),
-            Some("rendered_texture"),
+    } else {
+        panic!(
+            "invalid camera controller type: {:?}",
+            camera_controller_type
         )
+    }
+
+    let event_loop = EventLoop::new();
+    let window = WindowBuilder::new()
+        .with_title("pathtracer-rs")
+        .with_inner_size(Size::Logical(LogicalSize::new(
+            resolution.x as f64,
+            resolution.y as f64,
+        )))
+        .build(&event_loop)
         .unwrap();
+    let mut viewer = futures::executor::block_on(renderer::Renderer::new(
+        &log,
+        &window,
+        &viewer_scene,
+        &camera,
+        camera_controller,
+    ));
 
-        let quad_render_pass =
-            QuadRenderPass::from_texture(&device, &mut compiler, rendered_texture);
-
-        Self {
-            surface,
-            device,
-            queue,
-            sc_desc,
-            swap_chain,
-            mesh_render_pass,
-            bounds_render_pass,
-            quad_render_pass,
-            wireframe_render_pass,
-            uniforms,
-            uniform_buffer,
-            uniform_bind_group,
-            depth_texture,
-            size,
-            camera_controller,
-            mouse_pressed: false,
-            state: ViewerState::RenderScene,
-            draw_wireframe: false,
-            draw_mesh: true,
-            draw_bounds: false,
-            bounds_loaded: false,
-        }
-    }
-
-    pub fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
-        self.size = new_size;
-        self.sc_desc.width = new_size.width;
-        self.sc_desc.height = new_size.height;
-        self.depth_texture =
-            texture::Texture::create_depth_texture(&self.device, &self.sc_desc, "depth_texture");
-        self.swap_chain = self.device.create_swap_chain(&self.surface, &self.sc_desc);
-    }
-
-    pub fn window_input(&mut self, event: &WindowEvent) -> bool {
-        match self.state {
-            ViewerState::RenderScene => match event {
-                WindowEvent::KeyboardInput { input, .. } => match input {
-                    KeyboardInput {
-                        state: ElementState::Pressed,
-                        virtual_keycode,
-                        ..
-                    } => {
-                        if let Some(keycode) = virtual_keycode {
-                            self.camera_controller.process_key(keycode)
-                        } else {
-                            false
+    let mut last_render_time = Instant::now();
+    let mut cursor_in_window = true;
+    let mut crtl_clicked = false;
+    let mut trace_mode = false;
+    let mut cursor_position: winit::dpi::PhysicalPosition<f64> =
+        winit::dpi::PhysicalPosition::new(0.0, 0.0);
+    event_loop.run(move |event, _, control_flow| {
+        *control_flow = ControlFlow::Poll;
+        match event {
+            Event::DeviceEvent {
+                ref event,
+                device_id: _,
+            } => {
+                if cursor_in_window {
+                    viewer.device_input(event);
+                }
+            }
+            Event::WindowEvent {
+                ref event,
+                window_id,
+            } if window_id == window.id() => {
+                if !viewer.window_input(event) {
+                    match event {
+                        WindowEvent::CloseRequested => *control_flow = ControlFlow::Exit,
+                        WindowEvent::KeyboardInput { input, .. } => match input {
+                            KeyboardInput {
+                                state: ElementState::Pressed,
+                                virtual_keycode: Some(VirtualKeyCode::Escape),
+                                ..
+                            } => *control_flow = ControlFlow::Exit,
+                            KeyboardInput {
+                                state: ElementState::Pressed,
+                                virtual_keycode: Some(VirtualKeyCode::R),
+                                ..
+                            } => {
+                                camera.film.clear();
+                                integrator.render(&mut camera, &render_scene);
+                                viewer.update_rendered_texture(&camera);
+                                viewer.state = renderer::ViewerState::RenderImage
+                            }
+                            KeyboardInput {
+                                state: ElementState::Pressed,
+                                virtual_keycode: Some(VirtualKeyCode::C),
+                                ..
+                            } => viewer.state = renderer::ViewerState::RenderScene,
+                            KeyboardInput {
+                                state: ElementState::Pressed,
+                                virtual_keycode: Some(VirtualKeyCode::G),
+                                ..
+                            } => {
+                                if crtl_clicked {
+                                    viewer.draw_wireframe = !viewer.draw_wireframe;
+                                }
+                            }
+                            KeyboardInput {
+                                state: ElementState::Pressed,
+                                virtual_keycode: Some(VirtualKeyCode::H),
+                                ..
+                            } => {
+                                if crtl_clicked {
+                                    viewer.draw_mesh = !viewer.draw_mesh;
+                                }
+                            }
+                            KeyboardInput {
+                                state: ElementState::Pressed,
+                                virtual_keycode: Some(VirtualKeyCode::B),
+                                ..
+                            } => {
+                                if crtl_clicked {
+                                    viewer.update_bounds(&render_scene.get_bounding_boxes());
+                                    viewer.draw_bounds = !viewer.draw_bounds;
+                                }
+                            }
+                            KeyboardInput {
+                                state: ElementState::Pressed,
+                                virtual_keycode: Some(VirtualKeyCode::S),
+                                ..
+                            } => {
+                                if crtl_clicked {
+                                    info!(log, "saving image to {:?}", &output_path);
+                                    camera.film.save(&output_path);
+                                }
+                            }
+                            KeyboardInput {
+                                state: ElementState::Pressed,
+                                virtual_keycode: Some(VirtualKeyCode::T),
+                                ..
+                            } => {
+                                if trace_mode {
+                                    info!(log, "setting log level to {:?}", init_log_level);
+                                    ctrl.set(new_drain(slog::Level::Info, &allowed_modules));
+                                } else {
+                                    info!(log, "setting log level to {:?}", slog::Level::Trace);
+                                    ctrl.set(new_drain(slog::Level::Trace, &allowed_modules));
+                                }
+                                trace_mode = !trace_mode;
+                            }
+                            KeyboardInput {
+                                state: ElementState::Pressed,
+                                virtual_keycode: Some(VirtualKeyCode::P),
+                                ..
+                            } => {
+                                integrator.toggle_progress_bar();
+                            }
+                            KeyboardInput {
+                                state: ElementState::Pressed,
+                                virtual_keycode: Some(VirtualKeyCode::Up),
+                                ..
+                            } => {
+                                pixel_samples *= 2;
+                                info!(log, "pixel sample increment now {:?}", pixel_samples);
+                                integrator = PathIntegrator::new(
+                                    &log,
+                                    SamplerBuilder::new(
+                                        &log,
+                                        pixel_samples,
+                                        &camera.film.get_sample_bounds(),
+                                    ),
+                                    max_depth as i32,
+                                );
+                                integrator.preprocess(&render_scene);
+                            }
+                            KeyboardInput {
+                                state: ElementState::Pressed,
+                                virtual_keycode: Some(VirtualKeyCode::Down),
+                                ..
+                            } => {
+                                pixel_samples = 1.max(pixel_samples / 2);
+                                info!(log, "pixel sample increment now {:?}", pixel_samples);
+                                integrator = PathIntegrator::new(
+                                    &log,
+                                    SamplerBuilder::new(
+                                        &log,
+                                        pixel_samples,
+                                        &camera.film.get_sample_bounds(),
+                                    ),
+                                    max_depth as i32,
+                                );
+                                integrator.preprocess(&render_scene);
+                            }
+                            _ => {}
+                        },
+                        WindowEvent::Resized(physical_size) => {
+                            viewer.resize(*physical_size);
                         }
+                        WindowEvent::ScaleFactorChanged { new_inner_size, .. } => {
+                            // new_inner_size is &mut so w have to dereference it twice
+                            viewer.resize(**new_inner_size);
+                        }
+                        WindowEvent::CursorEntered { device_id: _ } => {
+                            cursor_in_window = true;
+                        }
+                        WindowEvent::CursorLeft { device_id: _ } => {
+                            cursor_in_window = false;
+                        }
+                        WindowEvent::ModifiersChanged(modifier) => match *modifier {
+                            ModifiersState::CTRL => {
+                                crtl_clicked = true;
+                            }
+                            ModifiersState::LOGO => {
+                                crtl_clicked = true;
+                            }
+                            _ => {
+                                crtl_clicked = false;
+                            }
+                        },
+                        WindowEvent::MouseInput {
+                            state: ElementState::Released,
+                            button: MouseButton::Left,
+                            ..
+                        } => {
+                            if crtl_clicked {
+                                let pixel = na::Point2::new(
+                                    (cursor_position.x / window.scale_factor()).floor() as i32,
+                                    (cursor_position.y / window.scale_factor()).floor() as i32,
+                                );
+                                integrator.render_single_pixel(&mut camera, pixel, &render_scene);
+                            }
+                        }
+                        WindowEvent::CursorMoved { position, .. } => {
+                            cursor_position = *position;
+                        }
+                        _ => {}
                     }
-                    _ => false,
-                },
-                _ => false,
-            },
-            _ => false,
-        }
-    }
-
-    // input() won't deal with GPU code, so it can be synchronous
-    pub fn device_input(&mut self, event: &DeviceEvent) -> bool {
-        match self.state {
-            ViewerState::RenderScene => match event {
-                DeviceEvent::MouseWheel { delta, .. } => {
-                    self.camera_controller.process_scroll(delta);
-                    true
                 }
-                DeviceEvent::Button { button, state, .. } => {
-                    self.mouse_pressed =
-                        (*button == 0 || *button == 1) && *state == ElementState::Pressed;
-                    true
-                }
-                DeviceEvent::MouseMotion { delta, .. } => {
-                    let (mouse_dx, mouse_dy) = delta;
-                    if (self.camera_controller.require_mouse_press() && self.mouse_pressed)
-                        || !self.camera_controller.require_mouse_press()
-                    {
-                        self.camera_controller.process_mouse(
-                            mouse_dx / self.size.width as f64,
-                            mouse_dy / self.size.height as f64,
-                        );
-                    }
-                    true
-                }
-                _ => false,
-            },
-            _ => false,
-        }
-    }
-
-    pub fn update_rendered_texture(&mut self, camera: &Camera) {
-        let img = camera.film.copy_image();
-        let dimensions = img.dimensions();
-
-        let size = wgpu::Extent3d {
-            width: dimensions.0,
-            height: dimensions.1,
-            depth: 1,
-        };
-
-        self.queue.write_texture(
-            wgpu::TextureCopyView {
-                texture: &self.quad_render_pass.quad.texture.texture,
-                mip_level: 0,
-                origin: wgpu::Origin3d::ZERO,
-            },
-            &img,
-            wgpu::TextureDataLayout {
-                offset: 0,
-                bytes_per_row: 4 * dimensions.0,
-                rows_per_image: dimensions.1,
-            },
-            size,
-        );
-    }
-
-    pub fn update_camera(&mut self, camera: &mut Camera, dt: std::time::Duration) {
-        self.camera_controller.update_camera(camera, dt);
-        self.uniforms.update_view_proj(camera);
-
-        self.queue.write_buffer(
-            &self.uniform_buffer,
-            0,
-            &bytemuck::cast_slice(&[self.uniforms]),
-        );
-    }
-
-    pub fn update_bounds(&mut self, bounds: &Vec<Bounds3>) {
-        if !self.bounds_loaded {
-            self.bounds_render_pass.update_bounds(&self.device, &bounds);
-            self.bounds_loaded = true;
-        }
-    }
-
-    pub fn render(&mut self) {
-        match self.state {
-            ViewerState::RenderScene => {
-                self.render_scene();
             }
-            ViewerState::RenderImage => {
-                self.render_image();
+            Event::RedrawRequested(_) => {
+                let now = std::time::Instant::now();
+                let dt = now - last_render_time;
+                last_render_time = now;
+                viewer.update_camera(&mut camera, dt);
+                viewer.render();
             }
+            Event::MainEventsCleared => {
+                // RedrawRequested will only trigger once, unless we manually
+                // request it.
+                window.request_redraw();
+            }
+            _ => {}
         }
-    }
-
-    pub fn render_image(&mut self) {
-        let frame = self
-            .swap_chain
-            .get_current_frame()
-            .expect("Timeout getting texture")
-            .output;
-
-        let mut encoder = self
-            .device
-            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                label: Some("Render Encoder"),
-            });
-
-        {
-            let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
-                    attachment: &frame.view,
-                    resolve_target: None,
-                    ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
-                        store: true,
-                    },
-                }],
-                depth_stencil_attachment: None,
-            });
-            render_pass.draw_quad(&self.quad_render_pass);
-        }
-
-        self.queue.submit(Some(encoder.finish()));
-    }
-
-    pub fn render_scene(&mut self) {
-        let frame = self
-            .swap_chain
-            .get_current_frame()
-            .expect("Timeout getting texture")
-            .output;
-
-        let mut encoder = self
-            .device
-            .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                label: Some("Render Encoder"),
-            });
-
-        {
-            let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
-                    attachment: &frame.view,
-                    resolve_target: None,
-                    ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color {
-                            r: 0.5,
-                            g: 0.5,
-                            b: 0.5,
-                            a: 1.0,
-                        }),
-                        store: true,
-                    },
-                }],
-                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachmentDescriptor {
-                    attachment: &self.depth_texture.view,
-                    depth_ops: Some(wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(1.0),
-                        store: true,
-                    }),
-                    stencil_ops: None,
-                }),
-            });
-
-            render_pass.set_bind_group(0, &self.uniform_bind_group, &[]);
-            if self.draw_mesh {
-                render_pass.draw_all_mesh(&self.mesh_render_pass);
-            }
-            if self.draw_bounds {
-                render_pass.draw_all_bounds(&self.bounds_render_pass);
-            }
-            if self.draw_wireframe {
-                render_pass.draw_all_wire_frame(&self.wireframe_render_pass);
-            }
-        }
-
-        self.queue.submit(Some(encoder.finish()));
-    }
+    });
 }

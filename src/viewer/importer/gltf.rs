@@ -1,6 +1,6 @@
 use crate::{
     common::importer::gltf::trans_from_gltf,
-    viewer::{Mesh, ViewerScene},
+    viewer::renderer::{Mesh, ViewerScene},
 };
 use std::collections::HashMap;
 

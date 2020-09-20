@@ -99,7 +99,7 @@ pub fn from_gltf(
 ) -> (
     Camera,
     crate::pathtracer::RenderScene,
-    crate::viewer::ViewerScene,
+    crate::viewer::renderer::ViewerScene,
 ) {
     let (document, buffers, images) = gltf::import(path).unwrap();
     let render_scene = crate::pathtracer::RenderScene::from_gltf(
@@ -110,7 +110,8 @@ pub fn from_gltf(
         default_lights,
     );
     let camera = get_camera(&document, &render_scene.world_bound(), &resolution);
-    let viewer_scene = crate::viewer::ViewerScene::from_gltf(&document, &buffers, &images);
+    let viewer_scene =
+        crate::viewer::renderer::ViewerScene::from_gltf(&document, &buffers, &images);
 
     (camera, render_scene, viewer_scene)
 }

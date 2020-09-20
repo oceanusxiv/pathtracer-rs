@@ -1,5 +1,9 @@
 use super::vertex::VertexPos;
-use super::{pipeline::create_render_pipeline, shaders, Instance, Mesh, ViewerScene};
+use super::{
+    pipeline::create_render_pipeline,
+    renderer::{Instance, Mesh, ViewerScene},
+    shaders,
+};
 use crate::common::math::cantor_pairing;
 use itertools::Itertools;
 use std::collections::HashSet;
