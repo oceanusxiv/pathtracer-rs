@@ -1,3 +1,5 @@
+use std::sync::RwLock;
+
 use super::bounds::{BoundsRenderPass, DrawBounds};
 use super::camera::{CameraController, CameraControllerInterface};
 use super::mesh::{DrawMesh, MeshRenderPass};
@@ -216,7 +218,7 @@ impl Renderer {
         let rendered_texture = Texture::from_image(
             &device,
             &queue,
-            &camera.film.copy_image(),
+            &image::RgbaImage::new(camera.film.resolution.x, camera.film.resolution.y),
             Some("rendered_texture"),
         )
         .unwrap();
@@ -312,8 +314,7 @@ impl Renderer {
         }
     }
 
-    pub fn update_rendered_texture(&mut self, camera: &Camera) {
-        let img = camera.film.copy_image();
+    pub fn update_rendered_texture(&mut self, img: image::RgbaImage) {
         let dimensions = img.dimensions();
 
         let size = wgpu::Extent3d {
@@ -338,15 +339,21 @@ impl Renderer {
         );
     }
 
-    pub fn update_camera(&mut self, camera: &mut Camera, dt: std::time::Duration) {
-        self.camera_controller.update_camera(camera, dt);
-        self.uniforms.update_view_proj(camera);
+    pub fn update_camera(&mut self, camera: &RwLock<Camera>, dt: std::time::Duration) {
+        match self.state {
+            ViewerState::RenderScene => {
+                let mut camera = camera.write().unwrap();
+                self.camera_controller.update_camera(&mut camera, dt);
+                self.uniforms.update_view_proj(&camera);
 
-        self.queue.write_buffer(
-            &self.uniform_buffer,
-            0,
-            &bytemuck::cast_slice(&[self.uniforms]),
-        );
+                self.queue.write_buffer(
+                    &self.uniform_buffer,
+                    0,
+                    &bytemuck::cast_slice(&[self.uniforms]),
+                );
+            }
+            _ => {}
+        }
     }
 
     pub fn update_bounds(&mut self, bounds: &Vec<Bounds3>) {

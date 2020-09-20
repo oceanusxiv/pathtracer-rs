@@ -3,7 +3,7 @@ use super::{bounds::Bounds2i, filter::Filter};
 use crate::common::filter::FilterInterface;
 use image::RgbaImage;
 use itertools::Itertools;
-use std::{path::Path, sync::RwLock};
+use std::sync::RwLock;
 
 #[derive(Clone, Debug)]
 struct FilmTilePixel {
@@ -121,9 +121,8 @@ struct FilmPixel {
 const FILTER_TABLE_WIDTH: usize = 16;
 
 pub struct Film {
-    image: RgbaImage,
     pixels: RwLock<Vec<FilmPixel>>,
-    resolution: glm::UVec2,
+    pub resolution: glm::UVec2,
     pixel_bounds: Bounds2i,
     filter_table: [f32; FILTER_TABLE_WIDTH * FILTER_TABLE_WIDTH],
     filter: Box<Filter>,
@@ -144,7 +143,6 @@ impl Film {
             }
         }
         Self {
-            image: RgbaImage::new(resolution.x, resolution.y),
             pixels: RwLock::new(vec![
                 FilmPixel {
                     xyz: [0.0, 0.0, 0.0],
@@ -161,14 +159,6 @@ impl Film {
             filter_table,
             filter,
         }
-    }
-
-    pub fn save(&self, file_path: &Path) {
-        self.image.save(file_path).unwrap()
-    }
-
-    pub fn copy_image(&self) -> image::RgbaImage {
-        self.image.clone()
     }
 
     pub fn clear(&self) {
@@ -192,11 +182,6 @@ impl Film {
                 (self.resolution.y as f32 - 0.5 + self.filter.radius().y).ceil() as i32,
             ),
         }
-    }
-
-    pub fn get_pixel(&self, p: &na::Point2<i32>) -> Spectrum {
-        let pixel = self.image.get_pixel(p.x as u32, p.y as u32);
-        Spectrum::from_image_rgba(pixel, false)
     }
 
     fn get_pixel_offset(&self, x: i32, y: i32) -> usize {
@@ -242,14 +227,15 @@ impl Film {
         }
     }
 
-    pub fn write_image(&mut self) {
+    pub fn write_image(&self) -> RgbaImage {
+        let mut image = RgbaImage::new(self.resolution.x, self.resolution.y);
         for (x, y) in (self.pixel_bounds.p_min.x..self.pixel_bounds.p_max.x)
             .cartesian_product(self.pixel_bounds.p_min.y..self.pixel_bounds.p_max.y)
         {
             let offset = self.get_pixel_offset(x, y);
             let pixel = &self.pixels.read().unwrap()[offset];
             let inv_wt = 1. / pixel.filter_weight_sum;
-            self.image.put_pixel(
+            image.put_pixel(
                 x as u32,
                 y as u32,
                 (Spectrum::from_floats(
@@ -260,5 +246,7 @@ impl Film {
                 .to_image_rgba(),
             );
         }
+
+        image
     }
 }

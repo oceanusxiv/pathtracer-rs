@@ -499,7 +499,7 @@ impl PathIntegrator {
 
     pub fn render_single_pixel(
         &self,
-        camera: &mut Camera,
+        camera: &Camera,
         pixel: na::Point2<i32>,
         scene: &RenderScene,
     ) {
@@ -527,15 +527,9 @@ impl PathIntegrator {
                 break;
             }
         }
-
-        trace!(
-            self.log,
-            "actual image color: {:?}",
-            camera.film.get_pixel(&pixel)
-        );
     }
 
-    pub fn render(&self, camera: &mut Camera, scene: &RenderScene) {
+    pub fn render(&self, camera: &Camera, scene: &RenderScene) {
         debug!(
             self.log,
             "start rendering image of size: {:?}",
@@ -638,7 +632,6 @@ impl PathIntegrator {
         } else {
             render_par_iter.for_each(work_closure);
         }
-        camera.film.write_image();
 
         let duration = start.elapsed();
 
