@@ -1,5 +1,7 @@
 # Pathtracer-rs
 
+![classroom_4096](https://user-images.githubusercontent.com/8923171/93718138-f96da000-fb2e-11ea-8354-a6fb34cd8bf2.png)
+
 This is yet another path tracer written in rust, using `nalgebra` for mathematical operations, `gltf` for GLTF scene file support, and `wgpu-rs` for frontend display. It is primarily written for personal education and entertainment purposes, though it is also intended to be somewhat performant and capable of supporting multiple commonly used file formats
 
 This project heavily borrows from the book `Physically Based Rendering: From Theory to Implementation` by Matt Pharr et. al. which can be read online [here](http://www.pbr-book.org/).
@@ -41,8 +43,8 @@ USAGE:
 FLAGS:
         --default_lights    Add default lights into the scene
     -h, --help              Prints help information
+        --headless          run pathtracer in headless mode
     -V, --version           Prints version information
-    -v, --verbose           Print test information verbosely
 
 OPTIONS:
     -c, --camera <camera_controller>    Camera movement type [default: orbit]
@@ -79,6 +81,10 @@ Camera view always points to the origin. Mouse click drag rotates camera about t
 * <kbd>&#x2191;</kbd>/<kbd>&#x2193;</kbd>: Increases or decreases sample increment
 * <kbd>CTRL</kbd>+<kbd>H</kbd>: Toggles displaying of mesh
 * <kbd>CTRL</kbd>+<kbd>G</kbd>: Toggles displaying of wireframe outline
+
+## Headless Mode
+
+If the `--headless` flag is set, no preview window will be created. Rendering will proceed and the image will be saved at the `--output` directory with name `render.png` automatically.
 
 ## Future Work
 * Subsurface Scattering
