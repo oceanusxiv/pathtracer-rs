@@ -68,13 +68,15 @@ fn texture_from_mitsuba(
 fn texture_with_defaults(
     log: &slog::Logger,
     scene_path: &str,
-    texture: &Option<mitsuba::Texture>,
-    rgb: &[f32; 3],
+    texture: Option<&mitsuba::Texture>,
+    rgb: Option<&[f32; 3]>,
 ) -> Box<dyn SyncTexture<Spectrum>> {
-    if let Some(texture) = texture.as_ref() {
+    if let Some(texture) = texture {
         texture_from_mitsuba(log, scene_path, texture)
-    } else {
+    } else if let Some(rgb) = rgb {
         Box::new(ConstantTexture::new(Spectrum::from_slice_3(rgb, false)))
+    } else {
+        Box::new(ConstantTexture::new(Spectrum::new(1.)))
     }
 }
 
@@ -83,13 +85,7 @@ fn material_from_bsdf(log: &slog::Logger, scene_path: &str, bsdf: &mitsuba::BSDF
         mitsuba::BSDF::TwoSided(bsdf) => material_from_bsdf(&log, scene_path, &bsdf.bsdf),
         mitsuba::BSDF::Diffuse(bsdf) => Material::Matte(MatteMaterial::new(
             &log,
-            if let Some(texture) = bsdf.texture.as_ref() {
-                texture_from_mitsuba(log, scene_path, texture)
-            } else {
-                Box::new(ConstantTexture::new(Spectrum::from_slice_3(
-                    &bsdf.rgb, false,
-                )))
-            },
+            texture_with_defaults(log, scene_path, bsdf.texture.as_ref(), Some(&bsdf.rgb)),
         )),
         mitsuba::BSDF::Conductor(bsdf) => {
             if let Some(material) = bsdf.material.as_ref() {
@@ -109,14 +105,12 @@ fn material_from_bsdf(log: &slog::Logger, scene_path: &str, bsdf: &mitsuba::BSDF
                         &bsdf.rgb_params["k"],
                         false,
                     ))),
-                    if let Some(texture) = bsdf.texture.as_ref() {
-                        texture_from_mitsuba(log, scene_path, texture)
-                    } else {
-                        Box::new(ConstantTexture::new(Spectrum::from_slice_3(
-                            &bsdf.rgb_params["specular_reflectance"],
-                            false,
-                        )))
-                    },
+                    texture_with_defaults(
+                        log,
+                        scene_path,
+                        bsdf.texture.as_ref(),
+                        bsdf.rgb_params.get("specular_reflectance"),
+                    ),
                     Some(Box::new(ConstantTexture::new(0.001))),
                     None,
                     None,
@@ -134,14 +128,12 @@ fn material_from_bsdf(log: &slog::Logger, scene_path: &str, bsdf: &mitsuba::BSDF
                 &bsdf.rgb_params["k"],
                 false,
             ))),
-            if let Some(texture) = bsdf.texture.as_ref() {
-                texture_from_mitsuba(log, scene_path, texture)
-            } else {
-                Box::new(ConstantTexture::new(Spectrum::from_slice_3(
-                    &bsdf.rgb_params["specular_reflectance"],
-                    false,
-                )))
-            },
+            texture_with_defaults(
+                log,
+                scene_path,
+                bsdf.texture.as_ref(),
+                bsdf.rgb_params.get("specular_reflectance"),
+            ),
             Some(Box::new(ConstantTexture::new(bsdf.float_params["alpha"]))),
             None,
             None,
@@ -156,14 +148,12 @@ fn material_from_bsdf(log: &slog::Logger, scene_path: &str, bsdf: &mitsuba::BSDF
         // plastic -> substrate is not a perfect match
         mitsuba::BSDF::Plastic(bsdf) => Material::Substrate(SubstrateMaterial::new(
             log,
-            if let Some(texture) = bsdf.texture.as_ref() {
-                texture_from_mitsuba(log, scene_path, texture)
-            } else {
-                Box::new(ConstantTexture::new(Spectrum::from_slice_3(
-                    &bsdf.rgb_params["diffuse_reflectance"],
-                    false,
-                )))
-            },
+            texture_with_defaults(
+                log,
+                scene_path,
+                bsdf.texture.as_ref(),
+                bsdf.rgb_params.get("diffuse_reflectance"),
+            ),
             Box::new(ConstantTexture::new(Spectrum::new(schlick_r0_from_eta(
                 bsdf.float_params["int_ior"],
             )))),
@@ -173,14 +163,12 @@ fn material_from_bsdf(log: &slog::Logger, scene_path: &str, bsdf: &mitsuba::BSDF
         )),
         mitsuba::BSDF::RoughPlastic(bsdf) => Material::Substrate(SubstrateMaterial::new(
             log,
-            if let Some(texture) = bsdf.texture.as_ref() {
-                texture_from_mitsuba(log, scene_path, texture)
-            } else {
-                Box::new(ConstantTexture::new(Spectrum::from_slice_3(
-                    &bsdf.rgb_params["diffuse_reflectance"],
-                    false,
-                )))
-            },
+            texture_with_defaults(
+                log,
+                scene_path,
+                bsdf.texture.as_ref(),
+                bsdf.rgb_params.get("diffuse_reflectance"),
+            ),
             Box::new(ConstantTexture::new(Spectrum::new(schlick_r0_from_eta(
                 bsdf.float_params["int_ior"],
             )))),

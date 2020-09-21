@@ -80,7 +80,7 @@ impl MaterialInterface for MetalMaterial {
         }
 
         bsdf.add(BxDF::MicrofacetReflection(MicrofacetReflection::new(
-            Spectrum::new(1.),
+            self.r.evaluate(&si),
             Box::new(TrowbridgeReitzDistribution::new(u_rough, v_rough)),
             Box::new(Fresnel::Conductor(FresnelConductor::new(
                 Spectrum::new(1.),
