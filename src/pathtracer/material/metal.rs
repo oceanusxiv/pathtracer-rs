@@ -13,6 +13,7 @@ use crate::pathtracer::{
 pub struct MetalMaterial {
     eta: Box<dyn SyncTexture<Spectrum>>,
     k: Box<dyn SyncTexture<Spectrum>>,
+    r: Box<dyn SyncTexture<Spectrum>>,
     roughness: Option<Box<dyn SyncTexture<f32>>>,
     u_roughness: Option<Box<dyn SyncTexture<f32>>>,
     v_roughness: Option<Box<dyn SyncTexture<f32>>>,
@@ -25,6 +26,7 @@ impl MetalMaterial {
         log: &slog::Logger,
         eta: Box<dyn SyncTexture<Spectrum>>,
         k: Box<dyn SyncTexture<Spectrum>>,
+        r: Box<dyn SyncTexture<Spectrum>>,
         roughness: Option<Box<dyn SyncTexture<f32>>>,
         u_roughness: Option<Box<dyn SyncTexture<f32>>>,
         v_roughness: Option<Box<dyn SyncTexture<f32>>>,
@@ -34,6 +36,7 @@ impl MetalMaterial {
         Self {
             eta,
             k,
+            r,
             roughness,
             u_roughness,
             v_roughness,
