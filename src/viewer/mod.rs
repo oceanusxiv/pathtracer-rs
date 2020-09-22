@@ -14,7 +14,7 @@ use crate::common::{new_drain, Camera};
 use crate::pathtracer::{integrator::PathIntegrator, sampler::SamplerBuilder, RenderScene};
 use crossbeam::scope;
 use renderer::{Renderer, ViewerScene};
-use std::sync::{mpsc, RwLock};
+use std::sync::RwLock;
 use std::{
     collections::{hash_map::RandomState, HashMap, HashSet},
     sync::atomic::AtomicBool,
@@ -94,7 +94,7 @@ pub fn run(
     let mut cursor_position: winit::dpi::PhysicalPosition<f64> =
         winit::dpi::PhysicalPosition::new(0.0, 0.0);
     let rendering_done = AtomicBool::new(false);
-    let (tx, rx) = mpsc::channel();
+    let (tx, rx) = crossbeam::channel::unbounded();
 
     scope(|s| {
         let render_closure = |_: &crossbeam::thread::Scope| {
@@ -105,7 +105,7 @@ pub fn run(
             rendering_done.store(true, Ordering::Relaxed);
         };
 
-        let send_image_closure = |tx: mpsc::Sender<image::RgbaImage>| {
+        let send_image_closure = |tx: crossbeam::Sender<image::RgbaImage>| {
             let camera = camera.read().unwrap();
             while !rendering_done.load(Ordering::Relaxed) {
                 tx.send(camera.film.write_image()).unwrap();
