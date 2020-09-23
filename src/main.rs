@@ -32,7 +32,7 @@ fn parse_resolution(res_str: &str) -> Result<na::Vector2<f32>> {
     }
 }
 
-fn main() {
+fn main() -> anyhow::Result<()> {
     let matches = clap_app!(pathtracer_rs =>
         (version: "1.0")
         (author: "Eric F. <eric1221bday@gmail.com>")
@@ -112,7 +112,7 @@ fn main() {
     let headless = matches.is_present("headless");
 
     if headless {
-        headless::run(log, render_scene, camera, integrator, output_path);
+        headless::run(log, render_scene, camera, integrator, output_path)?;
     } else {
         let camera_controller_type = matches.value_of("camera_controller").unwrap();
 
@@ -132,4 +132,6 @@ fn main() {
             allowed_modules,
         );
     }
+
+    Ok(())
 }
