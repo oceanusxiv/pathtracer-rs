@@ -93,26 +93,29 @@ pub fn run(
     let mut trace_mode = false;
     let mut cursor_position: winit::dpi::PhysicalPosition<f64> =
         winit::dpi::PhysicalPosition::new(0.0, 0.0);
-    let rendering_done = AtomicBool::new(false);
     let (tx, rx) = crossbeam::channel::unbounded();
 
     scope(|s| {
         let render_closure = |_: &crossbeam::thread::Scope| {
-            rendering_done.store(false, Ordering::Relaxed);
-            let camera = camera.read().unwrap();
-            let integrator = integrator.read().unwrap();
-            integrator.render(&camera, &render_scene);
-            rendering_done.store(true, Ordering::Relaxed);
-        };
+            let rendering_done = AtomicBool::new(false);
+            scope(|s| {
+                s.spawn(|_| {
+                    let camera = camera.read().unwrap();
+                    while !rendering_done.load(Ordering::Relaxed) {
+                        tx.send(camera.film.write_image()).unwrap();
+                        std::thread::sleep(std::time::Duration::from_secs(2));
+                    }
 
-        let send_image_closure = |tx: crossbeam::Sender<image::RgbaImage>| {
-            let camera = camera.read().unwrap();
-            while !rendering_done.load(Ordering::Relaxed) {
-                tx.send(camera.film.write_image()).unwrap();
-                std::thread::sleep(std::time::Duration::from_secs(2));
-            }
+                    tx.send(camera.film.write_image()).unwrap();
+                });
 
-            tx.send(camera.film.write_image()).unwrap();
+                let camera = camera.read().unwrap();
+                let integrator = integrator.read().unwrap();
+
+                integrator.render(&camera, &render_scene);
+                rendering_done.store(true, Ordering::Relaxed);
+            })
+            .unwrap();
         };
 
         event_loop.run_return(|event, _, control_flow| {
@@ -147,10 +150,7 @@ pub fn run(
                                     let camera = camera.read().unwrap();
                                     camera.film.clear();
                                     viewer.state = renderer::ViewerState::RenderImage;
-
                                     s.spawn(render_closure);
-                                    let tx = tx.clone();
-                                    s.spawn(move |_| send_image_closure(tx));
                                 }
                                 KeyboardInput {
                                     state: ElementState::Pressed,
