@@ -14,6 +14,7 @@ pub struct Mesh {
     pub indices: Vec<u32>,
     pub pos: Vec<na::Point3<f32>>,
     pub normal: Vec<na::Vector3<f32>>,
+    pub uv: Vec<na::Point2<f32>>,
 }
 
 pub fn gen_rectangle() -> Mesh {
@@ -32,6 +33,7 @@ pub fn gen_rectangle() -> Mesh {
             .shared_vertex_iter()
             .map(|v| na::Vector3::from(v.normal))
             .collect(),
+        uv: vec![],
     }
 }
 
@@ -51,6 +53,7 @@ pub fn gen_cube() -> Mesh {
             .shared_vertex_iter()
             .map(|v| na::Vector3::from(v.normal))
             .collect(),
+        uv: vec![],
     }
 }
 
@@ -71,6 +74,7 @@ pub fn gen_sphere(center: &na::Point3<f32>, radius: f32) -> Mesh {
             .shared_vertex_iter()
             .map(|v| na::Vector3::from(v.normal))
             .collect(),
+        uv: vec![],
     }
 }
 
@@ -103,13 +107,23 @@ pub fn load_obj(scene_path: &str, filename: &str) -> Mesh {
 
     let mut indices = Vec::new();
     for shape in &geometry.shapes {
-        if let obj::Primitive::Triangle((p0, _, n0), (p1, _, n1), (p2, _, n2)) = shape.primitive {
+        if let obj::Primitive::Triangle((p0, t0, n0), (p1, t1, n1), (p2, t2, n2)) = shape.primitive
+        {
             let n0 = n0.unwrap();
             assert_eq!(p0, n0);
             let n1 = n1.unwrap();
             assert_eq!(p1, n1);
             let n2 = n2.unwrap();
             assert_eq!(p2, n2);
+            if let Some(t0) = t0 {
+                assert_eq!(p0, t0);
+            }
+            if let Some(t1) = t1 {
+                assert_eq!(p1, t1);
+            }
+            if let Some(t2) = t2 {
+                assert_eq!(p2, t2);
+            }
             indices.push(p0 as u32);
             indices.push(p1 as u32);
             indices.push(p2 as u32);
@@ -129,6 +143,11 @@ pub fn load_obj(scene_path: &str, filename: &str) -> Mesh {
             .normals
             .iter()
             .map(|n| na::Vector3::new(n.x as f32, n.y as f32, n.z as f32))
+            .collect(),
+        uv: object
+            .tex_vertices
+            .iter()
+            .map(|t| na::Point2::new(t.u as f32, t.v as f32))
             .collect(),
     }
 }
