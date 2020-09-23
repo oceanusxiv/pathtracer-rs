@@ -227,7 +227,7 @@ impl Film {
         }
     }
 
-    pub fn write_image(&self) -> RgbaImage {
+    pub fn to_rgba_image(&self) -> RgbaImage {
         let mut image = RgbaImage::new(self.resolution.x, self.resolution.y);
         for (x, y) in (self.pixel_bounds.p_min.x..self.pixel_bounds.p_max.x)
             .cartesian_product(self.pixel_bounds.p_min.y..self.pixel_bounds.p_max.y)
@@ -248,5 +248,25 @@ impl Film {
         }
 
         image
+    }
+
+    pub fn to_channel_updates(&self) -> (Vec<f32>, Vec<f32>, Vec<f32>) {
+        let pixels = self.pixels.read().unwrap();
+        let mut r = Vec::with_capacity(self.pixel_bounds.area() as usize);
+        let mut g = Vec::with_capacity(self.pixel_bounds.area() as usize);
+        let mut b = Vec::with_capacity(self.pixel_bounds.area() as usize);
+        for (x, y) in (self.pixel_bounds.p_min.x..self.pixel_bounds.p_max.x)
+            .cartesian_product(self.pixel_bounds.p_min.y..self.pixel_bounds.p_max.y)
+        {
+            let offset = self.get_pixel_offset(x, y);
+            let pixel = &pixels[offset];
+            let inv_wt = 1. / pixel.filter_weight_sum;
+
+            r.push(pixel.xyz[0] * inv_wt);
+            g.push(pixel.xyz[1] * inv_wt);
+            b.push(pixel.xyz[2] * inv_wt);
+        }
+
+        (r, g, b)
     }
 }

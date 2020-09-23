@@ -102,11 +102,11 @@ pub fn run(
                 s.spawn(|_| {
                     let camera = camera.read().unwrap();
                     while !rendering_done.load(Ordering::Relaxed) {
-                        tx.send(camera.film.write_image()).unwrap();
+                        tx.send(camera.film.to_rgba_image()).unwrap();
                         std::thread::sleep(std::time::Duration::from_secs(2));
                     }
 
-                    tx.send(camera.film.write_image()).unwrap();
+                    tx.send(camera.film.to_rgba_image()).unwrap();
                 });
 
                 let camera = camera.read().unwrap();
@@ -193,7 +193,7 @@ pub fn run(
                                     if crtl_clicked {
                                         info!(log, "saving image to {:?}", &output_path);
                                         let camera = camera.read().unwrap();
-                                        camera.film.write_image().save(&output_path).unwrap();
+                                        camera.film.to_rgba_image().save(&output_path).unwrap();
                                     }
                                 }
                                 KeyboardInput {
