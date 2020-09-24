@@ -127,18 +127,19 @@ impl TevControlUpdateImage {
         const CHANNEL_NAMES: [&str; 3] = ["r", "g", "b"];
         let mut bufs = Vec::new();
         let channels = film.to_channel_updates();
-        const CHUNK_DIM: usize = 10;
+        const CHUNK_DIM: usize = 100;
         for (idx, channel) in channels.iter().enumerate() {
             for (x, y) in (0..film.resolution.x as usize)
                 .step_by(CHUNK_DIM)
                 .cartesian_product((0..film.resolution.y as usize).step_by(CHUNK_DIM))
             {
+                let cols = film.resolution.x as usize;
+                let chunk_rows = CHUNK_DIM.min(film.resolution.y as usize - y);
+                let chunk_cols = CHUNK_DIM.min(film.resolution.x as usize - x);
                 let mut chunk_buf = Vec::new();
-
-                for i in 0..CHUNK_DIM.min(film.resolution.y as usize - y) {
+                for row in y..(y + chunk_rows) {
                     chunk_buf.extend_from_slice(
-                        &channel[(i * CHUNK_DIM + x)
-                            ..(i * CHUNK_DIM + x + CHUNK_DIM.min(film.resolution.x as usize - x))],
+                        &channel[(row * cols + x)..(row * cols + x + chunk_cols)],
                     );
                 }
 
@@ -149,8 +150,8 @@ impl TevControlUpdateImage {
                         channel: CString::new(CHANNEL_NAMES[idx]).unwrap(),
                         x: x as i32,
                         y: y as i32,
-                        width: CHUNK_DIM as i32,
-                        height: CHUNK_DIM as i32,
+                        width: chunk_cols as i32,
+                        height: chunk_rows as i32,
                         image_data: chunk_buf,
                     }
                     .make_message(),
@@ -229,6 +230,11 @@ pub fn run(
                     connection.write(&buf[..])?;
                 }
                 std::thread::sleep(std::time::Duration::from_secs(2));
+            }
+
+            let buffers = TevControlUpdateImage::new_message(&camera.film, "render");
+            for buf in buffers {
+                connection.write(&buf[..])?;
             }
 
             Ok(())

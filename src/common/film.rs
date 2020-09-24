@@ -255,8 +255,8 @@ impl Film {
         let mut r = Vec::with_capacity(self.pixel_bounds.area() as usize);
         let mut g = Vec::with_capacity(self.pixel_bounds.area() as usize);
         let mut b = Vec::with_capacity(self.pixel_bounds.area() as usize);
-        for (x, y) in (self.pixel_bounds.p_min.x..self.pixel_bounds.p_max.x)
-            .cartesian_product(self.pixel_bounds.p_min.y..self.pixel_bounds.p_max.y)
+        for (y, x) in (self.pixel_bounds.p_min.y..self.pixel_bounds.p_max.y)
+            .cartesian_product(self.pixel_bounds.p_min.x..self.pixel_bounds.p_max.x)
         {
             let offset = self.get_pixel_offset(x, y);
             let pixel = &pixels[offset];
