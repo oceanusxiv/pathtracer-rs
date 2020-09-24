@@ -250,7 +250,7 @@ impl Film {
         image
     }
 
-    pub fn to_channel_updates(&self) -> (Vec<f32>, Vec<f32>, Vec<f32>) {
+    pub fn to_channel_updates(&self) -> [Vec<f32>; 3] {
         let pixels = self.pixels.read().unwrap();
         let mut r = Vec::with_capacity(self.pixel_bounds.area() as usize);
         let mut g = Vec::with_capacity(self.pixel_bounds.area() as usize);
@@ -267,6 +267,6 @@ impl Film {
             b.push(pixel.xyz[2] * inv_wt);
         }
 
-        (r, g, b)
+        [r, g, b]
     }
 }

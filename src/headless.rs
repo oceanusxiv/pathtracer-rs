@@ -12,51 +12,47 @@ use std::{io::Write, sync::atomic::AtomicBool, sync::atomic::Ordering};
 use std::{path::PathBuf, sync::Arc, sync::RwLock};
 
 trait Serialize {
-    fn to_u8_vec(&self) -> Vec<u8>;
+    fn to_buffer(&self, buffer: &mut Vec<u8>);
     fn make_message(&self) -> Vec<u8> {
-        let mut payload = self.to_u8_vec();
-        let mut buf = (payload.len() as u32).to_le_bytes().to_vec();
-        buf.append(&mut payload);
+        let mut buf = (0 as u32).to_le_bytes().to_vec();
+        self.to_buffer(&mut buf);
+        buf.splice(
+            ..std::mem::size_of::<i32>(),
+            (buf.len() as i32).to_le_bytes().iter().cloned(),
+        );
         buf
     }
 }
 
 impl Serialize for bool {
-    fn to_u8_vec(&self) -> Vec<u8> {
-        if *self {
-            vec![1u8]
-        } else {
-            vec![0u8]
-        }
+    fn to_buffer(&self, buffer: &mut Vec<u8>) {
+        buffer.push(if *self { 1u8 } else { 0u8 });
     }
 }
 
 impl Serialize for i32 {
-    fn to_u8_vec(&self) -> Vec<u8> {
-        self.to_le_bytes().to_vec()
+    fn to_buffer(&self, buffer: &mut Vec<u8>) {
+        buffer.extend(&self.to_le_bytes());
     }
 }
 
 impl Serialize for f32 {
-    fn to_u8_vec(&self) -> Vec<u8> {
-        self.to_le_bytes().to_vec()
+    fn to_buffer(&self, buffer: &mut Vec<u8>) {
+        buffer.extend(&self.to_le_bytes());
     }
 }
 
 impl Serialize for CString {
-    fn to_u8_vec(&self) -> Vec<u8> {
-        self.to_bytes_with_nul().to_vec()
+    fn to_buffer(&self, buffer: &mut Vec<u8>) {
+        buffer.extend(self.to_bytes_with_nul());
     }
 }
 
 impl<T: Serialize> Serialize for Vec<T> {
-    fn to_u8_vec(&self) -> Vec<u8> {
-        let mut buf = Vec::new();
+    fn to_buffer(&self, buffer: &mut Vec<u8>) {
         for elem in self {
-            buf.append(&mut elem.to_u8_vec());
+            elem.to_buffer(buffer);
         }
-
-        buf
     }
 }
 
@@ -71,14 +67,14 @@ enum TevControlHeader {
 }
 
 impl Serialize for TevControlHeader {
-    fn to_u8_vec(&self) -> Vec<u8> {
-        vec![*self as u8]
+    fn to_buffer(&self, buffer: &mut Vec<u8>) {
+        buffer.push(*self as u8);
     }
 }
 
 struct TevControlCreateImage {
-    image_name: CString,
     grab_focus: bool,
+    image_name: CString,
     width: i32,
     height: i32,
     n_channels: i32,
@@ -88,15 +84,15 @@ struct TevControlCreateImage {
 impl TevControlCreateImage {
     fn new_message(resolution: &na::Vector2<u32>, name: &str) -> Vec<u8> {
         TevControlCreateImage {
-            image_name: CString::new(name).unwrap(),
             grab_focus: true,
+            image_name: CString::new(name).unwrap(),
             width: resolution.x as i32,
-            height: resolution.x as i32,
+            height: resolution.y as i32,
             n_channels: 3,
             channel_names: vec![
-                CString::new("0").unwrap(),
-                CString::new("1").unwrap(),
-                CString::new("2").unwrap(),
+                CString::new("r").unwrap(),
+                CString::new("g").unwrap(),
+                CString::new("b").unwrap(),
             ],
         }
         .make_message()
@@ -104,23 +100,20 @@ impl TevControlCreateImage {
 }
 
 impl Serialize for TevControlCreateImage {
-    fn to_u8_vec(&self) -> Vec<u8> {
-        let mut buf = Vec::new();
-        buf.append(&mut TevControlHeader::CreateImage.to_u8_vec());
-        buf.append(&mut self.image_name.to_u8_vec());
-        buf.append(&mut self.grab_focus.to_u8_vec());
-        buf.append(&mut self.width.to_u8_vec());
-        buf.append(&mut self.height.to_u8_vec());
-        buf.append(&mut self.n_channels.to_u8_vec());
-        buf.append(&mut self.channel_names.to_u8_vec());
-
-        buf
+    fn to_buffer(&self, buffer: &mut Vec<u8>) {
+        TevControlHeader::CreateImage.to_buffer(buffer);
+        self.grab_focus.to_buffer(buffer);
+        self.image_name.to_buffer(buffer);
+        self.width.to_buffer(buffer);
+        self.height.to_buffer(buffer);
+        self.n_channels.to_buffer(buffer);
+        self.channel_names.to_buffer(buffer);
     }
 }
 
 struct TevControlUpdateImage {
-    image_name: CString,
     grab_focus: bool,
+    image_name: CString,
     channel: CString,
     x: i32,
     y: i32,
@@ -130,11 +123,12 @@ struct TevControlUpdateImage {
 }
 
 impl TevControlUpdateImage {
-    fn buffers_from_film(film: &Film, name: &str) -> Vec<Vec<u8>> {
+    fn new_message(film: &Film, name: &str) -> Vec<Vec<u8>> {
+        const CHANNEL_NAMES: [&str; 3] = ["r", "g", "b"];
         let mut bufs = Vec::new();
-        let (r, g, b) = film.to_channel_updates();
+        let channels = film.to_channel_updates();
         const CHUNK_DIM: usize = 10;
-        for (idx, channel) in [r, g, b].iter().enumerate() {
+        for (idx, channel) in channels.iter().enumerate() {
             for (x, y) in (0..film.resolution.x as usize)
                 .step_by(CHUNK_DIM)
                 .cartesian_product((0..film.resolution.y as usize).step_by(CHUNK_DIM))
@@ -150,9 +144,9 @@ impl TevControlUpdateImage {
 
                 bufs.push(
                     TevControlUpdateImage {
-                        image_name: CString::new(name).unwrap(),
                         grab_focus: true,
-                        channel: CString::new(idx.to_string()).unwrap(),
+                        image_name: CString::new(name).unwrap(),
+                        channel: CString::new(CHANNEL_NAMES[idx]).unwrap(),
                         x: x as i32,
                         y: y as i32,
                         width: CHUNK_DIM as i32,
@@ -169,19 +163,16 @@ impl TevControlUpdateImage {
 }
 
 impl Serialize for TevControlUpdateImage {
-    fn to_u8_vec(&self) -> Vec<u8> {
-        let mut buf = Vec::new();
-        buf.append(&mut TevControlHeader::UpdateImage.to_u8_vec());
-        buf.append(&mut self.image_name.to_u8_vec());
-        buf.append(&mut self.grab_focus.to_u8_vec());
-        buf.append(&mut self.channel.to_u8_vec());
-        buf.append(&mut self.x.to_u8_vec());
-        buf.append(&mut self.y.to_u8_vec());
-        buf.append(&mut self.width.to_u8_vec());
-        buf.append(&mut self.height.to_u8_vec());
-        buf.append(&mut self.image_data.to_u8_vec());
-
-        buf
+    fn to_buffer(&self, buffer: &mut Vec<u8>) {
+        TevControlHeader::UpdateImage.to_buffer(buffer);
+        self.grab_focus.to_buffer(buffer);
+        self.image_name.to_buffer(buffer);
+        self.channel.to_buffer(buffer);
+        self.x.to_buffer(buffer);
+        self.y.to_buffer(buffer);
+        self.width.to_buffer(buffer);
+        self.height.to_buffer(buffer);
+        self.image_data.to_buffer(buffer);
     }
 }
 
@@ -233,10 +224,10 @@ pub fn run(
             let rendering_done = rendering_done_master;
             let camera = camera_master.read().unwrap();
             while !rendering_done.load(Ordering::Relaxed) {
-                // let buffers = TevControlUpdateImage::buffers_from_film(&camera.film, "render");
-                // for buf in buffers {
-                //     connection.write(&buf[..])?;
-                // }
+                let buffers = TevControlUpdateImage::new_message(&camera.film, "render");
+                for buf in buffers {
+                    connection.write(&buf[..])?;
+                }
                 std::thread::sleep(std::time::Duration::from_secs(2));
             }
 
@@ -263,16 +254,57 @@ pub fn run(
 
 #[cfg(test)]
 mod tests {
-    use std::convert::TryInto;
+    use std::{convert::TryInto, ffi::CStr};
 
     use super::*;
 
     #[test]
+    fn test_i32_to_buffer() {
+        let mut buf = Vec::new();
+        for i in -10000..10000 {
+            i.to_buffer(&mut buf);
+            let recovered = i32::from_le_bytes(buf[..4].try_into().unwrap());
+            assert_eq!(i, recovered);
+            buf.clear();
+        }
+    }
+
+    #[test]
     fn test_tev_control_create_image() {
         let resolution = na::Vector2::new(1920, 1080);
-        let message = TevControlCreateImage::new_message(&resolution, "render");
+        let image_name = "render";
+        let message = TevControlCreateImage::new_message(&resolution, image_name);
 
-        let payload_size = u32::from_le_bytes(message[..4].try_into().unwrap());
-        assert_eq!(payload_size, (message.len() - 4) as u32);
+        let mut curr_idx = 0;
+
+        let mut next_idx = std::mem::size_of::<u32>();
+        let payload_size = u32::from_le_bytes(message[curr_idx..next_idx].try_into().unwrap());
+        assert_eq!(payload_size, message.len() as u32);
+        curr_idx = next_idx;
+
+        next_idx += std::mem::size_of::<u8>();
+        let control_type = u8::from_le_bytes(message[curr_idx..next_idx].try_into().unwrap());
+        assert_eq!(TevControlHeader::CreateImage as u8, control_type);
+        curr_idx = next_idx;
+
+        next_idx += image_name.len() + 1;
+        let name = CStr::from_bytes_with_nul(&message[curr_idx..next_idx]).unwrap();
+        assert_eq!(name.to_str().unwrap(), image_name);
+        curr_idx = next_idx;
+
+        next_idx += std::mem::size_of::<i8>();
+        let focus = i8::from_le_bytes(message[curr_idx..next_idx].try_into().unwrap());
+        assert_eq!(focus, 1);
+        curr_idx = next_idx;
+
+        next_idx += std::mem::size_of::<i32>();
+        let x_res = i32::from_le_bytes(message[curr_idx..next_idx].try_into().unwrap());
+        assert_eq!(x_res as u32, resolution.x);
+        curr_idx = next_idx;
+
+        next_idx += std::mem::size_of::<i32>();
+        let y_res = i32::from_le_bytes(message[curr_idx..next_idx].try_into().unwrap());
+        assert_eq!(y_res as u32, resolution.y);
+        curr_idx = next_idx;
     }
 }
