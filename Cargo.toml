@@ -60,8 +60,8 @@ serde_derive = "1.0.115"
 maplit = "1.0.2"
 heck = "0.3.1"
 wavefront_obj = "8.0.0"
-cu = {git = "https://github.com/anderslanglands/optix-rs.git", branch = "optix7", optional = true}
-optix = {git = "https://github.com/anderslanglands/optix-rs.git", branch = "optix7", optional = true}
+cu = {git = "https://github.com/eric1221bday/optix-rs.git", branch = "optix7_cuda10", optional = true}
+optix = {git = "https://github.com/eric1221bday/optix-rs.git", branch = "optix7_cuda10", optional = true}
 ustr = {version = "0.7.0", optional = true}
 
 [dependencies.nalgebra]

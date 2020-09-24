@@ -32,7 +32,7 @@ checksum = "61874b33258f18ca7923047c12887078ccfe95c2811b03c1a09e309c19b7e50b"
 dependencies = [
  "proc-macro2 1.0.21",
  "quote 1.0.7",
- "syn 1.0.40",
+ "syn 1.0.41",
 ]
 
 [[package]]
@@ -261,9 +261,9 @@ dependencies = [
 
 [[package]]
 name = "cc"
-version = "1.0.59"
+version = "1.0.60"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "66120af515773fb005778dc07c261bd201ec8ce50bd6e7144c927753fe013381"
+checksum = "ef611cc68ff783f18535d77ddd080185275713d852c4f5cbb6122c462a7a825c"
 dependencies = [
  "jobserver",
 ]
@@ -382,7 +382,7 @@ checksum = "7ade49b65d560ca58c403a479bb396592b155c0185eada742ee323d1d68d6318"
 dependencies = [
  "bitflags",
  "block",
- "core-foundation 0.9.0",
+ "core-foundation 0.9.1",
  "core-graphics-types",
  "foreign-types",
  "libc",
@@ -456,11 +456,11 @@ dependencies = [
 
 [[package]]
 name = "core-foundation"
-version = "0.9.0"
+version = "0.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3b5ed8e7e76c45974e15e41bfa8d5b0483cd90191639e01d8f5f1e606299d3fb"
+checksum = "0a89e2ae426ea83155dccf10c0fa6b1463ef6d5fcb44cee0b224a408fa640a62"
 dependencies = [
- "core-foundation-sys 0.8.0",
+ "core-foundation-sys 0.8.1",
  "libc",
 ]
 
@@ -472,9 +472,9 @@ checksum = "b3a71ab494c0b5b860bdc8407ae08978052417070c2ced38573a9157ad75b8ac"
 
 [[package]]
 name = "core-foundation-sys"
-version = "0.8.0"
+version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9a21fa21941700a3cd8fcb4091f361a6a712fac632f85d9f487cc892045d55c6"
+checksum = "c0af3b5e4601de3837c9332e29e0aae47a0d46ebfa246d12b82f564bac233393"
 
 [[package]]
 name = "core-graphics"
@@ -490,12 +490,12 @@ dependencies = [
 
 [[package]]
 name = "core-graphics-types"
-version = "0.1.0"
+version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e92f5d519093a4178296707dbaa3880eae85a5ef5386675f361a1cf25376e93c"
+checksum = "3a68b68b3446082644c91ac778bf50cd4104bfb002b5a6a7c44cca5a2c70788b"
 dependencies = [
  "bitflags",
- "core-foundation 0.9.0",
+ "core-foundation 0.9.1",
  "foreign-types",
  "libc",
 ]
@@ -655,7 +655,7 @@ dependencies = [
 [[package]]
 name = "cu"
 version = "0.1.0"
-source = "git+https://github.com/anderslanglands/optix-rs.git?branch=optix7#3bc37c1e2ea239caddb116d94ff7f54e474ef925"
+source = "git+https://github.com/eric1221bday/optix-rs.git?branch=optix7_cuda10#b9e145a928811f9b6b1c3ee7b35cd6cd57614630"
 dependencies = [
  "bindgen",
  "bitflags",
@@ -694,7 +694,7 @@ checksum = "cb582b60359da160a9477ee80f15c8d784c477e69c217ef2cdd4169c24ea380f"
 dependencies = [
  "proc-macro2 1.0.21",
  "quote 1.0.7",
- "syn 1.0.40",
+ "syn 1.0.41",
 ]
 
 [[package]]
@@ -741,9 +741,9 @@ checksum = "9ea835d29036a4087793836fa931b08837ad5e957da9e23886b29586fb9b6650"
 
 [[package]]
 name = "either"
-version = "1.6.0"
+version = "1.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cd56b59865bce947ac5958779cfa508f6c3b9497cc762b7e24a12d11ccde2c4f"
+checksum = "e78d4f1cc4ae33bbfc157ed5d5a5ef3bc29227303d595861deb238fcec4e9457"
 
 [[package]]
 name = "encode_unicode"
@@ -759,7 +759,7 @@ checksum = "5f52288f9a7ebb08959188872b58e7eaa12af9cb47da8e94158e16da7e143340"
 dependencies = [
  "num-traits 0.2.12",
  "quote 1.0.7",
- "syn 1.0.40",
+ "syn 1.0.41",
 ]
 
 [[package]]
@@ -869,7 +869,7 @@ dependencies = [
  "proc-macro-hack 0.5.18",
  "proc-macro2 1.0.21",
  "quote 1.0.7",
- "syn 1.0.40",
+ "syn 1.0.41",
 ]
 
 [[package]]
@@ -1008,9 +1008,9 @@ dependencies = [
 
 [[package]]
 name = "gfx-backend-metal"
-version = "0.6.2"
+version = "0.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d6b2b1e2510c8a283beac1e680cd152edc05d138c00dfabc0e3f636e143ffd66"
+checksum = "c9a5278b173f1008ad38f2bd38ca51e18a5e5d23a87195824bee468fcc390dce"
 dependencies = [
  "arrayvec 0.5.1",
  "bitflags",
@@ -1034,9 +1034,9 @@ dependencies = [
 
 [[package]]
 name = "gfx-backend-vulkan"
-version = "0.6.1"
+version = "0.6.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a84bda4200a82e1912d575801e2bb76ae19c6256359afbc0adfbbaec02fcadc6"
+checksum = "d3d79e22b4dd093774a1ef771e18ae59aec558a21f48ae494677f5f8ebc067f6"
 dependencies = [
  "arrayvec 0.5.1",
  "ash",
@@ -1124,7 +1124,7 @@ dependencies = [
  "inflections",
  "proc-macro2 1.0.21",
  "quote 1.0.7",
- "syn 1.0.40",
+ "syn 1.0.41",
 ]
 
 [[package]]
@@ -1155,9 +1155,9 @@ dependencies = [
 
 [[package]]
 name = "hermit-abi"
-version = "0.1.15"
+version = "0.1.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3deed196b6e7f9e44a2ae8d94225d80302d81208b1bb673fd21fe634645c85a9"
+checksum = "4c30f6d0bc6b00693347368a67d41b58f2fb851215ff1da49e90fe2c5c667151"
 dependencies = [
  "libc",
 ]
@@ -1253,9 +1253,12 @@ checksum = "dd01a2a73f2f399df96b22dc88ea687ef4d76226284e7531ae3c7ee1dc5cb534"
 
 [[package]]
 name = "instant"
-version = "0.1.6"
+version = "0.1.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5b141fdc7836c525d4d594027d318c84161ca17aaf8113ab1f81ab93ae897485"
+checksum = "63312a18f7ea8760cdd0a7c5aac1a619752a246b833545e3e36d1f81f7cd9e66"
+dependencies = [
+ "cfg-if",
+]
 
 [[package]]
 name = "iovec"
@@ -1467,9 +1470,9 @@ dependencies = [
 
 [[package]]
 name = "memoffset"
-version = "0.5.5"
+version = "0.5.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c198b026e1bbf08a937e94c6c60f9ec4a2267f5b0d2eec9c1b21b061ce2be55f"
+checksum = "043175f069eda7b85febe4a74abbaeff828d9f8b448515d3151a14a3542811aa"
 dependencies = [
  "autocfg",
 ]
@@ -1797,7 +1800,7 @@ dependencies = [
  "proc-macro-crate",
  "proc-macro2 1.0.21",
  "quote 1.0.7",
- "syn 1.0.40",
+ "syn 1.0.41",
 ]
 
 [[package]]
@@ -1840,7 +1843,7 @@ checksum = "a170cebd8021a008ea92e4db85a72f80b35df514ec664b296fdcbb654eac0b2c"
 [[package]]
 name = "optix"
 version = "0.1.0"
-source = "git+https://github.com/anderslanglands/optix-rs.git?branch=optix7#3bc37c1e2ea239caddb116d94ff7f54e474ef925"
+source = "git+https://github.com/eric1221bday/optix-rs.git?branch=optix7_cuda10#b9e145a928811f9b6b1c3ee7b35cd6cd57614630"
 dependencies = [
  "bindgen",
  "bitflags",
@@ -2006,7 +2009,7 @@ checksum = "2c0e815c3ee9a031fdf5af21c10aa17c573c9c6a566328d99e3936c34e36461f"
 dependencies = [
  "proc-macro2 1.0.21",
  "quote 1.0.7",
- "syn 1.0.40",
+ "syn 1.0.41",
 ]
 
 [[package]]
@@ -2268,9 +2271,9 @@ dependencies = [
 
 [[package]]
 name = "rayon-core"
-version = "1.8.0"
+version = "1.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "91739a34c4355b5434ce54c9086c5895604a9c278586d1f1aa95e04f66b525a0"
+checksum = "e8c4fec834fb6e6d2dd5eece3c7b432a52f0ba887cf40e595190c4107edc08bf"
 dependencies = [
  "crossbeam-channel",
  "crossbeam-deque",
@@ -2445,7 +2448,7 @@ checksum = "f630a6370fd8e457873b4bd2ffdae75408bc291ba72be773772a4c2a065d9ae8"
 dependencies = [
  "proc-macro2 1.0.21",
  "quote 1.0.7",
- "syn 1.0.40",
+ "syn 1.0.41",
 ]
 
 [[package]]
@@ -2640,9 +2643,9 @@ dependencies = [
 
 [[package]]
 name = "syn"
-version = "1.0.40"
+version = "1.0.41"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "963f7d3cc59b59b9325165add223142bbf1df27655d07789f109896d353d8350"
+checksum = "6690e3e9f692504b941dc6c3b188fd28df054f7fb8469ab40680df52fdcc842b"
 dependencies = [
  "proc-macro2 1.0.21",
  "quote 1.0.7",
@@ -2728,7 +2731,7 @@ checksum = "bd80fc12f73063ac132ac92aceea36734f04a1d93c1240c6944e23a3b8841793"
 dependencies = [
  "proc-macro2 1.0.21",
  "quote 1.0.7",
- "syn 1.0.40",
+ "syn 1.0.41",
 ]
 
 [[package]]
@@ -2916,7 +2919,7 @@ dependencies = [
  "log",
  "proc-macro2 1.0.21",
  "quote 1.0.7",
- "syn 1.0.40",
+ "syn 1.0.41",
  "wasm-bindgen-shared",
 ]
 
@@ -2950,7 +2953,7 @@ checksum = "f249f06ef7ee334cc3b8ff031bfc11ec99d00f34d86da7498396dc1e3b1498fe"
 dependencies = [
  "proc-macro2 1.0.21",
  "quote 1.0.7",
- "syn 1.0.40",
+ "syn 1.0.41",
  "wasm-bindgen-backend",
  "wasm-bindgen-shared",
 ]
