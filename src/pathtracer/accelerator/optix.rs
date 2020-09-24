@@ -1,4 +1,6 @@
 use crate::pathtracer::RenderScene;
+use anyhow::Context;
+use optix::DeviceStorage;
 use ustr::ustr;
 
 fn init_optix() -> Result<(), Box<dyn std::error::Error>> {
@@ -37,6 +39,117 @@ pub struct OptixAccelerator {
     buf_miss: optix::TypedBuffer<MissRecord>,
     sbt: optix::sys::OptixShaderBindingTable,
     pipeline: optix::Pipeline,
+}
+
+fn build_optix_as(
+    scene: &RenderScene,
+    ctx: &optix::DeviceContext,
+    stream: &cu::Stream,
+) -> anyhow::Result<()> {
+    // create geometry and accels
+    let buf_vertex: Vec<optix::TypedBuffer<na::Point3<f32>, cu::DefaultDeviceAlloc>> = scene
+        .meshes
+        .iter()
+        .map(|m| optix::TypedBuffer::from_slice_in(&m.pos, cu::DefaultDeviceAlloc))
+        .collect::<Result<Vec<_>, optix::Error>>()
+        .context("allocating vertex buffer")?;
+
+    let buf_index: Vec<optix::TypedBuffer<na::Vector3<u32>, cu::DefaultDeviceAlloc>> = scene
+        .meshes
+        .iter()
+        .map(|m| optix::TypedBuffer::from_slice_in(&m.indices, cu::DefaultDeviceAlloc))
+        .collect::<Result<Vec<_>, optix::Error>>()
+        .context("Allocating index buffer")?;
+
+    let geometry_flags = optix::GeometryFlags::None;
+    let triangle_inputs: Vec<_> = buf_vertex
+        .iter()
+        .zip(&buf_index)
+        .map(
+            |(vertex, index): (
+                &optix::TypedBuffer<na::Point3<f32>, cu::DefaultDeviceAlloc>,
+                &optix::TypedBuffer<na::Vector3<u32>, cu::DefaultDeviceAlloc>,
+            )| {
+                optix::BuildInput::TriangleArray(
+                    optix::TriangleArray::new(
+                        std::slice::from_ref(vertex),
+                        std::slice::from_ref(&geometry_flags),
+                    )
+                    .index_buffer(index),
+                )
+            },
+        )
+        .collect();
+
+    // blas setup
+    let accel_options = optix::AccelBuildOptions::new(
+        optix::BuildFlags::ALLOW_COMPACTION,
+        optix::BuildOperation::Build,
+    );
+
+    let blas_buffer_sizes = ctx
+        .accel_compute_memory_usage(&[accel_options], &triangle_inputs)
+        .context("Accel compute memory usage")?;
+
+    // prepare compaction
+    // we need scratch space for the BVH build which we allocate here as
+    // an untyped buffer. Note that we need to specify the alignment
+    let temp_buffer = optix::Buffer::uninitialized_with_align_in(
+        blas_buffer_sizes.temp_size_in_bytes,
+        optix::ACCEL_BUFFER_BYTE_ALIGNMENT,
+        cu::DefaultDeviceAlloc,
+    )?;
+
+    let output_buffer = optix::Buffer::uninitialized_with_align_in(
+        blas_buffer_sizes.output_size_in_bytes,
+        optix::ACCEL_BUFFER_BYTE_ALIGNMENT,
+        cu::DefaultDeviceAlloc,
+    )?;
+
+    // DeviceVariable is a type that wraps a POD type to allow easy access
+    // to the data rather than having to carry around the host type and a
+    // separate device allocation for it
+    let mut compacted_size = optix::DeviceVariable::new_in(0usize, cu::DefaultDeviceAlloc)?;
+
+    // tell the accel build we want to know the size the compacted buffer
+    // will be
+    let mut properties = vec![optix::AccelEmitDesc::CompactedSize(
+        compacted_size.device_ptr(),
+    )];
+
+    // build the bvh
+    let as_handle = ctx
+        .accel_build(
+            &stream,
+            &[accel_options],
+            &triangle_inputs,
+            &temp_buffer,
+            &output_buffer,
+            &mut properties,
+        )
+        .context("accel build")?;
+
+    cu::Context::synchronize().context("Accel build sync")?;
+
+    // copy the size back from the device, we can now treat it as
+    // the underlying type by `Deref`
+    compacted_size.download()?;
+
+    // allocate the final acceleration structure storage
+    let as_buffer = optix::Buffer::uninitialized_with_align_in(
+        *compacted_size,
+        optix::ACCEL_BUFFER_BYTE_ALIGNMENT,
+        cu::DefaultDeviceAlloc,
+    )?;
+
+    // compact the accel.
+    // we don't need the original handle any more
+    let as_handle = ctx
+        .accel_compact(&stream, as_handle, &as_buffer)
+        .context("Accel compact")?;
+    cu::Context::synchronize().context("Accel compact sync")?;
+
+    Ok(())
 }
 
 impl OptixAccelerator {

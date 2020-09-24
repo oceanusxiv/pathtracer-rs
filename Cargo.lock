@@ -655,7 +655,7 @@ dependencies = [
 [[package]]
 name = "cu"
 version = "0.1.0"
-source = "git+https://github.com/eric1221bday/optix-rs.git?branch=optix7_cuda10#b9e145a928811f9b6b1c3ee7b35cd6cd57614630"
+source = "git+https://github.com/eric1221bday/optix-rs.git?branch=nalgebra_support#35da47502b610d1e4c4bdd71b52553f644259b9c"
 dependencies = [
  "bindgen",
  "bitflags",
@@ -1843,7 +1843,7 @@ checksum = "a170cebd8021a008ea92e4db85a72f80b35df514ec664b296fdcbb654eac0b2c"
 [[package]]
 name = "optix"
 version = "0.1.0"
-source = "git+https://github.com/eric1221bday/optix-rs.git?branch=optix7_cuda10#b9e145a928811f9b6b1c3ee7b35cd6cd57614630"
+source = "git+https://github.com/eric1221bday/optix-rs.git?branch=nalgebra_support#35da47502b610d1e4c4bdd71b52553f644259b9c"
 dependencies = [
  "bindgen",
  "bitflags",
@@ -1851,6 +1851,7 @@ dependencies = [
  "cmake",
  "cu",
  "enum-primitive-derive",
+ "nalgebra",
  "num-traits 0.2.12",
  "smallvec",
  "thiserror",

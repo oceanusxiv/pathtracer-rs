@@ -60,9 +60,20 @@ serde_derive = "1.0.115"
 maplit = "1.0.2"
 heck = "0.3.1"
 wavefront_obj = "8.0.0"
-cu = {git = "https://github.com/eric1221bday/optix-rs.git", branch = "optix7_cuda10", optional = true}
-optix = {git = "https://github.com/eric1221bday/optix-rs.git", branch = "optix7_cuda10", optional = true}
 ustr = {version = "0.7.0", optional = true}
+
+[dependencies.cu]
+git = "https://github.com/eric1221bday/optix-rs.git"
+# path = "../optix-rs/cu"
+branch = "nalgebra_support"
+optional = true
+
+[dependencies.optix]
+git = "https://github.com/eric1221bday/optix-rs.git"
+# path = "../optix-rs/optix"
+branch = "nalgebra_support"
+features = ["nalgebra"]
+optional = true
 
 [dependencies.nalgebra]
 version = "0.22.0"
