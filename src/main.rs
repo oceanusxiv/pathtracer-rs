@@ -47,6 +47,7 @@ fn main() -> anyhow::Result<()> {
         (@arg module_log: -m --module_log default_value("all") "Module names to log, (all for every module)")
         (@arg default_lights: --default_lights "Add default lights into the scene")
         (@arg headless: --headless "run pathtracer in headless mode")
+        (@arg server: --server default_value("127.0.0.1:14158") "tev server address and port for remote rendering")
     )
     .get_matches();
 
@@ -112,7 +113,16 @@ fn main() -> anyhow::Result<()> {
     let headless = matches.is_present("headless");
 
     if headless {
-        headless::run(log, render_scene, camera, integrator, output_path)?;
+        let server_address = matches.value_of("server").unwrap();
+
+        headless::run(
+            log,
+            render_scene,
+            camera,
+            integrator,
+            server_address,
+            output_path,
+        )?;
     } else {
         let camera_controller_type = matches.value_of("camera_controller").unwrap();
 

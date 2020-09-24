@@ -182,9 +182,9 @@ pub fn run(
     render_scene: RenderScene,
     camera: Camera,
     integrator: PathIntegrator,
+    server_address: &str,
     output_path: PathBuf,
 ) -> anyhow::Result<()> {
-    let server_address = "127.0.0.1:14158";
     if let Ok(mut stream) = TcpStream::connect(server_address) {
         let camera_master = Arc::new(RwLock::new(camera));
         let camera = camera_master.clone();
