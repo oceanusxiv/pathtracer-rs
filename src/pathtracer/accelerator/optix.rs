@@ -18,6 +18,7 @@ fn init_optix() -> Result<(), Box<dyn std::error::Error>> {
 #[derive(Copy, Clone)]
 struct LaunchParams {
     pub frame_id: i32,
+    pub traversable: optix::TraversableHandle,
 }
 
 unsafe impl optix::DeviceCopy for LaunchParams {}
@@ -32,11 +33,12 @@ type HitgroupRecord = optix::SbtRecord<HitgroupSbtData>;
 
 pub struct OptixAccelerator {
     stream: cu::Stream,
-    launch_params: LaunchParams,
-    buf_launch_params: optix::TypedBuffer<LaunchParams>,
+    launch_params: optix::DeviceVariable<LaunchParams>,
     buf_raygen: optix::TypedBuffer<RaygenRecord>,
     buf_hitgroup: optix::TypedBuffer<HitgroupRecord>,
     buf_miss: optix::TypedBuffer<MissRecord>,
+    as_handle: optix::TraversableHandle,
+    as_buffer: optix::Buffer,
     sbt: optix::sys::OptixShaderBindingTable,
     pipeline: optix::Pipeline,
 }
@@ -45,19 +47,19 @@ fn build_optix_as(
     scene: &RenderScene,
     ctx: &optix::DeviceContext,
     stream: &cu::Stream,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<(optix::TraversableHandle, optix::Buffer)> {
     // create geometry and accels
     let buf_vertex: Vec<optix::TypedBuffer<na::Point3<f32>, cu::DefaultDeviceAlloc>> = scene
         .meshes
         .iter()
-        .map(|m| optix::TypedBuffer::from_slice_in(&m.pos, cu::DefaultDeviceAlloc))
+        .map(|m| optix::TypedBuffer::from_slice(&m.pos))
         .collect::<Result<Vec<_>, optix::Error>>()
         .context("allocating vertex buffer")?;
 
     let buf_index: Vec<optix::TypedBuffer<na::Vector3<u32>, cu::DefaultDeviceAlloc>> = scene
         .meshes
         .iter()
-        .map(|m| optix::TypedBuffer::from_slice_in(&m.indices, cu::DefaultDeviceAlloc))
+        .map(|m| optix::TypedBuffer::from_slice(&m.indices))
         .collect::<Result<Vec<_>, optix::Error>>()
         .context("Allocating index buffer")?;
 
@@ -67,8 +69,8 @@ fn build_optix_as(
         .zip(&buf_index)
         .map(
             |(vertex, index): (
-                &optix::TypedBuffer<na::Point3<f32>, cu::DefaultDeviceAlloc>,
-                &optix::TypedBuffer<na::Vector3<u32>, cu::DefaultDeviceAlloc>,
+                &optix::TypedBuffer<na::Point3<f32>>,
+                &optix::TypedBuffer<na::Vector3<u32>>,
             )| {
                 optix::BuildInput::TriangleArray(
                     optix::TriangleArray::new(
@@ -109,7 +111,7 @@ fn build_optix_as(
     // DeviceVariable is a type that wraps a POD type to allow easy access
     // to the data rather than having to carry around the host type and a
     // separate device allocation for it
-    let mut compacted_size = optix::DeviceVariable::new_in(0usize, cu::DefaultDeviceAlloc)?;
+    let mut compacted_size = optix::DeviceVariable::new(0usize)?;
 
     // tell the accel build we want to know the size the compacted buffer
     // will be
@@ -149,7 +151,7 @@ fn build_optix_as(
         .context("Accel compact")?;
     cu::Context::synchronize().context("Accel compact sync")?;
 
-    Ok(())
+    Ok((as_handle, as_buffer))
 }
 
 impl OptixAccelerator {
@@ -211,6 +213,8 @@ impl OptixAccelerator {
         // create hitgroup programs
         let (pg_hitgroup, _log) = ctx.program_group_create(&[pgdesc_hitgroup])?;
 
+        let (as_handle, as_buffer) = build_optix_as(scene, &ctx, &stream)?;
+
         // create pipeline
         let mut program_groups = Vec::new();
         program_groups.extend(pg_raygen.iter().cloned());
@@ -263,30 +267,32 @@ impl OptixAccelerator {
             .hitgroup(&buf_hitgroup)
             .build();
 
-        let launch_params = LaunchParams { frame_id: 0 };
-
-        let buf_launch_params = optix::TypedBuffer::from_slice(&[launch_params])?;
+        let launch_params = optix::DeviceVariable::new(LaunchParams {
+            frame_id: 0,
+            traversable: as_handle,
+        })?;
 
         Ok(Self {
             stream,
             launch_params,
-            buf_launch_params,
             buf_raygen,
             buf_hitgroup,
             buf_miss,
+            as_handle,
+            as_buffer,
             sbt,
             pipeline,
         })
     }
 
     pub fn intersect(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        self.buf_launch_params.upload(&[self.launch_params])?;
+        self.launch_params.upload()?;
         self.launch_params.frame_id += 1;
 
         optix::launch(
             &self.pipeline,
             &self.stream,
-            &self.buf_launch_params,
+            &self.launch_params,
             &self.sbt,
             1,
             1,
