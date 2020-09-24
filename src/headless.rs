@@ -177,24 +177,6 @@ impl Serialize for TevControlUpdateImage {
     }
 }
 
-enum ConnectionType {
-    TCP(TcpStream),
-    UDP(UdpSocket, String),
-}
-
-impl ConnectionType {
-    fn write(&mut self, buf: &[u8]) -> anyhow::Result<()> {
-        let bytes_sent = match self {
-            ConnectionType::TCP(stream) => stream.write(buf)?,
-            ConnectionType::UDP(socket, addr) => socket.send_to(buf, addr.as_str())?,
-        };
-
-        assert_eq!(bytes_sent, buf.len());
-
-        Ok(())
-    }
-}
-
 pub fn run(
     log: slog::Logger,
     render_scene: RenderScene,
@@ -203,23 +185,14 @@ pub fn run(
     output_path: PathBuf,
 ) -> anyhow::Result<()> {
     let server_address = "127.0.0.1:14158";
-    let connection = if let Ok(stream) = TcpStream::connect("127.0.0.1:14158") {
-        Some(ConnectionType::TCP(stream))
-    } else if let Ok(socket) = UdpSocket::bind("0.0.0.0:0") {
-        Some(ConnectionType::UDP(socket, String::from(server_address)))
-    } else {
-        None
-    };
-
-    if let Some(mut connection) = connection {
+    if let Ok(mut stream) = TcpStream::connect(server_address) {
         let camera_master = Arc::new(RwLock::new(camera));
         let camera = camera_master.clone();
         let rendering_done_master = Arc::new(AtomicBool::new(false));
         let rendering_done = rendering_done_master.clone();
         let camera = camera.read().unwrap();
 
-        connection
-            .write(&TevControlCreateImage::new_message(&camera.film.resolution, "render")[..])?;
+        stream.write(&TevControlCreateImage::new_message(&camera.film.resolution, "render")[..])?;
 
         let progressive_thread = std::thread::spawn(move || -> anyhow::Result<()> {
             let rendering_done = rendering_done_master;
@@ -227,14 +200,14 @@ pub fn run(
             while !rendering_done.load(Ordering::Relaxed) {
                 let buffers = TevControlUpdateImage::new_message(&camera.film, "render");
                 for buf in buffers {
-                    connection.write(&buf[..])?;
+                    stream.write(&buf[..])?;
                 }
                 std::thread::sleep(std::time::Duration::from_secs(2));
             }
 
             let buffers = TevControlUpdateImage::new_message(&camera.film, "render");
             for buf in buffers {
-                connection.write(&buf[..])?;
+                stream.write(&buf[..])?;
             }
 
             Ok(())
@@ -253,7 +226,7 @@ pub fn run(
         );
         integrator.render(&camera, &render_scene);
         camera.film.to_rgba_image().save(&output_path).unwrap();
-    }
+    };
 
     Ok(())
 }
