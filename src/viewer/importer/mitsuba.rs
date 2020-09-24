@@ -16,7 +16,11 @@ impl ViewerScene {
                     let generated_mesh = mitsuba::gen_rectangle();
                     meshes.push(Mesh {
                         id: 0,
-                        indices: generated_mesh.indices,
+                        indices: generated_mesh
+                            .indices
+                            .iter()
+                            .flat_map(|s| vec![s[0], s[1], s[2]])
+                            .collect(),
                         pos: generated_mesh.pos,
                         normal: generated_mesh.normal,
                         s: vec![],
@@ -34,7 +38,11 @@ impl ViewerScene {
                     let generated_mesh = mitsuba::gen_cube();
                     meshes.push(Mesh {
                         id: 0,
-                        indices: generated_mesh.indices,
+                        indices: generated_mesh
+                            .indices
+                            .iter()
+                            .flat_map(|s| vec![s[0], s[1], s[2]])
+                            .collect(),
                         pos: generated_mesh.pos,
                         normal: generated_mesh.normal,
                         s: vec![],
@@ -53,7 +61,11 @@ impl ViewerScene {
                     let generated_mesh = mitsuba::gen_sphere(&point, radius.value);
                     meshes.push(Mesh {
                         id: 0,
-                        indices: generated_mesh.indices,
+                        indices: generated_mesh
+                            .indices
+                            .iter()
+                            .flat_map(|s| vec![s[0], s[1], s[2]])
+                            .collect(),
                         pos: generated_mesh.pos,
                         normal: generated_mesh.normal,
                         s: vec![],
@@ -73,7 +85,11 @@ impl ViewerScene {
                     let obj_mesh = mitsuba::load_obj(&scene.path, filename);
                     meshes.push(Mesh {
                         id: 0,
-                        indices: obj_mesh.indices,
+                        indices: obj_mesh
+                            .indices
+                            .iter()
+                            .flat_map(|s| vec![s[0], s[1], s[2]])
+                            .collect(),
                         pos: obj_mesh.pos,
                         normal: obj_mesh.normal,
                         s: vec![],

@@ -579,7 +579,7 @@ impl Triangle {
 }
 
 pub struct TriangleMesh {
-    pub indices: Vec<u32>,
+    pub indices: Vec<na::Vector3<u32>>,
     pub pos: Vec<na::Point3<f32>>,
     pub normal: Vec<na::Vector3<f32>>,
     pub s: Vec<na::Vector3<f32>>,
@@ -590,7 +590,7 @@ pub struct TriangleMesh {
 
 impl TriangleMesh {
     pub fn new_with_transform(
-        indices: Vec<u32>,
+        indices: Vec<na::Vector3<u32>>,
         mut pos: Vec<na::Point3<f32>>,
         mut normal: Vec<na::Vector3<f32>>,
         mut s: Vec<na::Vector3<f32>>,
@@ -628,10 +628,10 @@ pub fn triangles_from_mesh(
     transform_swaps_handedness: bool,
 ) -> Vec<Arc<Triangle>> {
     let mut shapes = Vec::new();
-    for chunk in mesh.indices.chunks_exact(3) {
+    for indices in &mesh.indices {
         shapes.push(Arc::new(Triangle::new(
             mesh.clone(),
-            [chunk[0], chunk[1], chunk[2]],
+            [indices[0], indices[1], indices[2]],
             false,
             transform_swaps_handedness,
         )));

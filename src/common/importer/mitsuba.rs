@@ -11,7 +11,7 @@ use std::io::Read;
 use wavefront_obj::obj;
 
 pub struct Mesh {
-    pub indices: Vec<u32>,
+    pub indices: Vec<na::Vector3<u32>>,
     pub pos: Vec<na::Point3<f32>>,
     pub normal: Vec<na::Vector3<f32>>,
     pub uv: Vec<na::Point2<f32>>,
@@ -23,7 +23,7 @@ pub fn gen_rectangle() -> Mesh {
         indices: plane
             .indexed_polygon_iter()
             .triangulate()
-            .flat_map(|tr| vec![tr.x as u32, tr.y as u32, tr.z as u32])
+            .map(|tr| na::Vector3::new(tr.x as u32, tr.y as u32, tr.z as u32))
             .collect(),
         pos: plane
             .shared_vertex_iter()
@@ -43,7 +43,7 @@ pub fn gen_cube() -> Mesh {
         indices: cube
             .indexed_polygon_iter()
             .triangulate()
-            .flat_map(|tr| vec![tr.x as u32, tr.y as u32, tr.z as u32])
+            .map(|tr| na::Vector3::new(tr.x as u32, tr.y as u32, tr.z as u32))
             .collect(),
         pos: cube
             .shared_vertex_iter()
@@ -64,7 +64,7 @@ pub fn gen_sphere(center: &na::Point3<f32>, radius: f32) -> Mesh {
         indices: uv_sphere
             .indexed_polygon_iter()
             .triangulate()
-            .flat_map(|tr| vec![tr.x as u32, tr.y as u32, tr.z as u32])
+            .map(|tr| na::Vector3::new(tr.x as u32, tr.y as u32, tr.z as u32))
             .collect(),
         pos: uv_sphere
             .shared_vertex_iter()
@@ -124,9 +124,7 @@ pub fn load_obj(scene_path: &str, filename: &str) -> Mesh {
             if let Some(t2) = t2 {
                 assert_eq!(p2, t2);
             }
-            indices.push(p0 as u32);
-            indices.push(p1 as u32);
-            indices.push(p2 as u32);
+            indices.push(na::Vector3::new(p0 as u32, p1 as u32, p2 as u32));
         } else {
             panic!("only support triangle primitives right now!");
         }

@@ -331,7 +331,14 @@ pub fn shapes_from_gltf_prim(
 
     let reader = gltf_prim.reader(|buffer| Some(&buffers[buffer.index()]));
     let world_mesh = Arc::new(TriangleMesh::new_with_transform(
-        reader.read_indices().unwrap().into_u32().collect(),
+        reader
+            .read_indices()
+            .unwrap()
+            .into_u32()
+            .collect::<Vec<u32>>()
+            .chunks_exact(3)
+            .map(|chunk| na::Vector3::new(chunk[0], chunk[1], chunk[2]))
+            .collect(),
         reader
             .read_positions()
             .unwrap()
