@@ -9,6 +9,7 @@ This project heavily borrows from the book `Physically Based Rendering: From The
 ## Features
 
 * Real time frontend preview for inspection and camera adjustments
+* Remote render preview via the `tev` tool
 * GLTF file format support (also supports the `KHR_lights_punctual`, `KHR_materials_ior`, and `KHR_materials_transmission` extensions, `KHR_materials_pbrSpecularGlossiness` support forthcoming)
 * Mitsuba file format support (Work in progress, support is very ad hoc)
 * Supported light types
@@ -54,6 +55,7 @@ OPTIONS:
     -o, --output <output>               Sets the output directory to save renders at
     -r, --resolution <resolution>       Resolution of the window
     -s, --samples <samples>             Number of samples path tracer to take per pixel (sampler dependent) [default: 1]
+        --server <server>               tev server address and port for remote rendering [default: 127.0.0.1:14158]
 
 ARGS:
     <SCENE>    Sets the input scene to use
@@ -85,6 +87,9 @@ Camera view always points to the origin. Mouse click drag rotates camera about t
 ## Headless Mode
 
 If the `--headless` flag is set, no preview window will be created. Rendering will proceed and the image will be saved at the `--output` directory with name `render.png` automatically.
+
+Remote render preview is available via the tev tool by 
+Thomas Müller. The tool can be found [here](https://github.com/Tom94/tev.git). Note that currently only the latest master of `tev` is supported due to protocol switch to TCP. The `--server` option can be set to point to the instance of `tev` running and its listening port.
 
 ## Future Work
 * Subsurface Scattering
