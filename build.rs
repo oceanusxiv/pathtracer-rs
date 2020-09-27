@@ -7,7 +7,7 @@ fn main() {
 
         let args = vec![format!("-I{}/include", optix_root), "-G".into()];
 
-        compile_to_ptx("src/pathtracer/accelerator/device_programs.cu", &args);
+        compile_to_ptx("src/pathtracer/gpu/device_programs.cu", &args);
     }
 }
 

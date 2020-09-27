@@ -1,6 +1,3 @@
-#[cfg(feature = "enable_optix")]
-pub mod optix;
-
 use super::primitive::{Primitive, SyncPrimitive};
 use super::SurfaceMediumInteraction;
 use crate::common::bounds::Bounds3;

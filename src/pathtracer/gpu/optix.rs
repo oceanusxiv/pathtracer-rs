@@ -32,6 +32,8 @@ unsafe impl optix::DeviceCopy for HitgroupSbtData {}
 type HitgroupRecord = optix::SbtRecord<HitgroupSbtData>;
 
 pub struct OptixAccelerator {
+    cuda_context: cu::Context,
+    optix_context: optix::DeviceContext,
     stream: cu::Stream,
     launch_params: optix::DeviceVariable<LaunchParams>,
     buf_raygen: optix::TypedBuffer<RaygenRecord>,
@@ -273,6 +275,8 @@ impl OptixAccelerator {
         })?;
 
         Ok(Self {
+            cuda_context,
+            optix_context: ctx,
             stream,
             launch_params,
             buf_raygen,

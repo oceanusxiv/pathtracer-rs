@@ -12,7 +12,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let (mut camera, render_scene, _) =
         common::importer::import(&log, &scene_path, &common::DEFAULT_RESOLUTION, false);
 
-    let mut accel = pathtracer::accelerator::optix::OptixAccelerator::new(&render_scene)?;
+    let mut accel = pathtracer::gpu::optix::OptixAccelerator::new(&render_scene)?;
 
     accel.intersect()?;
 

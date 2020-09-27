@@ -57,7 +57,7 @@ extern "C" __global__ void __raygen__renderFrame() {
         printf("Hello world from OptiX 7 raygen program!\n");
         printf("############################################\n");
 
-        printf("optix traversable handle: %ull", optixLaunchParams.traversable);
+        printf("optix traversable handle: %ull\n", optixLaunchParams.traversable);
     }
 
     // ------------------------------------------------------------------

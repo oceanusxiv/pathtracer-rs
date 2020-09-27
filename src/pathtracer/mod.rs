@@ -1,6 +1,8 @@
 pub mod accelerator;
 mod bsdf;
 mod bxdf;
+#[cfg(feature = "enable_optix")]
+pub mod gpu;
 pub mod importer;
 pub mod integrator;
 mod interaction;
