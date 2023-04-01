@@ -199,7 +199,7 @@ impl BVH {
                 if num_prims <= 2 {
                     mid = (start + end) / 2;
 
-                    primitive_info[start..end].partition_at_index_by(mid - start, |a, b| {
+                    primitive_info[start..end].select_nth_unstable_by(mid - start, |a, b| {
                         a.centroid[dim].partial_cmp(&b.centroid[dim]).unwrap()
                     });
                 } else {

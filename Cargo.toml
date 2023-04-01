@@ -2,7 +2,7 @@
 name = "pathtracer-rs"
 version = "0.1.0"
 authors = ["Eric Fang <eric1221bday@gmail.com>"]
-edition = "2018"
+edition = "2021"
 
 [[example]]
 name = "small_scene"
@@ -33,34 +33,34 @@ features = ["precommit-hook", "run-cargo-fmt"]
 criterion = "0.3.3"
 
 [dependencies]
-lazy_static = "1.4.0"
-anyhow = "1.0.32"
-slog-term = "2.6.0"
-slog-async = "2.5.0"
-slog-atomic = "3.0.0"
-slog-kvfilter = "0.7.0"
-nalgebra-glm = "0.8.0"
-genmesh = "0.6.2"
-image = "0.23.9"
-approx = "0.3.2"
-wgpu = "0.6.0"
-shaderc = "0.6"
-winit = "^0.22.2"
-futures = "0.3.5"
-crossbeam = "0.7.3"
-itertools = "0.9.0"
-clap = "^2.33"
-num = "0.3.0"
-rayon = "1.4.0"
-bitflags = "1.2.1"
-hexf = "0.1.0"
-ambassador = "0.2.1"
-serde = "1.0.115"
-serde_derive = "1.0.115"
-maplit = "1.0.2"
-heck = "0.3.1"
-wavefront_obj = "8.0.0"
-ustr = {version = "0.7.0", optional = true}
+lazy_static = "1.4"
+anyhow = "1.0"
+slog-term = "2.6"
+slog-async = "2.5"
+slog-atomic = "3.0"
+slog-kvfilter = "0.7"
+nalgebra-glm = "0.8"
+genmesh = "0.6"
+image = "0.23"
+approx = "0.3"
+wgpu = "0.6"
+shaderc = "0.8"
+winit = "0.24"
+futures = "0.3"
+crossbeam = "0.7"
+itertools = "0.9"
+clap = "2"
+num = "0.3"
+rayon = "1.4"
+bitflags = "1.2"
+hexf = "0.2"
+ambassador = "0.2"
+serde = "1.0"
+serde_derive = "1.0"
+maplit = "1.0"
+heck = "0.3"
+wavefront_obj = "10.0"
+ustr = {version = "0.7", optional = true}
 
 [dependencies.cu]
 git = "https://github.com/eric1221bday/optix-rs.git"
@@ -76,32 +76,29 @@ features = ["nalgebra"]
 optional = true
 
 [dependencies.nalgebra]
-version = "0.22.0"
+version = "0.22"
 features = ["mint"]
 
 [dependencies.slog]
-version = "2.5.2"
+version = "2.5"
 features = ["max_level_trace",  "release_max_level_info"]
 
 [dependencies.indicatif]
-version = "^0.15"
+version = "0.15"
 features = ["rayon"]
 
 [dependencies.bytemuck]
-version = "1.4.1"
+version = "1.4"
 features = ["extern_crate_alloc"]
 
 [dependencies.gltf]
-version = "0.15.0"
+version = "1"
 features = ["KHR_lights_punctual", "KHR_materials_transmission", "KHR_materials_ior"]
 
 [dependencies.rand]
-version = "0.7.3"
+version = "0.7"
 features = ["small_rng"]
 
 [dependencies.quick-xml]
-version = "0.18.1"
+version = "0.18"
 features = ["serialize"]
-
-[patch.crates-io]
-gltf = { git = "https://github.com/eric1221bday/gltf.git", branch = "KHR_materials_transmission_ior" }

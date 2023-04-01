@@ -1,6 +1,9 @@
 use crate::common::Camera;
 use ambassador::{delegatable_trait, Delegate};
-use winit::{dpi::LogicalPosition, event::*};
+use winit::{
+    dpi::{LogicalPosition, PhysicalPosition},
+    event::*,
+};
 
 #[delegatable_trait]
 pub trait CameraControllerInterface {
@@ -55,7 +58,7 @@ impl CameraControllerInterface for OrbitalCameraController {
         self.scroll = match delta {
             // I'm assuming a line is about 100 pixels
             MouseScrollDelta::LineDelta(_, scroll) => scroll * 100.0,
-            MouseScrollDelta::PixelDelta(LogicalPosition { y: scroll, .. }) => *scroll as f32,
+            MouseScrollDelta::PixelDelta(PhysicalPosition { y: scroll, .. }) => *scroll as f32,
         };
     }
 

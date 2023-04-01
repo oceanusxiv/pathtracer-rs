@@ -25,7 +25,7 @@ use winit::{
     dpi::{LogicalSize, Size},
     event::*,
     event_loop::{ControlFlow, EventLoop},
-    platform::desktop::EventLoopExtDesktop,
+    platform::run_return::EventLoopExtRunReturn,
     window::WindowBuilder,
 };
 
