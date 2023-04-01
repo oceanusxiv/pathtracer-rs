@@ -22,7 +22,7 @@ fn bench_render(c: &mut Criterion) {
         pixel_samples,
         &camera.film.get_sample_bounds(),
     );
-    let mut integrator = pathtracer::integrator::PathIntegrator::new(&log, sampler, 5);
+    let mut integrator = pathtracer::integrator::PathIntegrator::new(&log, sampler, 5, false);
     integrator.preprocess(&render_scene);
 
     group.sampling_mode(SamplingMode::Flat).sample_size(10);

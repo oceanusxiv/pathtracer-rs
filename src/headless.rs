@@ -284,6 +284,5 @@ mod tests {
         next_idx += std::mem::size_of::<i32>();
         let y_res = i32::from_le_bytes(message[curr_idx..next_idx].try_into().unwrap());
         assert_eq!(y_res as u32, resolution.y);
-        curr_idx = next_idx;
     }
 }

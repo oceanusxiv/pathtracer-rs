@@ -39,10 +39,10 @@ slog-term = "2.6"
 slog-async = "2.5"
 slog-atomic = "3.0"
 slog-kvfilter = "0.7"
-nalgebra-glm = "0.8"
+nalgebra-glm = "0.18"
 genmesh = "0.6"
 image = "0.23"
-approx = "0.3"
+approx = "0.5"
 wgpu = "0.6"
 shaderc = "0.8"
 winit = "0.24"
@@ -76,7 +76,7 @@ features = ["nalgebra"]
 optional = true
 
 [dependencies.nalgebra]
-version = "0.22"
+version = "0.32"
 features = ["mint"]
 
 [dependencies.slog]

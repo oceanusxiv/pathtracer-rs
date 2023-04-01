@@ -34,7 +34,7 @@ pub fn permute<N: glm::Scalar + std::marker::Copy>(
     glm::vec3(p[x], p[y], p[z])
 }
 
-pub fn face_forward<T: na::RealField + num::FromPrimitive>(
+pub fn face_forward<T: na::RealField + num::FromPrimitive + Copy>(
     n: &na::Vector3<T>,
     v: &na::Vector3<T>,
 ) -> na::Vector3<T> {
@@ -45,7 +45,7 @@ pub fn face_forward<T: na::RealField + num::FromPrimitive>(
     }
 }
 
-pub fn coordinate_system<T: na::RealField + num::FromPrimitive>(
+pub fn coordinate_system<T: na::RealField + num::FromPrimitive + Copy>(
     v1: &na::Vector3<T>,
     v2: &mut na::Vector3<T>,
     v3: &mut na::Vector3<T>,

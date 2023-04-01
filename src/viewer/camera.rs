@@ -1,9 +1,6 @@
 use crate::common::Camera;
 use ambassador::{delegatable_trait, Delegate};
-use winit::{
-    dpi::{LogicalPosition, PhysicalPosition},
-    event::*,
-};
+use winit::{dpi::PhysicalPosition, event::*};
 
 #[delegatable_trait]
 pub trait CameraControllerInterface {

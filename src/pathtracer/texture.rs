@@ -340,7 +340,7 @@ where
                             }
                             _ => {}
                         }
-                        if offset >= 0 && offset < resolution[1] {
+                        if offset < resolution[1] {
                             work_data[t] += resampled_image[(offset, s)] * t_weights[t].weight[j];
                         }
                     }

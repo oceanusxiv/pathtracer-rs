@@ -242,6 +242,7 @@ pub fn run(
                                                 &camera.film.get_sample_bounds(),
                                             ),
                                             max_depth as i32,
+                                            true,
                                         );
                                         integrator.preprocess(&render_scene);
                                     }
@@ -268,6 +269,7 @@ pub fn run(
                                                 &camera.film.get_sample_bounds(),
                                             ),
                                             max_depth as i32,
+                                            true,
                                         );
                                         integrator.preprocess(&render_scene);
                                     }

@@ -48,7 +48,7 @@ pub struct TBounds3<T: na::RealField> {
     pub p_max: na::Point3<T>,
 }
 
-pub fn min_p<T: na::RealField>(p1: &na::Point3<T>, p2: &na::Point3<T>) -> na::Point3<T> {
+pub fn min_p<T: na::RealField + Copy>(p1: &na::Point3<T>, p2: &na::Point3<T>) -> na::Point3<T> {
     na::Point3::new(
         na::RealField::min(p1.x, p2.x),
         na::RealField::min(p1.y, p2.y),
@@ -56,7 +56,7 @@ pub fn min_p<T: na::RealField>(p1: &na::Point3<T>, p2: &na::Point3<T>) -> na::Po
     )
 }
 
-pub fn max_p<T: na::RealField>(p1: &na::Point3<T>, p2: &na::Point3<T>) -> na::Point3<T> {
+pub fn max_p<T: na::RealField + Copy>(p1: &na::Point3<T>, p2: &na::Point3<T>) -> na::Point3<T> {
     na::Point3::new(
         na::RealField::max(p1.x, p2.x),
         na::RealField::max(p1.y, p2.y),
@@ -64,7 +64,7 @@ pub fn max_p<T: na::RealField>(p1: &na::Point3<T>, p2: &na::Point3<T>) -> na::Po
     )
 }
 
-impl<T: na::RealField> TBounds3<T> {
+impl<T: na::RealField + Copy> TBounds3<T> {
     pub fn new(p1: na::Point3<T>, p2: na::Point3<T>) -> Self {
         Self {
             p_min: min_p(&p1, &p2),
@@ -75,10 +75,10 @@ impl<T: na::RealField> TBounds3<T> {
 
 pub type Bounds3 = TBounds3<f32>;
 
-impl<T: na::RealField + na::ClosedSub> TBounds3<T> {
+impl<T: na::RealField + na::ClosedSub + num::Bounded + Copy> TBounds3<T> {
     pub fn empty() -> Self {
-        let min_num = T::min_value();
-        let max_num = T::max_value();
+        let min_num = <T as num::Bounded>::min_value();
+        let max_num = <T as num::Bounded>::max_value();
 
         TBounds3 {
             p_min: na::Point3::new(max_num, max_num, max_num),
@@ -146,7 +146,7 @@ impl<T: na::RealField> std::ops::Index<bool> for TBounds3<T> {
     }
 }
 
-impl<T: na::RealField> TBounds3<T> {
+impl<T: na::RealField + Copy> TBounds3<T> {
     pub fn union(b1: &TBounds3<T>, b2: &TBounds3<T>) -> TBounds3<T> {
         TBounds3 {
             p_min: min_p(&b1.p_min, &b2.p_min),

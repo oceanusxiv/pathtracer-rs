@@ -81,7 +81,7 @@ fn estimate_direct(
 
     if !is_delta_light(&light.flags()) {
         let mut f;
-        let mut sampled_specular = false;
+        let sampled_specular;
 
         if it.is_surface_interaction() {
             let mut sampled_type = Some(BxDFType::BSDF_ALL);
@@ -227,7 +227,12 @@ pub struct PathIntegrator {
 }
 
 impl PathIntegrator {
-    pub fn new(log: &slog::Logger, sampler_builder: SamplerBuilder, max_depth: i32) -> Self {
+    pub fn new(
+        log: &slog::Logger,
+        sampler_builder: SamplerBuilder,
+        max_depth: i32,
+        show_progress_bar: bool,
+    ) -> Self {
         let log = log.new(o!("module" => "integrator"));
         Self {
             sampler_builder,
@@ -235,7 +240,7 @@ impl PathIntegrator {
             rr_threshold: 1.0,
             rr_start_depth: 3,
             rr_enable: true,
-            show_progress_bar: true,
+            show_progress_bar,
             log,
         }
     }
@@ -519,8 +524,7 @@ impl PathIntegrator {
             let mut ray = camera.generate_ray_differential(&camera_sample);
             ray.scale_differentials(1.0 / (pixel_sampler.samples_per_pixel() as f32).sqrt());
             trace!(self.log, "generated ray: {:?}", ray);
-            let mut l = Spectrum::new(0.0);
-            l = self.li(&ray, &scene, &mut pixel_sampler, 0);
+            let l = self.li(&ray, &scene, &mut pixel_sampler, 0);
             trace!(self.log, "output L: {:?}", l);
 
             if !pixel_sampler.start_next_sample() {
@@ -572,8 +576,7 @@ impl PathIntegrator {
                     let mut ray = camera.generate_ray_differential(&camera_sample);
                     ray.scale_differentials(1.0 / (tile_sampler.samples_per_pixel() as f32).sqrt());
 
-                    let mut l = Spectrum::new(0.0);
-                    l = self.li(&ray, &scene, &mut tile_sampler, 0);
+                    let l = self.li(&ray, &scene, &mut tile_sampler, 0);
 
                     if l.has_nan() {
                         error!(

@@ -105,7 +105,8 @@ fn main() -> anyhow::Result<()> {
         pixel_samples,
         &camera.film.get_sample_bounds(),
     );
-    let mut integrator = pathtracer::integrator::PathIntegrator::new(&log, sampler, max_depth);
+    let mut integrator =
+        pathtracer::integrator::PathIntegrator::new(&log, sampler, max_depth, true);
     integrator.preprocess(&render_scene);
 
     debug!(log, "camera starting at: {:?}", camera.cam_to_world);
