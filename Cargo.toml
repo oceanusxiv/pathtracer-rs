@@ -100,5 +100,5 @@ version = "0.7"
 features = ["small_rng"]
 
 [dependencies.quick-xml]
-version = "0.18"
+version = "0.28"
 features = ["serialize"]

@@ -152,9 +152,10 @@ pub fn load_obj(scene_path: &str, filename: &str) -> Mesh {
 
 #[derive(Debug, Deserialize)]
 pub struct Float {
+    #[serde(rename = "@name")]
     pub name: String,
 
-    #[serde(with = "float")]
+    #[serde(rename = "@value", with = "float")]
     pub value: f32,
 }
 
@@ -205,9 +206,10 @@ mod float {
 
 #[derive(Debug, Deserialize)]
 pub struct Integer {
+    #[serde(rename = "@name")]
     pub name: String,
 
-    #[serde(with = "integer")]
+    #[serde(rename = "@value", with = "integer")]
     pub value: i32,
 }
 
@@ -258,11 +260,13 @@ mod integer {
 
 #[derive(Debug, Deserialize)]
 pub struct Matrix {
+    #[serde(rename = "@value")]
     value: String,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct Transform {
+    #[serde(rename = "@name")]
     name: String,
     matrix: Matrix,
 }
@@ -290,6 +294,7 @@ mod transform {
 
 #[derive(Debug, Deserialize)]
 pub struct TwoSided {
+    #[serde(rename = "@id")]
     pub id: Option<String>,
     pub bsdf: Box<BSDF>,
 }
@@ -300,6 +305,7 @@ fn default_rgb_one() -> [f32; 3] {
 
 #[derive(Debug, Deserialize)]
 pub struct Diffuse {
+    #[serde(rename = "@id")]
     pub id: Option<String>,
 
     #[serde(default = "default_rgb_one", with = "rgb")]
@@ -344,6 +350,7 @@ where
 
 #[derive(Debug, Deserialize)]
 pub struct Material {
+    #[serde(rename = "@id")]
     pub id: Option<String>,
 
     #[serde(flatten, rename = "rgb", deserialize_with = "de_rgbs")]
@@ -359,7 +366,7 @@ pub struct Material {
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(tag = "type")]
+#[serde(tag = "@type")]
 pub enum BSDF {
     #[serde(rename = "twosided")]
     TwoSided(TwoSided),
@@ -420,7 +427,9 @@ mod bsdf {
 
 #[derive(Debug, Deserialize)]
 pub struct Rgb {
+    #[serde(rename = "@name")]
     name: String,
+    #[serde(rename = "@value")]
     value: String,
 }
 
@@ -439,7 +448,7 @@ mod rgb {
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(tag = "type")]
+#[serde(tag = "@type")]
 pub enum Emitter {
     #[serde(rename = "area")]
     Area {
@@ -461,6 +470,7 @@ pub enum Emitter {
 
 #[derive(Debug, Deserialize)]
 pub struct Reference {
+    #[serde(rename = "@id")]
     pub id: String,
 }
 
@@ -491,6 +501,7 @@ mod point {
 #[derive(Debug, Deserialize)]
 pub struct StringParam {
     pub name: String,
+    #[serde(rename = "@value")]
     pub value: String,
 }
 
@@ -554,7 +565,7 @@ mod bool {
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(tag = "type")]
+#[serde(tag = "@type")]
 pub enum Shape {
     #[serde(rename = "rectangle")]
     Rectangle {
@@ -626,7 +637,7 @@ pub struct Film {
 
 #[derive(Debug, Deserialize)]
 pub struct Sensor {
-    #[serde(rename = "type")]
+    #[serde(rename = "@type")]
     pub kind: String,
 
     #[serde(flatten, rename = "float", deserialize_with = "de_floats")]
@@ -639,7 +650,7 @@ pub struct Sensor {
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(tag = "type")]
+#[serde(tag = "@type")]
 pub enum Texture {
     #[serde(rename = "checkerboard")]
     Checkerboard {
@@ -658,11 +669,12 @@ pub enum Texture {
 
 #[derive(Debug, Deserialize)]
 pub struct Scene {
+    #[serde(rename = "@version")]
     pub version: String,
     pub sensor: Sensor,
     #[serde(rename = "bsdf", with = "bsdf")]
     pub bsdfs: HashMap<String, BSDF>,
-    #[serde(rename = "shape")]
+    #[serde(rename = "shape", default)]
     pub shapes: Vec<Shape>,
     #[serde(default, rename = "emitter")]
     pub emitters: Vec<Emitter>,

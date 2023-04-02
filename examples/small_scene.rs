@@ -17,7 +17,7 @@ fn main() {
         pixel_samples,
         &camera.film.get_sample_bounds(),
     );
-    let mut integrator = pathtracer::integrator::PathIntegrator::new(&log, sampler, 5);
+    let mut integrator = pathtracer::integrator::PathIntegrator::new(&log, sampler, 5, true);
     integrator.preprocess(&render_scene);
     integrator.render(&mut camera, &render_scene);
 }
