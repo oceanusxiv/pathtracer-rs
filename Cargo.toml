@@ -30,7 +30,7 @@ default-features = false # Disable features which are enabled by default
 features = ["precommit-hook", "run-cargo-fmt"]
 
 [dev-dependencies]
-criterion = "0.3.3"
+criterion = "0.4"
 
 [dependencies]
 lazy_static = "1.4"
@@ -43,9 +43,9 @@ nalgebra-glm = "0.18"
 genmesh = "0.6"
 image = "0.23"
 approx = "0.5"
-wgpu = "0.6"
 shaderc = "0.8"
-winit = "0.24"
+# TODO: Upgrade to winit 0.28 once https://github.com/madsmtm/objc2/issues/432 is fixed.
+winit = "0.27"
 futures = "0.3"
 crossbeam = "0.7"
 itertools = "0.9"
@@ -102,3 +102,7 @@ features = ["small_rng"]
 [dependencies.quick-xml]
 version = "0.28"
 features = ["serialize"]
+
+[dependencies.wgpu]
+version = "0.15"
+features = ["spirv"]

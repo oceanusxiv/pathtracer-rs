@@ -52,7 +52,7 @@ impl BoundsHandle {
         let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: None,
             contents: bytemuck::cast_slice(&line_list),
-            usage: wgpu::BufferUsage::VERTEX,
+            usage: wgpu::BufferUsages::VERTEX,
         });
 
         BoundsHandle {
@@ -70,6 +70,7 @@ pub struct BoundsRenderPass {
 impl BoundsRenderPass {
     pub fn from_bounds(
         device: &wgpu::Device,
+        config: &wgpu::SurfaceConfiguration,
         compiler: &mut shaderc::Compiler,
         uniform_bind_group_layout: &wgpu::BindGroupLayout,
         bounds: &Vec<Bounds3>,
@@ -90,6 +91,7 @@ impl BoundsRenderPass {
 
         let render_pipeline = create_render_pipeline::<VertexPos>(
             &device,
+            &config,
             render_pipeline_layout,
             &vs_module,
             &fs_module,

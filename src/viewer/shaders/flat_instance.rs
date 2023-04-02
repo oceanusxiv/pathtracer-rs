@@ -10,7 +10,7 @@ uniform Uniforms {
     mat4 u_view_proj;
 };
 layout(set=1, binding=0)
-buffer Instances {
+readonly buffer Instances {
     mat4 s_models[];
 };
 

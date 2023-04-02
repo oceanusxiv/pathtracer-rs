@@ -59,10 +59,10 @@ impl Instance {
     pub fn create_bind_group_layout_entry() -> wgpu::BindGroupLayoutEntry {
         wgpu::BindGroupLayoutEntry {
             binding: 0,
-            visibility: wgpu::ShaderStage::VERTEX,
-            ty: wgpu::BindingType::StorageBuffer {
-                dynamic: false,
-                readonly: true,
+            visibility: wgpu::ShaderStages::VERTEX,
+            ty: wgpu::BindingType::Buffer {
+                ty: wgpu::BufferBindingType::Storage { read_only: true },
+                has_dynamic_offset: false,
                 min_binding_size: None,
             },
             count: None,
@@ -86,9 +86,10 @@ impl Uniforms {
     pub fn create_bind_group_layout_entry() -> wgpu::BindGroupLayoutEntry {
         wgpu::BindGroupLayoutEntry {
             binding: 0,
-            visibility: wgpu::ShaderStage::VERTEX,
-            ty: wgpu::BindingType::UniformBuffer {
-                dynamic: false,
+            visibility: wgpu::ShaderStages::VERTEX,
+            ty: wgpu::BindingType::Buffer {
+                ty: wgpu::BufferBindingType::Uniform,
+                has_dynamic_offset: false,
                 min_binding_size: None,
             },
             count: None,
@@ -103,10 +104,9 @@ pub enum ViewerState {
 
 pub struct Renderer {
     surface: wgpu::Surface,
+    surface_config: wgpu::SurfaceConfiguration,
     device: wgpu::Device,
     queue: wgpu::Queue,
-    sc_desc: wgpu::SwapChainDescriptor,
-    swap_chain: wgpu::SwapChain,
     mesh_render_pass: MeshRenderPass,
     bounds_render_pass: BoundsRenderPass,
     quad_render_pass: QuadRenderPass,
@@ -137,12 +137,16 @@ impl Renderer {
 
         let size = window.inner_size();
 
-        let instance = wgpu::Instance::new(wgpu::BackendBit::PRIMARY);
-        let surface = unsafe { instance.create_surface(window) };
+        let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
+            backends: wgpu::Backends::all(),
+            dx12_shader_compiler: Default::default(),
+        });
+        let surface = unsafe { instance.create_surface(&window) }.unwrap();
         let adapter = instance
             .request_adapter(&wgpu::RequestAdapterOptions {
-                power_preference: wgpu::PowerPreference::Default,
+                power_preference: wgpu::PowerPreference::default(),
                 compatible_surface: Some(&surface),
+                force_fallback_adapter: false,
             })
             .await
             .unwrap();
@@ -154,21 +158,31 @@ impl Renderer {
                 &wgpu::DeviceDescriptor {
                     features: wgpu::Features::empty(),
                     limits: wgpu::Limits::default(),
-                    shader_validation: true,
+                    label: None,
                 },
                 None,
             )
             .await
             .unwrap();
 
-        let sc_desc = wgpu::SwapChainDescriptor {
-            usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
-            format: wgpu::TextureFormat::Bgra8UnormSrgb,
+        let surface_caps = surface.get_capabilities(&adapter);
+        let surface_format = surface_caps
+            .formats
+            .iter()
+            .copied()
+            .filter(|f| f.describe().srgb)
+            .next()
+            .unwrap_or(surface_caps.formats[0]);
+        let surface_config = wgpu::SurfaceConfiguration {
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+            format: surface_format,
             width: size.width,
             height: size.height,
-            present_mode: wgpu::PresentMode::Fifo,
+            present_mode: surface_caps.present_modes[0],
+            alpha_mode: surface_caps.alpha_modes[0],
+            view_formats: vec![],
         };
-        let swap_chain = device.create_swap_chain(&surface, &sc_desc);
+        surface.configure(&device, &surface_config);
 
         let mut compiler = shaderc::Compiler::new().unwrap();
 
@@ -178,7 +192,7 @@ impl Renderer {
         let uniform_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Uniform Buffer"),
             contents: bytemuck::cast_slice(&[uniforms]),
-            usage: wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });
 
         let uniform_bind_group_layout =
@@ -191,16 +205,22 @@ impl Renderer {
             layout: &uniform_bind_group_layout,
             entries: &[wgpu::BindGroupEntry {
                 binding: 0,
-                resource: wgpu::BindingResource::Buffer(uniform_buffer.slice(..)),
+                resource: uniform_buffer.as_entire_binding(),
             }],
             label: Some("uniform_bind_group"),
         });
 
-        let mesh_render_pass =
-            MeshRenderPass::from_scene(&device, &mut compiler, &uniform_bind_group_layout, &scene);
+        let mesh_render_pass = MeshRenderPass::from_scene(
+            &device,
+            &surface_config,
+            &mut compiler,
+            &uniform_bind_group_layout,
+            &scene,
+        );
 
         let bounds_render_pass = BoundsRenderPass::from_bounds(
             &device,
+            &surface_config,
             &mut compiler,
             &uniform_bind_group_layout,
             &vec![],
@@ -208,12 +228,14 @@ impl Renderer {
 
         let wireframe_render_pass = WireFrameRenderPass::from_scene(
             &device,
+            &surface_config,
             &mut compiler,
             &uniform_bind_group_layout,
             &scene,
         );
 
-        let depth_texture = Texture::create_depth_texture(&device, &sc_desc, "depth_texture");
+        let depth_texture =
+            Texture::create_depth_texture(&device, &surface_config, "depth_texture");
 
         let rendered_texture = Texture::from_image(
             &device,
@@ -224,14 +246,13 @@ impl Renderer {
         .unwrap();
 
         let quad_render_pass =
-            QuadRenderPass::from_texture(&device, &mut compiler, rendered_texture);
+            QuadRenderPass::from_texture(&device, &surface_config, &mut compiler, rendered_texture);
 
         Self {
             surface,
             device,
             queue,
-            sc_desc,
-            swap_chain,
+            surface_config,
             mesh_render_pass,
             bounds_render_pass,
             quad_render_pass,
@@ -253,11 +274,11 @@ impl Renderer {
 
     pub fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
         self.size = new_size;
-        self.sc_desc.width = new_size.width;
-        self.sc_desc.height = new_size.height;
+        self.surface_config.width = new_size.width;
+        self.surface_config.height = new_size.height;
         self.depth_texture =
-            Texture::create_depth_texture(&self.device, &self.sc_desc, "depth_texture");
-        self.swap_chain = self.device.create_swap_chain(&self.surface, &self.sc_desc);
+            Texture::create_depth_texture(&self.device, &self.surface_config, "depth_texture");
+        self.surface.configure(&self.device, &self.surface_config);
     }
 
     pub fn window_input(&mut self, event: &WindowEvent) -> bool {
@@ -320,20 +341,21 @@ impl Renderer {
         let size = wgpu::Extent3d {
             width: dimensions.0,
             height: dimensions.1,
-            depth: 1,
+            depth_or_array_layers: 1,
         };
 
         self.queue.write_texture(
-            wgpu::TextureCopyView {
+            wgpu::ImageCopyTexture {
                 texture: &self.quad_render_pass.quad.texture.texture,
                 mip_level: 0,
                 origin: wgpu::Origin3d::ZERO,
+                aspect: wgpu::TextureAspect::All,
             },
             &img,
-            wgpu::TextureDataLayout {
+            wgpu::ImageDataLayout {
                 offset: 0,
-                bytes_per_row: 4 * dimensions.0,
-                rows_per_image: dimensions.1,
+                bytes_per_row: std::num::NonZeroU32::new(4 * dimensions.0),
+                rows_per_image: std::num::NonZeroU32::new(dimensions.1),
             },
             size,
         );
@@ -374,12 +396,11 @@ impl Renderer {
         }
     }
 
-    pub fn render_image(&mut self) {
-        let frame = self
-            .swap_chain
-            .get_current_frame()
-            .expect("Timeout getting texture")
-            .output;
+    pub fn render_image(&mut self) -> Result<(), wgpu::SurfaceError> {
+        let output = self.surface.get_current_texture()?;
+        let view = output
+            .texture
+            .create_view(&wgpu::TextureViewDescriptor::default());
 
         let mut encoder = self
             .device
@@ -389,28 +410,31 @@ impl Renderer {
 
         {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
-                    attachment: &frame.view,
+                label: Some("Image Render Pass"),
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view: &view,
                     resolve_target: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
                         store: true,
                     },
-                }],
+                })],
                 depth_stencil_attachment: None,
             });
             render_pass.draw_quad(&self.quad_render_pass);
         }
 
-        self.queue.submit(Some(encoder.finish()));
+        self.queue.submit(std::iter::once(encoder.finish()));
+        output.present();
+
+        Ok(())
     }
 
-    pub fn render_scene(&mut self) {
-        let frame = self
-            .swap_chain
-            .get_current_frame()
-            .expect("Timeout getting texture")
-            .output;
+    pub fn render_scene(&mut self) -> Result<(), wgpu::SurfaceError> {
+        let output = self.surface.get_current_texture()?;
+        let view = output
+            .texture
+            .create_view(&wgpu::TextureViewDescriptor::default());
 
         let mut encoder = self
             .device
@@ -420,8 +444,9 @@ impl Renderer {
 
         {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
-                    attachment: &frame.view,
+                label: Some("Image Render Pass"),
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view: &view,
                     resolve_target: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(wgpu::Color {
@@ -432,9 +457,9 @@ impl Renderer {
                         }),
                         store: true,
                     },
-                }],
-                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachmentDescriptor {
-                    attachment: &self.depth_texture.view,
+                })],
+                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                    view: &self.depth_texture.view,
                     depth_ops: Some(wgpu::Operations {
                         load: wgpu::LoadOp::Clear(1.0),
                         store: true,
@@ -455,6 +480,9 @@ impl Renderer {
             }
         }
 
-        self.queue.submit(Some(encoder.finish()));
+        self.queue.submit(std::iter::once(encoder.finish()));
+        output.present();
+
+        Ok(())
     }
 }

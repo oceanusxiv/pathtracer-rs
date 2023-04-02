@@ -39,12 +39,12 @@ impl QuadHandle {
         let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: None,
             contents: bytemuck::cast_slice(DEPTH_VERTICES),
-            usage: wgpu::BufferUsage::VERTEX,
+            usage: wgpu::BufferUsages::VERTEX,
         });
         let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: None,
             contents: bytemuck::cast_slice(DEPTH_INDICES),
-            usage: wgpu::BufferUsage::INDEX,
+            usage: wgpu::BufferUsages::INDEX,
         });
 
         let texture_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
@@ -80,6 +80,7 @@ pub struct QuadRenderPass {
 impl QuadRenderPass {
     pub fn from_texture(
         device: &wgpu::Device,
+        config: &wgpu::SurfaceConfiguration,
         compiler: &mut shaderc::Compiler,
         texture: texture::Texture,
     ) -> Self {
@@ -90,18 +91,18 @@ impl QuadRenderPass {
                 entries: &[
                     wgpu::BindGroupLayoutEntry {
                         binding: 0,
-                        visibility: wgpu::ShaderStage::FRAGMENT,
-                        ty: wgpu::BindingType::SampledTexture {
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Texture {
                             multisampled: false,
-                            dimension: wgpu::TextureViewDimension::D2,
-                            component_type: wgpu::TextureComponentType::Uint,
+                            view_dimension: wgpu::TextureViewDimension::D2,
+                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
                         },
                         count: None,
                     },
                     wgpu::BindGroupLayoutEntry {
                         binding: 1,
-                        visibility: wgpu::ShaderStage::FRAGMENT,
-                        ty: wgpu::BindingType::Sampler { comparison: false },
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
                         count: None,
                     },
                 ],
@@ -117,6 +118,7 @@ impl QuadRenderPass {
 
         let render_pipeline = create_render_pipeline::<VertexPosTex>(
             &device,
+            &config,
             render_pipeline_layout,
             &vs_module,
             &fs_module,
@@ -146,7 +148,7 @@ where
         self.set_pipeline(&quad.render_pipeline);
         self.set_bind_group(0, &quad.quad.texture_bind_group, &[]);
         self.set_vertex_buffer(0, quad.quad.vertex_buffer.slice(..));
-        self.set_index_buffer(quad.quad.index_buffer.slice(..));
+        self.set_index_buffer(quad.quad.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
         self.draw_indexed(0..quad.quad.num_elements as u32, 0, 0..1);
     }
 }

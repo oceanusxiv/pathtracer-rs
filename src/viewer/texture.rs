@@ -10,13 +10,13 @@ impl Texture {
 
     pub fn create_depth_texture(
         device: &wgpu::Device,
-        sc_desc: &wgpu::SwapChainDescriptor,
+        config: &wgpu::SurfaceConfiguration,
         label: &str,
     ) -> Self {
         let size = wgpu::Extent3d {
-            width: sc_desc.width,
-            height: sc_desc.height,
-            depth: 1,
+            width: config.width,
+            height: config.height,
+            depth_or_array_layers: 1,
         };
         let desc = wgpu::TextureDescriptor {
             label: Some(label),
@@ -25,7 +25,8 @@ impl Texture {
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
             format: Self::DEPTH_FORMAT,
-            usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT | wgpu::TextureUsage::SAMPLED,
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
+            view_formats: &[],
         };
         let texture = device.create_texture(&desc);
 
@@ -38,7 +39,7 @@ impl Texture {
             min_filter: wgpu::FilterMode::Linear,
             mipmap_filter: wgpu::FilterMode::Nearest,
             compare: Some(wgpu::CompareFunction::LessEqual),
-            lod_min_clamp: -100.0,
+            lod_min_clamp: 0.0,
             lod_max_clamp: 100.0,
             ..Default::default()
         });
@@ -61,7 +62,7 @@ impl Texture {
         let size = wgpu::Extent3d {
             width: dimensions.0,
             height: dimensions.1,
-            depth: 1,
+            depth_or_array_layers: 1,
         };
 
         let texture = device.create_texture(&wgpu::TextureDescriptor {
@@ -71,20 +72,22 @@ impl Texture {
             sample_count: 1,
             dimension: wgpu::TextureDimension::D2,
             format: wgpu::TextureFormat::Rgba8UnormSrgb,
-            usage: wgpu::TextureUsage::SAMPLED | wgpu::TextureUsage::COPY_DST,
+            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+            view_formats: &[],
         });
 
         queue.write_texture(
-            wgpu::TextureCopyView {
+            wgpu::ImageCopyTexture {
                 texture: &texture,
                 mip_level: 0,
                 origin: wgpu::Origin3d::ZERO,
+                aspect: wgpu::TextureAspect::All,
             },
             &img,
-            wgpu::TextureDataLayout {
+            wgpu::ImageDataLayout {
                 offset: 0,
-                bytes_per_row: 4 * dimensions.0,
-                rows_per_image: dimensions.1,
+                bytes_per_row: std::num::NonZeroU32::new(4 * dimensions.0),
+                rows_per_image: std::num::NonZeroU32::new(dimensions.1),
             },
             size,
         );

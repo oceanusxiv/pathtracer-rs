@@ -1,5 +1,5 @@
 pub trait Vertex {
-    fn desc<'a>() -> wgpu::VertexBufferDescriptor<'a>;
+    fn desc<'a>() -> wgpu::VertexBufferLayout<'a>;
 }
 
 #[repr(C)]
@@ -21,14 +21,14 @@ impl From<&na::Point3<f32>> for VertexPos {
 }
 
 impl Vertex for VertexPos {
-    fn desc<'a>() -> wgpu::VertexBufferDescriptor<'a> {
-        wgpu::VertexBufferDescriptor {
-            stride: std::mem::size_of::<VertexPos>() as wgpu::BufferAddress,
-            step_mode: wgpu::InputStepMode::Vertex,
-            attributes: &[wgpu::VertexAttributeDescriptor {
+    fn desc<'a>() -> wgpu::VertexBufferLayout<'a> {
+        wgpu::VertexBufferLayout {
+            array_stride: std::mem::size_of::<VertexPos>() as wgpu::BufferAddress,
+            step_mode: wgpu::VertexStepMode::Vertex,
+            attributes: &[wgpu::VertexAttribute {
                 offset: 0,
                 shader_location: 0,
-                format: wgpu::VertexFormat::Float3,
+                format: wgpu::VertexFormat::Float32x3,
             }],
         }
     }
@@ -46,20 +46,20 @@ unsafe impl bytemuck::Zeroable for VertexPosTex {}
 unsafe impl bytemuck::Pod for VertexPosTex {}
 
 impl Vertex for VertexPosTex {
-    fn desc<'a>() -> wgpu::VertexBufferDescriptor<'a> {
-        wgpu::VertexBufferDescriptor {
-            stride: std::mem::size_of::<VertexPosTex>() as wgpu::BufferAddress,
-            step_mode: wgpu::InputStepMode::Vertex,
+    fn desc<'a>() -> wgpu::VertexBufferLayout<'a> {
+        wgpu::VertexBufferLayout {
+            array_stride: std::mem::size_of::<VertexPosTex>() as wgpu::BufferAddress,
+            step_mode: wgpu::VertexStepMode::Vertex,
             attributes: &[
-                wgpu::VertexAttributeDescriptor {
+                wgpu::VertexAttribute {
                     offset: 0,
                     shader_location: 0,
-                    format: wgpu::VertexFormat::Float3,
+                    format: wgpu::VertexFormat::Float32x3,
                 },
-                wgpu::VertexAttributeDescriptor {
+                wgpu::VertexAttribute {
                     offset: std::mem::size_of::<glm::Vec3>() as wgpu::BufferAddress,
                     shader_location: 1,
-                    format: wgpu::VertexFormat::Float2,
+                    format: wgpu::VertexFormat::Float32x2,
                 },
             ],
         }
@@ -88,20 +88,20 @@ impl From<(&na::Point3<f32>, &na::Vector3<f32>)> for VertexPosNorm {
 }
 
 impl Vertex for VertexPosNorm {
-    fn desc<'a>() -> wgpu::VertexBufferDescriptor<'a> {
-        wgpu::VertexBufferDescriptor {
-            stride: std::mem::size_of::<VertexPosNorm>() as wgpu::BufferAddress,
-            step_mode: wgpu::InputStepMode::Vertex,
+    fn desc<'a>() -> wgpu::VertexBufferLayout<'a> {
+        wgpu::VertexBufferLayout {
+            array_stride: std::mem::size_of::<VertexPosNorm>() as wgpu::BufferAddress,
+            step_mode: wgpu::VertexStepMode::Vertex,
             attributes: &[
-                wgpu::VertexAttributeDescriptor {
+                wgpu::VertexAttribute {
                     offset: 0,
                     shader_location: 0,
-                    format: wgpu::VertexFormat::Float3,
+                    format: wgpu::VertexFormat::Float32x3,
                 },
-                wgpu::VertexAttributeDescriptor {
+                wgpu::VertexAttribute {
                     offset: std::mem::size_of::<glm::Vec3>() as wgpu::BufferAddress,
                     shader_location: 1,
-                    format: wgpu::VertexFormat::Float3,
+                    format: wgpu::VertexFormat::Float32x3,
                 },
             ],
         }

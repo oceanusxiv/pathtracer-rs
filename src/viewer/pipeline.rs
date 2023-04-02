@@ -3,6 +3,7 @@ use super::vertex::Vertex;
 
 pub fn create_render_pipeline<T: Vertex>(
     device: &wgpu::Device,
+    config: &wgpu::SurfaceConfiguration,
     render_pipeline_layout: wgpu::PipelineLayout,
     vs_module: &wgpu::ShaderModule,
     fs_module: &wgpu::ShaderModule,
@@ -12,45 +13,48 @@ pub fn create_render_pipeline<T: Vertex>(
     device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
         label: None,
         layout: Some(&render_pipeline_layout),
-        vertex_stage: wgpu::ProgrammableStageDescriptor {
+        vertex: wgpu::VertexState {
             module: vs_module,
             entry_point: "main",
+            buffers: &[T::desc()],
         },
-        fragment_stage: Some(wgpu::ProgrammableStageDescriptor {
+        fragment: Some(wgpu::FragmentState {
             module: fs_module,
             entry_point: "main",
+            targets: &[Some(wgpu::ColorTargetState {
+                format: config.format,
+                blend: Some(wgpu::BlendState::REPLACE),
+                write_mask: wgpu::ColorWrites::ALL,
+            })],
         }),
-        rasterization_state: Some(wgpu::RasterizationStateDescriptor {
-            front_face: wgpu::FrontFace::Ccw,
-            cull_mode: wgpu::CullMode::None,
-            depth_bias: 0,
-            depth_bias_slope_scale: 0.0,
-            depth_bias_clamp: 0.0,
-            clamp_depth: false,
-        }),
-        color_states: &[wgpu::ColorStateDescriptor {
-            format: Texture::COLOR_FORMAT,
-            color_blend: wgpu::BlendDescriptor::REPLACE,
-            alpha_blend: wgpu::BlendDescriptor::REPLACE,
-            write_mask: wgpu::ColorWrite::ALL,
-        }],
-        primitive_topology,
-        depth_stencil_state: if depth_test {
-            Some(wgpu::DepthStencilStateDescriptor {
+        primitive: wgpu::PrimitiveState {
+            topology: primitive_topology,
+            strip_index_format: None,
+            front_face: wgpu::FrontFace::Ccw, // 2.
+            cull_mode: None,
+            // Setting this to anything other than Fill requires Features::NON_FILL_POLYGON_MODE
+            polygon_mode: wgpu::PolygonMode::Fill,
+            // Requires Features::DEPTH_CLIP_CONTROL
+            unclipped_depth: false,
+            // Requires Features::CONSERVATIVE_RASTERIZATION
+            conservative: false,
+        },
+        depth_stencil: if depth_test {
+            Some(wgpu::DepthStencilState {
                 format: Texture::DEPTH_FORMAT,
                 depth_write_enabled: true,
-                depth_compare: wgpu::CompareFunction::Less, // 1.
-                stencil: wgpu::StencilStateDescriptor::default(),
+                depth_compare: wgpu::CompareFunction::Less,
+                stencil: wgpu::StencilState::default(),
+                bias: wgpu::DepthBiasState::default(),
             })
         } else {
             None
         },
-        vertex_state: wgpu::VertexStateDescriptor {
-            index_format: wgpu::IndexFormat::Uint32,
-            vertex_buffers: &[T::desc()],
+        multisample: wgpu::MultisampleState {
+            count: 1,
+            mask: !0,
+            alpha_to_coverage_enabled: false,
         },
-        sample_count: 1,                  // 5.
-        sample_mask: !0,                  // 6.
-        alpha_to_coverage_enabled: false, // 7.
+        multiview: None,
     })
 }

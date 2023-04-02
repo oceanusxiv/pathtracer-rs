@@ -50,7 +50,7 @@ impl WireFrameHandle {
         let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: None,
             contents: bytemuck::cast_slice(&line_list),
-            usage: wgpu::BufferUsage::VERTEX,
+            usage: wgpu::BufferUsages::VERTEX,
         });
 
         WireFrameHandle {
@@ -86,14 +86,14 @@ impl WireFrameInstancesHandle {
         let instance_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: None,
             contents: bytemuck::cast_slice(&instance_data[..]),
-            usage: wgpu::BufferUsage::STORAGE,
+            usage: wgpu::BufferUsages::STORAGE,
         });
 
         let instances_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout: &instances_bind_group_layout,
             entries: &[wgpu::BindGroupEntry {
                 binding: 0,
-                resource: wgpu::BindingResource::Buffer(instance_buffer.slice(..)),
+                resource: instance_buffer.as_entire_binding(),
             }],
             label: Some("instances_bind_group"),
         });
@@ -119,6 +119,7 @@ pub struct WireFrameRenderPass {
 impl WireFrameRenderPass {
     pub fn from_scene(
         device: &wgpu::Device,
+        config: &wgpu::SurfaceConfiguration,
         compiler: &mut shaderc::Compiler,
         uniform_bind_group_layout: &wgpu::BindGroupLayout,
         scene: &ViewerScene,
@@ -152,6 +153,7 @@ impl WireFrameRenderPass {
 
         let render_pipeline = create_render_pipeline::<VertexPos>(
             &device,
+            &config,
             render_pipeline_layout,
             &vs_module,
             &fs_module,
