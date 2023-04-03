@@ -22,7 +22,7 @@ use std::{
 };
 use std::{path::PathBuf, time::Instant};
 use winit::{
-    dpi::{LogicalSize, Size},
+    dpi::{PhysicalSize, Size},
     event::*,
     event_loop::{ControlFlow, EventLoop},
     platform::run_return::EventLoopExtRunReturn,
@@ -68,9 +68,9 @@ pub fn run(
     let mut event_loop = EventLoop::new();
     let window = WindowBuilder::new()
         .with_title("pathtracer-rs")
-        .with_inner_size(Size::Logical(LogicalSize::new(
-            resolution.x as f64,
-            resolution.y as f64,
+        .with_inner_size(Size::Physical(PhysicalSize::new(
+            resolution.x as u32,
+            resolution.y as u32,
         )))
         .build(&event_loop)
         .unwrap();
