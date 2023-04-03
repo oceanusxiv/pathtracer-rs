@@ -18,6 +18,7 @@ harness = false
 [features]
 disable_rayon = [] # disable rayon for profiling purposes
 enable_optix = ["cu", "optix", "ustr"]
+enable_profiling = ["profiling/profile-with-tracy"]
 
 # need high opt level even for debug
 [profile.dev]
@@ -61,6 +62,7 @@ maplit = "1.0"
 heck = "0.3"
 wavefront_obj = "10.0"
 ustr = {version = "0.7", optional = true}
+profiling = "1.0"
 
 [dependencies.cu]
 git = "https://github.com/eric1221bday/optix-rs.git"

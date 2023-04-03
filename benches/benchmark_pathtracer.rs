@@ -7,6 +7,14 @@ use criterion::*;
 use pathtracer_rs::*;
 
 fn bench_render(c: &mut Criterion) {
+    // Starting the Tracy client is necessary before any invoking any of its APIs
+    #[cfg(feature = "enable_profiling")]
+    profiling::tracy_client::Client::start();
+
+    // Good to call this on any threads that are created to get clearer profiling results
+    #[cfg(feature = "enable_profiling")]
+    profiling::register_thread!("Main Thread");
+
     let mut group = c.benchmark_group("benchmark-render");
 
     let drain = slog::Discard;

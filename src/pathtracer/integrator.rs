@@ -389,6 +389,7 @@ impl PathIntegrator {
         l
     }
 
+    #[profiling::function]
     fn li(
         &self,
         ray: &RayDifferential,
@@ -533,6 +534,7 @@ impl PathIntegrator {
         }
     }
 
+    #[profiling::function]
     pub fn render(&self, camera: &Camera, scene: &RenderScene) {
         debug!(
             self.log,
@@ -549,6 +551,7 @@ impl PathIntegrator {
         );
 
         let work_closure = |(x, y): &(i32, i32)| {
+            profiling::scope!("render tile");
             let tile = na::Point2::new(*x, *y);
             let seed = (tile.y * num_tiles.x + tile.x) as u64;
             let mut tile_sampler = self.sampler_builder.clone().with_seed(seed).build();
@@ -567,6 +570,7 @@ impl PathIntegrator {
             for (x, y) in (tile_bounds.p_min.x..tile_bounds.p_max.x)
                 .cartesian_product(tile_bounds.p_min.y..tile_bounds.p_max.y)
             {
+                profiling::scope!("render pixel");
                 let pixel = na::Point2::new(x, y);
                 tile_sampler.start_pixel(&pixel);
 

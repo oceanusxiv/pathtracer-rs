@@ -210,6 +210,7 @@ impl Film {
         ))
     }
 
+    #[profiling::function]
     pub fn merge_film_tile(&self, tile: Box<FilmTile>) {
         let mut pixels = self.pixels.write().unwrap();
         let pixel_bounds = tile.get_pixel_bounds();
