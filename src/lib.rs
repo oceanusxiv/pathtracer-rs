@@ -1,5 +1,6 @@
 #![feature(new_uninit)]
 #![feature(iter_partition_in_place)]
+#![feature(trait_alias)]
 
 #[macro_use]
 extern crate bitflags;
@@ -15,6 +16,8 @@ extern crate serde_derive;
 
 extern crate nalgebra as na;
 extern crate nalgebra_glm as glm;
+
+extern crate simba;
 
 pub mod common;
 pub mod headless;

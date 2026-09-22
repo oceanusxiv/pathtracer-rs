@@ -63,6 +63,7 @@ heck = "0.3"
 wavefront_obj = "10.0"
 ustr = {version = "0.7", optional = true}
 profiling = "1.0"
+rand_distr = "0.4"
 
 [dependencies.cu]
 git = "https://github.com/eric1221bday/optix-rs.git"
@@ -81,6 +82,10 @@ optional = true
 version = "0.32"
 features = ["mint"]
 
+[dependencies.simba]
+version = "0.8"
+features = ["packed_simd"]
+
 [dependencies.slog]
 version = "2.5"
 features = ["max_level_trace",  "release_max_level_info"]
@@ -98,7 +103,7 @@ version = "1"
 features = ["KHR_lights_punctual", "KHR_materials_transmission", "KHR_materials_ior"]
 
 [dependencies.rand]
-version = "0.7"
+version = "0.8"
 features = ["small_rng"]
 
 [dependencies.quick-xml]

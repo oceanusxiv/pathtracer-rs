@@ -63,6 +63,7 @@ impl BSDF {
         )
     }
 
+    #[profiling::function]
     pub fn sample_f(
         &self,
         wo_world: &na::Vector3<f32>,

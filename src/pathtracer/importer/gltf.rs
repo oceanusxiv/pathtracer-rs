@@ -548,8 +548,8 @@ impl RenderScene {
         let world_bound = bvh.world_bound();
 
         if default_lights {
-            let hdr_map_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-                .join("data/abandoned_tank_farm_04_1k.hdr");
+            let hdr_map_path =
+                std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("data/noon_grass_4k.hdr");
             let hdr_map_path = hdr_map_path.to_str().unwrap();
             // env light is z up by default, our default coordinate is y up
             let default_env_light = Arc::new(InfiniteAreaLight::new(

@@ -1,5 +1,5 @@
 use super::math::*;
-use super::ray::Ray;
+use super::ray::{Ray, TRay};
 
 #[derive(Debug, Clone, Copy)]
 pub struct TBounds2<T: na::Scalar> {
@@ -163,7 +163,7 @@ impl<T: na::RealField + Copy> TBounds3<T> {
 }
 
 impl Bounds3 {
-    pub fn intersect_p(&self, r: &Ray) -> Option<(f32, f32)> {
+    pub fn intersect_p_old(&self, r: &Ray) -> Option<(f32, f32)> {
         let mut t0 = 0.0;
         let mut t1 = r.t_max;
 
@@ -185,6 +185,41 @@ impl Bounds3 {
         }
 
         Some((t0, t1))
+    }
+
+    pub fn intersect_p<
+        T: simba::simd::SimdRealField
+            + std::ops::Add<f32, Output = T>
+            + std::ops::MulAssign<f32>
+            + Copy,
+    >(
+        &self,
+        r: &TRay<T>,
+    ) -> (T, T, T::SimdBool)
+    where
+        <T as simba::simd::SimdValue>::SimdBool: std::ops::BitAndAssign,
+    {
+        let mut t0 = T::zero();
+        let mut t1 = r.t_max;
+        let mut hit_mask = t0.simd_eq(t0);
+
+        for i in 0..3usize {
+            let inv_ray_dir = r.d[i].simd_recip();
+            let mut t_near = (-r.o[i] + self.p_min[i]) * inv_ray_dir;
+            let mut t_far = (-r.o[i] + self.p_max[i]) * inv_ray_dir;
+
+            let swap_cond = t_near.simd_gt(t_far);
+            let tmp = t_near.select(swap_cond, t_far);
+            t_far = t_far.select(swap_cond, t_near);
+            t_near = tmp;
+
+            t_far *= 1.0 + 2.0 * gamma(3);
+            t0 = t_near.select(t_near.simd_gt(t0), t0);
+            t1 = t_far.select(t_far.simd_lt(t1), t1);
+            hit_mask &= t0.simd_gt(t1);
+        }
+
+        (t0, t1, hit_mask)
     }
 
     pub fn intersect_p_precomp(
@@ -229,5 +264,58 @@ impl Bounds3 {
         };
 
         (t_min < r.t_max) && (t_max > 0.0)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rand_distr::{Distribution, UnitSphere};
+
+    #[test]
+    fn test_intersect_p() {
+        let bounds = Bounds3 {
+            p_min: nalgebra::Point3::new(-0.5, -0.5, -0.5),
+            p_max: nalgebra::Point3::new(0.5, 0.5, 0.5),
+        };
+
+        for _ in 0..1000 {
+            let v: [f32; 3] = UnitSphere.sample(&mut rand::thread_rng());
+            let ray_pos = nalgebra::Point3::new(v[0], v[1], v[2]);
+            let out_dir = ray_pos - na::Point3::origin();
+            let in_dir = na::Point3::origin() - ray_pos;
+
+            let (t0, t1, hit) = bounds.intersect_p(&Ray {
+                o: ray_pos,
+                d: in_dir,
+                t_max: f32::INFINITY,
+            });
+
+            assert_eq!(hit, true);
+
+            let (t0, t1, hit) = bounds.intersect_p(&Ray {
+                o: ray_pos,
+                d: out_dir,
+                t_max: f32::INFINITY,
+            });
+
+            assert_eq!(hit, false);
+
+            let opt = bounds.intersect_p_old(&Ray {
+                o: ray_pos,
+                d: in_dir,
+                t_max: f32::INFINITY,
+            });
+
+            assert!(opt.is_some());
+
+            let opt = bounds.intersect_p_old(&Ray {
+                o: ray_pos,
+                d: out_dir,
+                t_max: f32::INFINITY,
+            });
+
+            assert!(opt.is_none());
+        }
     }
 }

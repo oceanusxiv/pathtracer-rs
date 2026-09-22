@@ -142,7 +142,7 @@ impl PixelSampler {
                 .set(self.current_1d_dimension.get() + 1);
             ret
         } else {
-            self.rng.borrow_mut().gen_range(0.0, 1.0)
+            self.rng.borrow_mut().gen_range(0.0..1.0)
         }
     }
 
@@ -155,7 +155,7 @@ impl PixelSampler {
             ret
         } else {
             let mut rng = self.rng.borrow_mut();
-            na::Point2::new(rng.gen_range(0.0, 1.0), rng.gen_range(0.0, 1.0))
+            na::Point2::new(rng.gen_range(0.0..1.0), rng.gen_range(0.0..1.0))
         }
     }
 

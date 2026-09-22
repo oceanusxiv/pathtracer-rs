@@ -4,7 +4,11 @@ extern crate slog;
 extern crate nalgebra as na;
 
 use criterion::*;
+use itertools::izip;
+use pathtracer_rs::pathtracer::sampling::cosine_sample_hemisphere;
 use pathtracer_rs::*;
+use rand::prelude::*;
+use rand::rngs::SmallRng;
 
 fn bench_render(c: &mut Criterion) {
     // Starting the Tracy client is necessary before any invoking any of its APIs
@@ -43,20 +47,47 @@ fn bench_render(c: &mut Criterion) {
 fn bench_bounds(c: &mut Criterion) {
     let mut group = c.benchmark_group("benchmark-bounds");
 
-    let r = common::ray::Ray {
-        o: nalgebra::Point3::origin(),
-        d: nalgebra::Vector3::new(1.0, 1.0, 1.0),
-        t_max: f32::INFINITY,
-    };
-    let inv_dir = nalgebra::Vector3::new(1.0f32 / r.d.x, 1.0f32 / r.d.y, 1.0f32 / r.d.z);
-    let dir_is_neg = [inv_dir.x < 0.0, inv_dir.y < 0.0, inv_dir.z < 0.0];
+    let between = rand::distributions::Uniform::from(0.0..1.0);
+    let mut rng = SmallRng::seed_from_u64(1);
+    let mut rs = vec![];
+    let mut inv_dirs = vec![];
+    let mut dir_is_negs = vec![];
+    for _ in 0..1000 {
+        let r = common::ray::Ray {
+            o: nalgebra::Point3::new(-1.0, -1.0, -1.0),
+            d: cosine_sample_hemisphere(&nalgebra::Point2::new(
+                between.sample(&mut rng),
+                between.sample(&mut rng),
+            )),
+            t_max: f32::INFINITY,
+        };
+        let inv_dir = nalgebra::Vector3::new(1.0f32 / r.d.x, 1.0f32 / r.d.y, 1.0f32 / r.d.z);
+        let dir_is_neg = [inv_dir.x < 0.0, inv_dir.y < 0.0, inv_dir.z < 0.0];
+
+        rs.push(r);
+        inv_dirs.push(inv_dir);
+        dir_is_negs.push(dir_is_neg);
+    }
+
     let bounds = common::bounds::Bounds3 {
         p_min: nalgebra::Point3::origin(),
         p_max: nalgebra::Point3::new(1.0, 1.0, 1.0),
     };
 
-    group.bench_function("bench_bounds", |b| {
-        b.iter(|| bounds.intersect_p_precomp(&r, &inv_dir, &dir_is_neg))
+    group.bench_function("bench_intersect_p", |b| {
+        b.iter(|| {
+            for r in &rs {
+                bounds.intersect_p(&r);
+            }
+        })
+    });
+
+    group.bench_function("bench_intersect_p_precomp", |b| {
+        b.iter(|| {
+            for (r, inv_dir, dir_is_neg) in izip!(&rs, &inv_dirs, &dir_is_negs) {
+                bounds.intersect_p_precomp(&r, &inv_dir, &dir_is_neg);
+            }
+        })
     });
     group.finish();
 }

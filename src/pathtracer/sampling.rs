@@ -9,7 +9,7 @@ pub fn stratified_sample_1d(samp: &mut [f32], n_samples: usize, rng: &mut Random
 
     for i in 0..n_samples {
         let delta = if jitter {
-            rng.gen_range(0.0, 1.0)
+            rng.gen_range(0.0..1.0)
         } else {
             0.5f32
         };
@@ -31,12 +31,12 @@ pub fn stratified_sample_2d(
     for y in 0..ny {
         for x in 0..nx {
             let jx = if jitter {
-                rng.gen_range(0.0, 1.0)
+                rng.gen_range(0.0..1.0)
             } else {
                 0.5f32
             };
             let jy = if jitter {
-                rng.gen_range(0.0, 1.0)
+                rng.gen_range(0.0..1.0)
             } else {
                 0.5f32
             };
@@ -49,7 +49,7 @@ pub fn stratified_sample_2d(
 
 pub fn shuffle<T>(samp: &mut [T], count: usize, n_dimensions: usize, rng: &mut Random) {
     for i in 0..count {
-        let other = i + rng.gen_range(0, count - i);
+        let other = i + rng.gen_range(0..(count - i));
 
         for j in 0..n_dimensions {
             samp.swap(n_dimensions * i + j, n_dimensions * other + j);
@@ -73,7 +73,7 @@ pub fn latin_hyper_cube_2d(
 
     for i in 0..n_dim {
         for j in 0..n_samples {
-            let other = j + rng.gen_range(0, n_samples - j);
+            let other = j + rng.gen_range(0..(n_samples - j));
             let tmp = samples[j][i];
             samples[j][i] = samples[other][i];
             samples[other][i] = tmp;

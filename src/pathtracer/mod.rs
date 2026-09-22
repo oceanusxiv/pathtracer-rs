@@ -89,6 +89,7 @@ pub struct RenderScene {
 }
 
 impl RenderScene {
+    #[profiling::function]
     pub fn intersect<'a>(&'a self, r: &mut Ray, isect: &mut SurfaceMediumInteraction<'a>) -> bool {
         self.scene.intersect(r, isect)
     }

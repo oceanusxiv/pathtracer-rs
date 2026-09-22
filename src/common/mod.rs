@@ -101,7 +101,7 @@ mod tests {
     }
 
     #[test]
-    fn test_camera_wold_to_screen() {
+    fn test_camera_world_to_screen() {
         let test_cam = cam_with_look_at(&na::Point3::new(10.0, 10.0, 10.0), &na::Point3::origin());
 
         let test_world_space = na::Point3::origin();
